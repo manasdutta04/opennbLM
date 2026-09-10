@@ -19,4 +19,4 @@ The Memory screen makes every note visible. Each note has “Forget this”; “
 
 API keys and provider secrets are never extracted into learner memory, conversation records, renderer state, URLs, or logs. Provider credentials remain in the separate Electron `safeStorage` path.
 
-SQLite uses the runtime's experimental `node:sqlite` `DatabaseSync` API, WAL mode, foreign keys, and a small schema. It must be verified against the packaged Electron runtime during desktop packaging.
+SQLite uses `sql.js`, a WebAssembly SQLite runtime packaged with the application. The memory service asynchronously opens/exports the database at the user-data path, with foreign keys and a small schema. This avoids relying on Electron's unavailable `node:sqlite` builtin or an unverified native addon ABI.

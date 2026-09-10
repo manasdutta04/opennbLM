@@ -5,11 +5,11 @@ import { join } from "node:path";
 import test from "node:test";
 import { createMemoryStore } from "../dist/index.js";
 
-function store() { return createMemoryStore(join(mkdtempSync(join(tmpdir(), "opennblm-memory-")), "memory.sqlite")); }
+async function store() { return createMemoryStore(join(mkdtempSync(join(tmpdir(), "opennblm-memory-")), "memory.sqlite")); }
 
-test("learner memory is separate from conversation history and survives reopening", () => {
+test("learner memory is separate from conversation history and survives reopening", async () => {
   const databasePath = join(mkdtempSync(join(tmpdir(), "opennblm-memory-")), "memory.sqlite");
-  const db = createMemoryStore(databasePath);
+  const db = await createMemoryStore(databasePath);
   const conversation = db.createConversation({ learningTopic: "recursion" });
   db.addMessage({ conversationId: conversation.id, role: "user", text: "What is recursion?" });
   const first = db.upsertLearnerMemory({ kind: "weak_concept", key: "recursion", value: "Needs a simpler intuition", confidence: 0.45, sourceConversationId: conversation.id });
@@ -19,13 +19,13 @@ test("learner memory is separate from conversation history and survives reopenin
   assert.equal(first.id, updated.id);
   assert.equal(updated.value, "Use a concrete analogy first");
   db.close();
-  const reopened = createMemoryStore(databasePath);
+  const reopened = await createMemoryStore(databasePath);
   assert.equal(reopened.listLearnerMemory()[0].value, "Use a concrete analogy first");
   reopened.close();
 });
 
-test("learner memory supports forgetting one note and clearing all notes", () => {
-  const db = store();
+test("learner memory supports forgetting one note and clearing all notes", async () => {
+  const db = await store();
   const topic = db.upsertLearnerMemory({ kind: "topic", key: "fractions", value: "Studied in a lesson" });
   db.upsertLearnerMemory({ kind: "preference", key: "explanation-style", value: "analogies" });
   db.forgetLearnerMemory(topic.id);

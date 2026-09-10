@@ -16,7 +16,7 @@ UI depends on contracts through preload. Main depends on local services and cont
 
 The renderer requests conversation data through preload IPC. `@opennblm/local-services` owns the database lifecycle and delegates the SQLite repository to `@opennblm/memory`; the renderer never opens SQLite. Conversation records intentionally contain learning metadata and messages only—credentials are outside this model.
 
-SQLite currently uses the runtime's `node:sqlite` `DatabaseSync` API, with WAL mode, foreign keys, and a small two-table schema. This avoids an additional native addon in the foundation and keeps storage local to Electron's user-data directory.
+SQLite is implemented with `sql.js` (SQLite compiled to WebAssembly) behind the memory repository. This avoids depending on Electron's optional/unstable `node:sqlite` builtin or a native addon ABI. The repository loads and exports the SQLite database at the platform user-data path, with foreign keys and a small schema.
 
 The brain provider manager lives in Electron main. It loads encrypted provider keys through OS-backed `safeStorage`, keeps provider/model preferences separate from conversations, and constructs an abstract `LLMProvider` for future teaching orchestration. The renderer receives provider status and models through preload but never receives raw credentials.
 

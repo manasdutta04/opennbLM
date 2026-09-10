@@ -9,6 +9,45 @@ files:
   - apps/preload/dist/**/*
   - packages/*/dist/**/*
   - packages/*/package.json
+  # Workspace packages are imported by bare package name from Electron's main
+  # process. Map their built output into a real node_modules layout inside the
+  # packaged app; pnpm's development symlinks are not portable into the ASAR.
+  - from: packages/contracts
+    to: node_modules/@opennblm/contracts
+    filter:
+      - dist/**/*
+      - package.json
+  - from: packages/local-services
+    to: node_modules/@opennblm/local-services
+    filter:
+      - dist/**/*
+      - package.json
+  - from: packages/llm-providers
+    to: node_modules/@opennblm/llm-providers
+    filter:
+      - dist/**/*
+      - package.json
+  - from: packages/memory
+    to: node_modules/@opennblm/memory
+    filter:
+      - dist/**/*
+      - package.json
+  - from: packages/rumik-runtime
+    to: node_modules/@opennblm/rumik-runtime
+    filter:
+      - dist/**/*
+      - package.json
+  - from: packages/teaching-engine
+    to: node_modules/@opennblm/teaching-engine
+    filter:
+      - dist/**/*
+      - package.json
+  - from: node_modules/.pnpm/sql.js@1.13.0/node_modules/sql.js
+    to: node_modules/sql.js
+    filter:
+      - package.json
+      - dist/sql-wasm.js
+      - dist/sql-wasm.wasm
   - apps/desktop/package.json
   - node_modules/@opennblm/**/*
   - packages/rumik-runtime/runtime/**/*

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain } from "electron";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { existsSync, writeFileSync } from "node:fs";
 import { arch, freemem, platform } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -11,8 +12,10 @@ import { createTeachingEngine } from "@opennblm/teaching-engine";
 import type { TeachingStyle } from "@opennblm/teaching-engine";
 import type { LearnerMemory } from "@opennblm/contracts";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 let mainWindow: BrowserWindow | undefined;
-let services: ReturnType<typeof createLocalServices> | undefined;
+let services: Awaited<ReturnType<typeof createLocalServices>> | undefined;
 let providers: ProviderManager | undefined;
 let rumik: ReturnType<typeof createRumikManager> | undefined;
 let setupStatus: Awaited<ReturnType<typeof getSetupStatus>> | undefined;
@@ -63,8 +66,8 @@ function createWindow(): void {
   else void mainWindow.loadFile(join(__dirname, "../../renderer/dist/index.html"));
 }
 
-app.whenReady().then(() => {
-  services = createLocalServices(app.getPath("userData"));
+app.whenReady().then(async () => {
+  services = await createLocalServices(app.getPath("userData"));
   providers = new ProviderManager(app.getPath("userData"));
   const rumikOutput = join(app.getPath("userData"), "audio");
   mkdirSync(rumikOutput, { recursive: true });

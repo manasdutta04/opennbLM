@@ -1,1 +1,1 @@
-{"name":"@opennblm/preload","private":true,"version":"0.1.0","type":"module","main":"dist/preload.js","scripts":{"build":"tsc -p tsconfig.json"},"dependencies":{"@opennblm/contracts":"workspace:*","electron":"^34.3.3"}}
+{"name":"@opennblm/preload","private":true,"version":"0.1.0","type":"commonjs","main":"dist/preload.js","scripts":{"build":"tsc -p tsconfig.json"},"dependencies":{"@opennblm/contracts":"workspace:*","electron":"^34.3.3"}}
