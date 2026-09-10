@@ -6,11 +6,24 @@ import { ProviderManager } from "./provider-manager.js";
 import { createRumikManager } from "@opennblm/rumik-runtime";
 import { createTeachingEngine } from "@opennblm/teaching-engine";
 import type { TeachingStyle } from "@opennblm/teaching-engine";
+import type { LearnerMemory } from "@opennblm/contracts";
 
 let mainWindow: BrowserWindow | undefined;
 let services: ReturnType<typeof createLocalServices> | undefined;
 let providers: ProviderManager | undefined;
 let rumik: ReturnType<typeof createRumikManager> | undefined;
+
+function learnerContext(memory: LearnerMemory[]): string { return memory.slice(0, 12).map((item) => `${item.kind}: ${item.key} — ${item.value}`).join("; "); }
+function extractLearnerMemory(conversationId: string, result: { plan: { topic: string; learner_level: "beginner" | "intermediate" | "advanced"; summary: string; misconception_risks: string[] } }, options?: { language?: string; style?: TeachingStyle }): void {
+  const store = services!.memory;
+  store.upsertLearnerMemory({ kind: "topic", key: result.plan.topic, value: "Studied in a lesson", confidence: 0.8, sourceConversationId: conversationId });
+  store.upsertLearnerMemory({ kind: "level", key: "current", value: result.plan.learner_level, confidence: 0.7, sourceConversationId: conversationId });
+  store.upsertLearnerMemory({ kind: "completed_lesson", key: result.plan.topic, value: result.plan.summary, confidence: 0.75, sourceConversationId: conversationId });
+  store.upsertLearnerMemory({ kind: "recent_context", key: "latest", value: `${result.plan.topic}: ${result.plan.summary}`, confidence: 0.65, sourceConversationId: conversationId });
+  if (options?.language) store.upsertLearnerMemory({ kind: "language", key: "preferred", value: options.language, confidence: 0.8, sourceConversationId: conversationId });
+  if (options?.style) store.upsertLearnerMemory({ kind: "preference", key: "explanation-style", value: options.style, confidence: 0.7, sourceConversationId: conversationId });
+  for (const risk of result.plan.misconception_risks.slice(0, 2)) store.upsertLearnerMemory({ kind: "weak_concept", key: risk, value: "Possible misconception to revisit with simpler intuition", confidence: 0.45, sourceConversationId: conversationId });
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -45,6 +58,9 @@ app.whenReady().then(() => {
   ipcMain.handle("conversations:rename", (_event, id: string, title: string) => services!.memory.renameConversation(id, title));
   ipcMain.handle("conversations:add-message", (_event, input) => services!.memory.addMessage(input));
   ipcMain.handle("conversations:delete", (_event, id: string) => services!.memory.deleteConversation(id));
+  ipcMain.handle("learner-memory:list", () => services!.memory.listLearnerMemory());
+  ipcMain.handle("learner-memory:forget", (_event, id: string) => services!.memory.forgetLearnerMemory(id));
+  ipcMain.handle("learner-memory:clear", () => services!.memory.clearLearnerMemory());
   ipcMain.handle("providers:list", () => providers!.list());
   ipcMain.handle("providers:save-key", (_event, id, key) => providers!.saveKey(id, key));
   ipcMain.handle("providers:remove-key", (_event, id) => providers!.removeKey(id));
@@ -63,8 +79,9 @@ app.whenReady().then(() => {
   ipcMain.handle("teaching:teach", async (_event, conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string; style?: TeachingStyle; referenceExplanation?: string }) => {
     const selected = providers!.getProvider();
     const teaching = createTeachingEngine(selected.provider);
-    const result = await teaching.teach({ question, learnerLevel: options?.learnerLevel, language: options?.language, style: options?.style, referenceExplanation: options?.referenceExplanation });
+    const result = await teaching.teach({ question, learnerLevel: options?.learnerLevel, language: options?.language, style: options?.style, referenceExplanation: options?.referenceExplanation, learnerContext: learnerContext(services!.memory.listLearnerMemory()) });
     services!.memory.addMessage({ conversationId, role: "assistant", text: result.response, teachingMetadata: { difficulty: result.plan.learner_level } });
+    extractLearnerMemory(conversationId, result, options);
     const deliveryDescription = `${result.delivery.overallTone}, ${result.delivery.pace} pace`;
     void rumik!.synthesize(result.response, { speaker: result.delivery.speaker, language: result.delivery.language, deliveryDescription }).catch(() => undefined);
     return { text: result.response, deliveryLabel: result.delivery.overallTone, voiceStarted: Boolean(rumik!.getStatus().runtimeAvailable && rumik!.getStatus().modelAvailable) };

@@ -1,9 +1,22 @@
 # Memory and Persistence
 
-Local services own SQLite persistence at `<userData>/opennblm.sqlite`; the renderer never opens the database directly. Every learning session is a conversation. The schema has `conversations` and `messages` tables with a foreign-key cascade and indexes for updated ordering and message lookup.
+opennbLM has two deliberately separate local stores in `<userData>/opennblm.sqlite`:
 
-Conversations store: id, title, created/updated timestamps, learning topic, optional subject, optional language, optional learner context, and messages. Messages store: id, conversation id, role, text, timestamp, optional audio reference, and optional JSON teaching metadata.
+- Conversation history: the complete user-visible lesson transcript and message metadata.
+- Learner memory: a small set of durable learning notes that can improve future teaching.
 
-The current UI supports local create, open, search, rename, delete, and message persistence through typed IPC. New conversations use an “Untitled lesson” title as the automatic-title placeholder. API keys and provider secrets are not stored in either table; a separate secure credential mechanism remains future work.
+The renderer never opens SQLite. Electron main/local-services owns the database and exposes only typed preload APIs.
 
-The repository opens SQLite in the main/local-services runtime and creates its schema if missing. Future work must document retention, deletion, export, and privacy behavior before shipping richer memory features. The SQLite API is currently experimental in the development Node runtime and must be verified against the packaged Electron runtime during desktop packaging.
+## Learner memory
+
+Learner memory is not an archive of every message. After a Teaching Engine result, the main process deterministically extracts bounded signals: topics studied, current learner level, completed lesson summaries, recent context, selected explanation style, language, and possible misconception risks. Weak concepts are intentionally stored with lower confidence and phrased as things to revisit—not as definitive judgments.
+
+The `learner_memory` table stores `id`, `kind`, `memory_key`, `value`, confidence, optional source conversation id, and created/updated timestamps. `(kind, memory_key)` is unique so later evidence updates a note instead of creating an unbounded log. There is no vector database in v1.
+
+Before planning a new lesson, the main process retrieves a bounded recent memory context and passes it to the provider-independent Teaching Engine. The prompt instructs the engine to use it gently and never reveal hidden context in the lesson. For example, a recurring recursion difficulty can bias the next plan toward simpler intuition and concrete analogies.
+
+The Memory screen makes every note visible. Each note has “Forget this”; “Clear learner memory” removes all learner notes while leaving conversation history intact. This is local deletion, not a remote account operation.
+
+API keys and provider secrets are never extracted into learner memory, conversation records, renderer state, URLs, or logs. Provider credentials remain in the separate Electron `safeStorage` path.
+
+SQLite uses the runtime's experimental `node:sqlite` `DatabaseSync` API, WAL mode, foreign keys, and a small schema. It must be verified against the packaged Electron runtime during desktop packaging.

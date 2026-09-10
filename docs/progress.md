@@ -236,3 +236,31 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - The Electron desktop launch remains unverified in this sandbox, so local WAV playback needs target-environment validation.
 - Regenerate currently reuses the persisted teaching text with a fresh Rumik synthesis job; it does not yet regenerate the TeachingPlan.
 - Audio playback uses renderer `Audio` with local file URLs and requires packaged Electron security/runtime validation.
+
+## Learner memory — 2026-09-10
+
+### Completed
+
+- Added a separate SQLite `learner_memory` table; learner notes are not permanent copies of conversation messages.
+- Added deterministic extraction after Teaching Engine results for topics, learner level, completed lessons, recent context, language, selected explanation style, and bounded possible misconception risks.
+- Added bounded memory retrieval to teaching requests so future plans can adapt without coupling the Teaching Engine to a provider.
+- Added typed secure IPC for listing, forgetting one note, and clearing all learner memory.
+- Replaced the Memory placeholder with an inspectable UI, grouped notes, empty state, local-only explanation, “Forget this”, and “Clear learner memory”.
+- Added memory repository tests covering separation from conversation history, update/upsert behavior, forgetting, and clearing.
+
+### Architecture decisions
+
+- Learner memory is intentionally small, explicit, and user-deletable; no vector database or hidden transcript summarization is used in v1.
+- Possible weak concepts are stored with lower confidence and a non-judgmental “revisit” description. They are not treated as verified learner deficits.
+- Memory extraction is local and deterministic from structured teaching output; it never sees or stores provider API keys.
+
+### Verification
+
+- `pnpm build` — passed; contracts, SQLite repository, renderer, preload, and Electron main compiled.
+- `pnpm --filter @opennblm/memory test` — passed, 2/2 tests.
+- `pnpm --filter @opennblm/teaching-engine test` — passed, 4/4 tests.
+
+### Known limitations
+
+- Memory extraction currently uses plan signals and selected request options; explicit learner feedback capture is not implemented yet.
+- Interactive Electron UI verification remains unavailable in this sandbox, so native confirmation behavior and packaged SQLite compatibility still need target-environment testing.

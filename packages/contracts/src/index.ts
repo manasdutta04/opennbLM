@@ -12,6 +12,9 @@ export interface ConversationApi {
   addMessage(input: AddMessageInput): Promise<ConversationMessage>;
   delete(id: string): Promise<void>;
 }
+export type LearnerMemoryKind = "topic" | "weak_concept" | "preference" | "language" | "level" | "completed_lesson" | "recent_context";
+export interface LearnerMemory { id: string; kind: LearnerMemoryKind; key: string; value: string; confidence: number; sourceConversationId?: string; createdAt: string; updatedAt: string; }
+export interface LearnerMemoryApi { list(): Promise<LearnerMemory[]>; forget(id: string): Promise<void>; clear(): Promise<void>; }
 export type ProviderId = "groq" | "openai" | "gemini" | "openrouter" | "ollama" | "custom";
 export interface ProviderStatus { id: ProviderId; label: string; configured: boolean; model: string; connection: "unknown" | "connected" | "error"; error?: string; }
 export interface ProviderSettingsApi { list(): Promise<ProviderStatus[]>; saveKey(id: ProviderId, key: string): Promise<void>; removeKey(id: ProviderId): Promise<void>; setModel(id: ProviderId, model: string): Promise<void>; setEndpoint(id: ProviderId, endpoint: string): Promise<void>; select(id: ProviderId): Promise<void>; test(id: ProviderId): Promise<ProviderStatus>; models(id: ProviderId): Promise<string[]>; }
@@ -22,4 +25,4 @@ export interface RumikSegment { id: string; text: string; wavPath: string; }
 export interface RumikApi { getStatus(): Promise<RumikStatus>; start(): Promise<void>; stop(): Promise<void>; healthCheck(): Promise<boolean>; synthesize(text: string, config?: Partial<RumikConfig>): Promise<{ segments: RumikSegment[] }>; cancel(): Promise<void>; getVoices(): Promise<readonly string[]>; onSegmentReady(listener: (segment: RumikSegment) => void): () => void; onStateChange(listener: (status: RumikStatus) => void): () => void; }
 export type TeachingStyle = "teacher" | "friend" | "10-year-old" | "story" | "simple" | "technical" | "hype";
 export interface TeachingApi { teach(conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string; style?: TeachingStyle; referenceExplanation?: string }): Promise<{ text: string; deliveryLabel: string; voiceStarted: boolean; voiceError?: string }>; }
-export interface PreloadApi { getAppInfo(): Promise<AppInfo>; conversations: ConversationApi; providers: ProviderSettingsApi; rumik: RumikApi; teaching: TeachingApi; }
+export interface PreloadApi { getAppInfo(): Promise<AppInfo>; conversations: ConversationApi; learnerMemory: LearnerMemoryApi; providers: ProviderSettingsApi; rumik: RumikApi; teaching: TeachingApi; }
