@@ -1,0 +1,5 @@
+{"id":"simple-01","category":"simple","language":"English","prompt":"Explain what gravity is to a beginner."}
+{"id":"technical-01","category":"technical","language":"English","prompt":"Explain how a database index speeds up a query."}
+{"id":"multilingual-01","category":"multilingual","language":"Hindi + English","prompt":"Explain recursion in simple Hindi-English, using code terms only where useful."}
+{"id":"difficult-01","category":"difficult","language":"English","prompt":"Explain why gradient descent can get stuck or converge slowly."}
+{"id":"code-01","category":"code","language":"English","prompt":"Explain this Python code progressively without executing it: def area(r): return 3.14 * r * r"}
