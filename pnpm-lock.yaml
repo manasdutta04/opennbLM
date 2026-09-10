@@ -26,6 +26,9 @@ importers:
       '@opennblm/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@opennblm/engine-runtime':
+        specifier: workspace:*
+        version: link:../../packages/engine-runtime
       '@opennblm/llm-providers':
         specifier: workspace:*
         version: link:../../packages/llm-providers
@@ -98,6 +101,15 @@ importers:
         version: 5.9.3
 
   packages/contracts: {}
+
+  packages/engine-runtime:
+    dependencies:
+      '@opennblm/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@opennblm/llm-providers':
+        specifier: workspace:*
+        version: link:../llm-providers
 
   packages/llm-providers: {}
 

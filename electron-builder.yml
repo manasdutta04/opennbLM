@@ -3,6 +3,7 @@ productName: opennbLM
 directories:
   output: release
 asar: true
+icon: packaging/icons/icon.png
 files:
   - apps/desktop/dist/**/*
   - apps/renderer/dist/**/*
@@ -24,6 +25,11 @@ files:
       - package.json
   - from: packages/llm-providers
     to: node_modules/@opennblm/llm-providers
+    filter:
+      - dist/**/*
+      - package.json
+  - from: packages/engine-runtime
+    to: node_modules/@opennblm/engine-runtime
     filter:
       - dist/**/*
       - package.json

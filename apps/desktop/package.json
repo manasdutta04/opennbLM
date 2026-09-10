@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@opennblm/contracts": "workspace:*",
+    "@opennblm/engine-runtime": "workspace:*",
     "@opennblm/local-services": "workspace:*",
     "@opennblm/llm-providers": "workspace:*",
     "@opennblm/rumik-runtime": "workspace:*",

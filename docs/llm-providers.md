@@ -1,24 +1,24 @@
-# LLM Providers
+# LLM Providers / Teaching engines
 
-The brain layer is represented by the capability-oriented `LLMProvider` interface in `@opennblm/llm-providers`. It exposes `chat`, `stream`, `structured`, `listModels`, and `healthCheck`. The teaching engine receives this interface and does not import a concrete provider.
+Teaching brains are **CLI and local engines**, not API-key paste forms.
 
-Implemented provider adapters:
+## Engines (`@opennblm/engine-runtime`)
 
-- Groq — OpenAI-compatible API
-- OpenAI — OpenAI-compatible API
-- Gemini — native `generateContent` API
-- OpenRouter — OpenAI-compatible API
-- Ollama — local `/api/tags` and chat endpoints, no key required
-- Custom — configurable OpenAI-compatible endpoint
+The lesson **Connect brain** picker lists cloud and local engines, including Claude, Codex, Cursor, OpenCode, Grok, Antigravity, Hermes, Kimi, Qwen, Ollama, and LM Studio.
 
-The OpenAI-compatible providers share one adapter while retaining distinct provider ids, defaults, model lists, and credential state. A provider can be swapped without changing conversation records or teaching-engine code.
+OpenCode loads its full model catalog from `opencode models` when the CLI is available, then falls back to a curated list. Ollama and LM Studio list locally loaded models over HTTP.
 
-## Secrets
+Install commands are **copied to the clipboard** and a blank terminal is opened. The install string is never executed as argv.
 
-Keys are accepted only by a main-process IPC handler and encrypted with Electron `safeStorage` before being written to the local credential file. The renderer sees only `Configured` / `Not configured` and connection state. Keys are never put in SQLite, conversations, renderer state, URLs, or logs. Gemini uses the `x-goog-api-key` request header rather than a URL query parameter. Remove/replacement and connection-test actions are available in Settings.
+`ModelSelection { instanceId, model }` is persisted under the user-data folder and used by `teaching:teach`.
 
-Provider HTTP calls use a 15-second abort timeout so unavailable networks do not leave the teaching flow hanging indefinitely. Structured teaching retries malformed output once, while provider/network exceptions fall back immediately to a usable text lesson.
+## Teaching path
 
-Provider model preferences and custom endpoint configuration are separate non-secret local preferences. Ollama defaults to `127.0.0.1:11434`.
+`createTeachingEngine` still plans lessons. The LLM side is an engine adapter:
 
-Real network calls are not made by the renderer. Provider adapters are directly mockable through an injected `fetch` implementation for unit tests.
+- Ollama / LM Studio → local HTTP chat (no user API key)
+- CLI engines → one-shot prompt via the agent CLI; JSON parsed when possible, otherwise teaching-engine fallback plan
+
+## Legacy HTTP adapters
+
+`@opennblm/llm-providers` and `ProviderManager` remain in the repo for optional custom HTTP use, but they are **not** the default Settings or Connect brain UX.

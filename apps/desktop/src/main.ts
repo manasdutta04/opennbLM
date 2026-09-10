@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, Menu } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync, writeFileSync } from "node:fs";
@@ -10,7 +10,11 @@ import { ProviderManager } from "./provider-manager.js";
 import { createRumikManager } from "@opennblm/rumik-runtime";
 import { createTeachingEngine } from "@opennblm/teaching-engine";
 import type { TeachingStyle } from "@opennblm/teaching-engine";
-import type { LearnerMemory } from "@opennblm/contracts";
+import type { LearnerMemory, ModelSelection } from "@opennblm/contracts";
+import { createEngineLLMProvider, EngineRegistry } from "@opennblm/engine-runtime";
+import { openBlankTerminal } from "./terminal-launch.js";
+import { windowChromeOptions } from "./window-chrome.js";
+import { installAppMenu, popupApplicationSubmenu } from "./app-menu.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -19,6 +23,7 @@ Menu.setApplicationMenu(null);
 let mainWindow: BrowserWindow | undefined;
 let services: Awaited<ReturnType<typeof createLocalServices>> | undefined;
 let providers: ProviderManager | undefined;
+let engines: EngineRegistry | undefined;
 let rumik: ReturnType<typeof createRumikManager> | undefined;
 let setupStatus: Awaited<ReturnType<typeof getSetupStatus>> | undefined;
 
@@ -53,6 +58,9 @@ function createWindow(): void {
     height: 800,
     minWidth: 960,
     minHeight: 640,
+    icon: join(__dirname, "../icon.png"),
+    show: false,
+    ...windowChromeOptions(),
     webPreferences: {
       preload: join(__dirname, "../../preload/dist/preload.js"),
       contextIsolation: true,
@@ -64,6 +72,7 @@ function createWindow(): void {
   const rendererUrl = process.env.OPENNBLM_RENDERER_URL;
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   mainWindow.webContents.on("will-navigate", (event) => { event.preventDefault(); });
+  mainWindow.once("ready-to-show", () => mainWindow?.show());
   if (rendererUrl && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(?:\/|$)/.test(rendererUrl)) void mainWindow.loadURL(rendererUrl);
   else void mainWindow.loadFile(join(__dirname, "../../renderer/dist/index.html"));
 }
@@ -71,6 +80,8 @@ function createWindow(): void {
 app.whenReady().then(async () => {
   services = await createLocalServices(app.getPath("userData"));
   providers = new ProviderManager(app.getPath("userData"));
+  engines = new EngineRegistry(app.getPath("userData"));
+  await engines.refresh();
   const rumikOutput = join(app.getPath("userData"), "audio");
   mkdirSync(rumikOutput, { recursive: true });
   const bundledPython = process.platform === "win32" ? join(process.resourcesPath, "rumik", "python", "python.exe") : join(process.resourcesPath, "rumik", "python", "bin", "python3");
@@ -97,6 +108,20 @@ app.whenReady().then(async () => {
   ipcMain.handle("providers:select", (_event, id) => providers!.select(id));
   ipcMain.handle("providers:test", (_event, id) => providers!.test(id));
   ipcMain.handle("providers:models", (_event, id) => providers!.models(id));
+  ipcMain.handle("engines:list", () => engines!.list());
+  ipcMain.handle("engines:refresh", () => engines!.refresh());
+  ipcMain.handle("engines:get-selection", () => engines!.getSelection());
+  ipcMain.handle("engines:set-selection", (_event, selection: ModelSelection) => engines!.setSelection(selection));
+  ipcMain.handle("engine:open-terminal", async (_event, command: string) => {
+    if (typeof command !== "string" || !command.trim()) return false;
+    clipboard.writeText(command);
+    return openBlankTerminal();
+  });
+  ipcMain.handle("shell:platform", () => process.platform);
+  ipcMain.handle("shell:popup-menu", (event, label: string, x: number, y: number) => {
+    const win = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
+    popupApplicationSubmenu(win, label, x, y);
+  });
   ipcMain.handle("rumik:status", () => rumik!.getStatus());
   ipcMain.handle("rumik:start", () => rumik!.start());
   ipcMain.handle("rumik:stop", () => rumik!.stop());
@@ -105,15 +130,29 @@ app.whenReady().then(async () => {
   ipcMain.handle("rumik:cancel", () => rumik!.cancel());
   ipcMain.handle("rumik:voices", () => rumik!.getVoices());
   ipcMain.handle("teaching:teach", async (_event, conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string; style?: TeachingStyle; referenceExplanation?: string }) => {
-    const selected = providers!.getProvider();
-    const teaching = createTeachingEngine(selected.provider);
-    const result = await teaching.teach({ question, model: selected.model, learnerLevel: options?.learnerLevel, language: options?.language, style: options?.style, referenceExplanation: options?.referenceExplanation, learnerContext: learnerContext(services!.memory.listLearnerMemory()) });
+    const selection = engines!.getSelection();
+    if (!selection?.instanceId || !selection.model) {
+      throw new Error("Connect a teaching brain in the lesson picker first.");
+    }
+    await engines!.refresh();
+    const provider = createEngineLLMProvider(engines!, selection);
+    const teaching = createTeachingEngine(provider);
+    const result = await teaching.teach({
+      question,
+      model: selection.model,
+      learnerLevel: options?.learnerLevel,
+      language: options?.language,
+      style: options?.style,
+      referenceExplanation: options?.referenceExplanation,
+      learnerContext: learnerContext(services!.memory.listLearnerMemory()),
+    });
     services!.memory.addMessage({ conversationId, role: "assistant", text: result.response, teachingMetadata: { difficulty: result.plan.learner_level } });
     extractLearnerMemory(conversationId, result, options);
     const deliveryDescription = `${result.delivery.overallTone}, ${result.delivery.pace} pace`;
     void rumik!.synthesize(result.response, { speaker: result.delivery.speaker, language: result.delivery.language, deliveryDescription }).catch(() => undefined);
     return { text: result.response, deliveryLabel: result.delivery.overallTone, voiceStarted: Boolean(rumik!.getStatus().runtimeAvailable && rumik!.getStatus().modelAvailable) };
   });
+  installAppMenu();
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });

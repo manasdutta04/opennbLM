@@ -444,7 +444,7 @@ Not run: interactive Electron startup smoke test and completed native installer/
 
 - Relaunched the full Electron desktop app after a renderer rebuild.
 - Rebuilt the renderer shell inspired by opencrew’s Graphite desktop feel: quiet panel/raised/card/inset tokens, Tide teaching accent, IBM Plex Sans + Literata, soft hairlines, and fast `msg-in` / `pop-in` motion.
-- Added a compact provider/model picker in the composer (provider rail + searchable models), matching the opencrew model-selector interaction pattern.
+- Added a compact provider/model picker in the composer (provider rail + searchable models)..
 - Replaced browser `prompt`/`confirm` with in-app rename/delete/clear-memory dialogs.
 - Upgraded the composer to an auto-growing textarea with toolbar, teaching shimmer state, and live Rumik readiness in Settings.
 
@@ -458,12 +458,12 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - Microphone / STT remains a UI affordance only; voice synthesis still depends on optional Rumik runtime assets.
 - Library remains starter invitations rather than a full curriculum store.
 
-## OpenFolks Graphite UI port — 2026-09-10
+## Graphite UI port — 2026-09-10
 
 ### Completed
 
 - Installed Tailwind CSS v4 (`@tailwindcss/vite`), `lucide-react`, and `clsx`/`tailwind-merge` in the renderer.
-- Ported OpenFolks/opencrew Graphite design tokens, motion keyframes, and IBM Plex Sans into the renderer stylesheet.
+- Applied Graphite design tokens, motion keyframes, and IBM Plex Sans into the renderer stylesheet.
 - Rebuilt the shell to match desk patterns: raised sidebar rows with avatars, chat header model pill (provider rail + searchable models), bubble transcript (`bg-bubble-user` / `bg-card`), and the floating composer pill with ArrowUp send.
 - Relaunched Electron after a successful renderer build and monorepo typecheck.
 
@@ -473,14 +473,14 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - `pnpm typecheck` — passed.
 - `pnpm --filter @opennblm/desktop start` — Electron launched with the new UI.
 
-## Product IA cleanup (NotebookLM + OpenClaw) — 2026-09-10
+## Product IA cleanup (NotebookLM-style) — 2026-09-10
 
 ### Completed
 
 - Removed the duplicate sidebar “Conversations / Your workspace → Settings” loop.
 - Home is now a NotebookLM-style dashboard: featured starts + recent lesson cards, Create new, top-bar Settings only.
 - Lesson view is Chat + Studio (voice, styles); model/brain picker lives only in the lesson header.
-- Settings connects engines (API keys / test) and no longer selects the teaching model; unconfigured engines in the chat picker show a setup CTA like OpenClaw.
+- Settings connects engines (API keys / test) and no longer selects the teaching model; unconfigured engines in the chat picker show a setup CTA.
 - Library and Memory are separate pages reached from home tabs, not a second conversation list.
 
 ### Verification
@@ -488,3 +488,59 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - `pnpm --filter @opennblm/renderer build` — passed.
 - `pnpm typecheck` — passed.
 - `pnpm --filter @opennblm/desktop start` — Electron launched with the redesigned IA.
+
+## Brand mark + model picker — 2026-09-10
+
+### Completed
+
+- Added unique opennbLM app icon to packaging, renderer, and desktop window icon; wired `electron-builder.yml` `icon`.
+- Added Cloud/Local model picker with brand marks, setup cards for unconfigured engines, and searchable models when ready.
+- Ollama is “ready” only when the local runtime responds (health check), matching install-then-use flow.
+- Removed repetitive Create buttons and moved engine connection out of Settings into the lesson picker; Settings is appearance/voice/status only.
+
+### Verification
+
+- `pnpm --filter @opennblm/renderer build` + `pnpm typecheck` + desktop start — passed.
+
+## CLI engine picker components — 2026-09-10
+
+### Completed
+
+- Added provider marks, CLI install/sign-in setup cards, and a Cloud/Local engine model picker.
+- Kept engine setup behind the typed preload bridge with no renderer API-key forms.
+
+### Verification
+
+- `pnpm --filter @opennblm/renderer build` — passed.
+
+## CLI engines + icon/UI cleanup — 2026-09-10
+
+### Completed
+
+- Unified brand icon across packaging, desktop window, and renderer header.
+- Fixed Featured/Library glyphs with Lucide and restored `View all ›`.
+- Settings is appearance + Rumik only; engines are managed in-lesson via **Connect brain**.
+- Added `@opennblm/engine-runtime` with Claude, Codex, Cursor, OpenCode, Grok, Ollama, LM Studio.
+- Contracts + IPC for engines list/selection and blank-terminal install helper.
+- `teaching:teach` resolves persisted `modelSelection` through the engine LLM adapter.
+
+### Verification
+
+- `pnpm typecheck` / renderer / preload / desktop builds — passed.
+
+## Logo refresh, expanded engines, shell polish — 2026-09-10
+
+### Completed
+
+- Replaced shipped icons with `packaging/icons/opennblm-icon.png` (removed obsolete `icon-source.png`).
+- Expanded Connect brain fleet: Antigravity, Hermes, Kimi, Qwen; richer catalogs; OpenCode discovers live models via `opencode models`.
+- Windows Mac-style title strip (File/Edit/View/Window/Help) with native overlay chrome; macOS uses the system menu bar.
+- Home: removed Library/Memory tabs; Memory is a dedicated page from the header; View all opens the templates page; optional second featured row.
+- Lesson actions use a compact three-dot overflow menu (double-click still opens lessons).
+- Removed product-facing references to external inspiration repos from docs/UI.
+- Imported official Kimi, Qwen, and Hermes marks into `ProviderIcons` / `HermesMark` (full SVG paths).
+
+### Verification
+
+- `pnpm typecheck` — passed.
+- Renderer `tsc --noEmit` after provider icon import — passed.

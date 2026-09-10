@@ -1,4 +1,4 @@
-import {
+﻿import {
   FormEvent,
   KeyboardEvent,
   useEffect,
@@ -13,11 +13,9 @@ import {
   ArrowUp,
   BookOpen,
   Check,
-  ChevronDown,
   Copy,
   Mic,
   Moon,
-  MoreVertical,
   Pause,
   Plus,
   RefreshCw,
@@ -28,20 +26,25 @@ import {
   Sun,
   Volume2,
   Waves,
+  CheckCircle2,
+  Lightbulb,
+  Brain,
 } from "lucide-react";
 import type {
   Conversation as PersistedConversation,
+  InstanceInfo,
   LearnerMemory,
-  ProviderId,
-  ProviderStatus,
+  ModelSelection,
   SetupStatus,
   TeachingStyle,
 } from "@opennblm/contracts";
 import { cn } from "./lib/cn";
+import { ModelPicker } from "./components/ModelPicker";
+import { AppTitleBar } from "./components/AppTitleBar";
+import { OverflowMenu } from "./components/OverflowMenu";
 import "./styles.css";
 
-type Screen = "home" | "lesson" | "library" | "memory" | "settings";
-type HomeTab = "all" | "library" | "memory";
+type Screen = "home" | "lesson" | "templates" | "memory" | "settings";
 type VoiceState = "idle" | "preparing" | "listening" | "thinking" | "speaking" | "paused" | "error";
 type Message = { id: string; role: "user" | "assistant"; text: string; at: number };
 type Conversation = {
@@ -53,11 +56,10 @@ type Conversation = {
   messages: Message[];
 };
 type DialogState =
+  | null
   | { kind: "rename"; title: string }
   | { kind: "delete" }
-  | { kind: "clear-memory" }
-  | { kind: "lesson-menu"; id: string }
-  | null;
+  | { kind: "clear-memory" };
 
 const STYLE_OPTIONS: Array<[TeachingStyle, string]> = [
   ["teacher", "Teacher"],
@@ -70,11 +72,16 @@ const STYLE_OPTIONS: Array<[TeachingStyle, string]> = [
 ];
 
 const FEATURED = [
-  { title: "Open exploration", detail: "Bring any question and follow it", icon: "✦" },
-  { title: "Explain it simply", detail: "Turn a hard idea into something holdable", icon: "◇" },
-  { title: "Check my understanding", detail: "Learn, then prove it back", icon: "◎" },
-  { title: "Analogy lab", detail: "Build intuition with better metaphors", icon: "◈" },
+  { title: "Open exploration", detail: "Bring any question and follow it", Icon: Sparkles },
+  { title: "Explain it simply", detail: "Turn a hard idea into something holdable", Icon: BookOpen },
+  { title: "Check my understanding", detail: "Learn, then prove it back", Icon: CheckCircle2 },
+  { title: "Analogy lab", detail: "Build intuition with better metaphors", Icon: Lightbulb },
+  { title: "Voice-first review", detail: "Hear the idea, then say it back", Icon: Waves },
+  { title: "Concept map", detail: "Connect pieces into one mental model", Icon: Brain },
+  { title: "Worked example", detail: "Walk a full solution step by step", Icon: BookOpen },
+  { title: "Socratic loop", detail: "Answer guiding questions until it clicks", Icon: Sparkles },
 ];
+const FEATURED_HOME = FEATURED.slice(0, 4);
 
 function WorkingDots({ className }: { className?: string }) {
   return (
@@ -101,190 +108,6 @@ function LessonGlyph({ title, size = "md" }: { title: string; size?: "md" | "lg"
   );
 }
 
-/** Chat-only brain picker — OpenClaw pattern: ready engines selectable, others point to setup. */
-function ModelPicker({
-  provider,
-  statuses,
-  onSelectProvider,
-  onRefresh,
-  onOpenSettings,
-}: {
-  provider: ProviderId;
-  statuses: ProviderStatus[];
-  onSelectProvider: (id: ProviderId) => Promise<void>;
-  onRefresh: () => Promise<void>;
-  onOpenSettings: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [railId, setRailId] = useState<ProviderId>(provider);
-  const [models, setModels] = useState<string[]>([]);
-  const [query, setQuery] = useState("");
-  const rootRef = useRef<HTMLDivElement>(null);
-  const current = statuses.find((s) => s.id === provider);
-  const rail = statuses.find((s) => s.id === railId) ?? current;
-  const ready = statuses.filter((s) => s.configured);
-  const needsSetup = statuses.filter((s) => !s.configured);
-
-  useEffect(() => {
-    if (!open) return;
-    setRailId(provider);
-    void window.opennbLM.providers.models(provider).then(setModels);
-  }, [open, provider]);
-
-  useEffect(() => {
-    if (!open || !rail?.configured) {
-      setModels([]);
-      return;
-    }
-    void window.opennbLM.providers.models(railId).then(setModels);
-  }, [open, railId, rail?.configured]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const filtered = models.filter((m) => m.toLowerCase().includes(query.trim().toLowerCase()));
-
-  return (
-    <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-full border border-hairline/40 bg-control/60 py-1 pl-2.5 pr-2 text-[13px] text-ink hover:bg-raised-hover"
-        title={current ? `${current.label} · ${current.model}` : "Select teaching brain"}
-      >
-        <span className="max-w-[180px] truncate">
-          {current?.configured ? current.model || current.label : "Connect a brain"}
-          {current?.configured && <span className="text-ink-secondary"> · {current.label}</span>}
-        </span>
-        <ChevronDown size={14} className={cn("text-ink-secondary transition-transform", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className="animate-pop-in absolute right-0 top-[calc(100%+8px)] z-40 flex max-h-[340px] w-[380px] overflow-hidden rounded-xl border border-hairline/50 bg-raised shadow-2xl shadow-black/60">
-          <div className="flex w-[124px] shrink-0 flex-col gap-0.5 overflow-auto border-r border-hairline/40 bg-card p-2">
-            {ready.length === 0 && <div className="px-2 py-3 text-[11.5px] leading-relaxed text-ink-secondary">No engines ready yet.</div>}
-            {ready.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setRailId(item.id);
-                  setQuery("");
-                }}
-                className={cn(
-                  "rounded-lg px-2.5 py-2 text-left text-[12.5px]",
-                  railId === item.id ? "bg-control text-ink" : "text-ink-secondary hover:bg-control/60 hover:text-ink",
-                )}
-              >
-                <div className="truncate font-medium">{item.label}</div>
-                <div className="text-[10.5px] text-success">Ready</div>
-              </button>
-            ))}
-            {needsSetup.length > 0 && (
-              <>
-                <div className="mx-1 my-1 border-t border-hairline/40" />
-                {needsSetup.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setRailId(item.id);
-                      setQuery("");
-                    }}
-                    className={cn(
-                      "rounded-lg px-2.5 py-2 text-left text-[12.5px]",
-                      railId === item.id ? "bg-control text-ink" : "text-ink-secondary hover:bg-control/60",
-                    )}
-                  >
-                    <div className="truncate font-medium">{item.label}</div>
-                    <div className="text-[10.5px] text-warning">Setup</div>
-                  </button>
-                ))}
-              </>
-            )}
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col">
-            {!rail?.configured ? (
-              <div className="flex flex-1 flex-col justify-center gap-3 p-4">
-                <div className="text-[13.5px] font-medium text-ink">Connect {rail?.label ?? "this engine"}</div>
-                <p className="text-[12.5px] leading-relaxed text-ink-secondary">
-                  Add an API key in Settings first. Only configured engines can teach in a lesson — same idea as OpenClaw engines.
-                </p>
-                <button
-                  type="button"
-                  className="rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-white hover:brightness-110"
-                  onClick={() => {
-                    setOpen(false);
-                    onOpenSettings();
-                  }}
-                >
-                  Open Settings
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="shrink-0 px-2 pb-2 pt-2">
-                  <div className="flex items-center gap-2 rounded-lg border border-hairline/40 bg-inset px-2.5 py-1.5 focus-within:border-accent/60">
-                    <Search size={13} className="shrink-0 text-ink-secondary" />
-                    <input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Search models"
-                      className="w-full bg-transparent text-[12.5px] text-ink placeholder:text-ink-secondary"
-                    />
-                  </div>
-                </div>
-                <div className="min-h-0 flex-1 overflow-auto px-1.5 pb-2">
-                  {filtered.length === 0 && (
-                    <div className="px-2 py-5 text-center text-[12.5px] text-ink-secondary">
-                      {query ? `Nothing matches “${query.trim()}”` : "No models discovered"}
-                    </div>
-                  )}
-                  {filtered.map((model) => {
-                    const selected = railId === provider && rail.model === model;
-                    return (
-                      <button
-                        key={model}
-                        type="button"
-                        onClick={async () => {
-                          await onSelectProvider(railId);
-                          await window.opennbLM.providers.setModel(railId, model);
-                          await onRefresh();
-                          setOpen(false);
-                        }}
-                        className={cn(
-                          "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-ink hover:bg-control/60",
-                          selected && "bg-control",
-                        )}
-                      >
-                        <span className="truncate">{model}</span>
-                        {selected && <Check size={14} className="shrink-0 text-accent" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function SetupBanner() {
   const [status, setStatus] = useState<SetupStatus | undefined>();
   const [open, setOpen] = useState(false);
@@ -302,7 +125,7 @@ function SetupBanner() {
         <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-accent-text">First run · Local setup</div>
         <h2 className="mt-2 text-[28px] font-semibold tracking-[-0.02em] text-ink">Welcome to opennbLM.</h2>
         <p className="mt-2 max-w-[430px] text-[13.5px] leading-relaxed text-ink-secondary">
-          Local lessons are ready. Connect a teaching brain in Settings, then pick the model inside each lesson.
+          Local lessons are ready. Open a lesson and use Connect brain to install or sign in to a teaching engine.
         </p>
         <div className="mt-5 divide-y divide-hairline/35 border-y border-hairline/35">
           {[
@@ -355,7 +178,6 @@ function DialogShell({ children, onClose }: { children: ReactNode; onClose: () =
 
 function App() {
   const [screen, setScreen] = useState<Screen>("home");
-  const [homeTab, setHomeTab] = useState<HomeTab>("all");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [voice, setVoice] = useState<VoiceState>("idle");
@@ -363,8 +185,9 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [isDark, setIsDark] = useState(true);
-  const [provider, setProvider] = useState<ProviderId>("openai");
-  const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([]);
+  const [featuredExpanded, setFeaturedExpanded] = useState(false);
+  const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null);
+  const [engineInstances, setEngineInstances] = useState<InstanceInfo[]>([]);
   const [audioStatus, setAudioStatus] = useState<"idle" | "speaking" | "paused">("idle");
   const [dialog, setDialog] = useState<DialogState>(null);
   const [voiceReady, setVoiceReady] = useState(false);
@@ -377,7 +200,14 @@ function App() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const selected = conversations.find((c) => c.id === selectedId);
-  const currentProvider = providerStatuses.find((s) => s.id === provider);
+  const activeEngine = engineInstances.find((item) => item.instanceId === modelSelection?.instanceId);
+  const brainReady = Boolean(
+    activeEngine &&
+      modelSelection &&
+      activeEngine.snapshot.state === "available" &&
+      activeEngine.snapshot.authenticated !== false &&
+      modelSelection.model,
+  );
 
   useEffect(() => {
     document.documentElement.dataset.theme = isDark ? "dark" : "light";
@@ -392,12 +222,17 @@ function App() {
   }, [search]);
 
   useEffect(() => {
-    void window.opennbLM?.providers.list().then((statuses) => {
-      setProviderStatuses(statuses);
-      const preferred = statuses.find((s) => s.configured) ?? statuses[0];
-      if (preferred) setProvider(preferred.id);
-    });
+    void refreshEngines();
   }, []);
+
+  async function refreshEngines() {
+    const [instances, selection] = await Promise.all([
+      window.opennbLM.engines.list(),
+      window.opennbLM.engines.getSelection(),
+    ]);
+    setEngineInstances(instances);
+    setModelSelection(selection);
+  }
 
   useEffect(() => {
     const update = (status: { state: VoiceState; runtimeAvailable: boolean; modelAvailable: boolean }) => {
@@ -474,17 +309,12 @@ function App() {
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [selected?.messages.length, teaching]);
 
-  async function refreshProviders() {
-    setProviderStatuses(await window.opennbLM.providers.list());
-  }
-
   async function newLesson(topic = "Open exploration") {
     const created = await window.opennbLM.conversations.create({ learningTopic: topic, title: topic === "Open exploration" ? "Untitled lesson" : topic });
     const lesson = toShellConversation(created);
     setConversations((items) => [lesson, ...items]);
     setSelectedId(lesson.id);
     setScreen("lesson");
-    setHomeTab("all");
   }
 
   function openLesson(id: string) {
@@ -496,8 +326,7 @@ function App() {
     e?.preventDefault();
     const text = input.trim();
     if (!text || !selectedId || teaching) return;
-    if (!currentProvider?.configured) {
-      setScreen("settings");
+    if (!brainReady) {
       return;
     }
     setInput("");
@@ -543,9 +372,9 @@ function App() {
                 messages: [
                   ...item.messages,
                   {
-                    id: `fallback-${Date.now()}`,
+                    id: `assistant-error-${Date.now()}`,
                     role: "assistant",
-                    text: "I couldn't reach the teaching brain. Connect a provider in Settings, then pick a model in this lesson.",
+                    text: "I couldn't reach the teaching brain. Use Connect brain above to install or sign in to an engine, then try again.",
                     at: Date.now(),
                   },
                 ],
@@ -599,23 +428,23 @@ function App() {
 
   return (
     <div className="animate-workspace-in flex h-full min-h-0 flex-col overflow-hidden bg-app text-ink">
-      {/* App chrome — NotebookLM-style top bar (no duplicate sidebar nav) */}
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-hairline/25 px-5">
+      <AppTitleBar />
+      <header
+        className="flex h-14 shrink-0 items-center gap-3 border-b border-hairline/25 px-5"
+        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+      >
         <button
           type="button"
           className="flex items-center gap-2.5 rounded-lg px-1 py-1 hover:bg-raised/40"
-          onClick={() => {
-            setScreen("home");
-            setHomeTab("all");
-          }}
+          onClick={() => setScreen("home")}
         >
-          <div className="flex size-[22px] items-center justify-center rounded-full bg-gradient-to-br from-[#7aa2ff] to-[#4f6fd8] text-[10px] font-bold text-white">n</div>
+          <img src="./icon.png" alt="" width={22} height={22} className="size-[22px] rounded-[5px]" draggable={false} />
           <span className="text-[15px] font-medium tracking-[-0.01em] text-ink">
             {screen === "lesson" && selected ? selected.title : "opennbLM"}
           </span>
         </button>
         <div className="flex-1" />
-        {screen !== "settings" && (
+        {screen === "home" && (
           <button
             onClick={() => void newLesson()}
             className="rounded-full bg-white px-3.5 py-1.5 text-[13px] font-medium text-black hover:brightness-95"
@@ -623,6 +452,16 @@ function App() {
             + Create lesson
           </button>
         )}
+        <button
+          onClick={() => setScreen("memory")}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full border border-hairline/40 px-3 py-1.5 text-[13px]",
+            screen === "memory" ? "bg-raised text-ink" : "text-ink-secondary hover:bg-raised hover:text-ink",
+          )}
+        >
+          <Brain size={15} />
+          Memory
+        </button>
         <button
           onClick={() => setScreen("settings")}
           className={cn(
@@ -646,36 +485,7 @@ function App() {
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-6xl px-6 pb-16 pt-6">
             <div className="flex flex-wrap items-center gap-2">
-              {(
-                [
-                  ["all", "All"],
-                  ["library", "Library"],
-                  ["memory", "Memory"],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  onClick={() => {
-                    if (id === "library") {
-                      setScreen("library");
-                      return;
-                    }
-                    if (id === "memory") {
-                      setScreen("memory");
-                      return;
-                    }
-                    setHomeTab("all");
-                  }}
-                  className={cn(
-                    "rounded-full px-3.5 py-1.5 text-[13px]",
-                    homeTab === id || (id === "all" && homeTab === "all")
-                      ? "bg-raised text-ink"
-                      : "text-ink-secondary hover:bg-raised/50 hover:text-ink",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
+              <div className="text-[13px] font-medium text-ink">Home</div>
               <div className="ml-auto flex items-center gap-2">
                 {searchOpen ? (
                   <div className="flex items-center gap-2 rounded-full border border-hairline/40 bg-card px-3 py-1.5">
@@ -696,32 +506,46 @@ function App() {
                     <Search size={16} />
                   </button>
                 )}
-                <button onClick={() => void newLesson()} className="rounded-full bg-white px-3.5 py-1.5 text-[13px] font-medium text-black hover:brightness-95">
-                  + Create new
-                </button>
               </div>
             </div>
 
             <section className="mt-10">
               <div className="mb-4 flex items-end justify-between">
                 <h2 className="text-[18px] font-medium text-ink">Featured starts</h2>
-                <button onClick={() => setScreen("library")} className="text-[13px] text-ink-secondary hover:text-ink">
+                <button
+                  onClick={() => {
+                    if (featuredExpanded) setFeaturedExpanded(false);
+                    else setScreen("templates");
+                  }}
+                  className="text-[13px] text-ink-secondary hover:text-ink"
+                >
                   View all ›
                 </button>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {FEATURED.map((card) => (
+                {(featuredExpanded ? FEATURED : FEATURED_HOME).map((card) => (
                   <button
                     key={card.title}
                     onClick={() => void newLesson(card.title)}
                     className="group relative overflow-hidden rounded-2xl border border-hairline/35 bg-card p-4 text-left transition hover:border-hairline/60 hover:bg-raised/40"
                   >
-                    <div className="mb-8 text-2xl text-accent-text opacity-80">{card.icon}</div>
+                    <div className="mb-8 text-accent-text opacity-80">
+                      <card.Icon size={28} strokeWidth={1.75} />
+                    </div>
                     <div className="text-[15px] font-semibold text-ink">{card.title}</div>
                     <div className="mt-1 text-[12.5px] leading-relaxed text-ink-secondary">{card.detail}</div>
                   </button>
                 ))}
               </div>
+              {!featuredExpanded && (
+                <button
+                  type="button"
+                  onClick={() => setFeaturedExpanded(true)}
+                  className="mt-3 text-[13px] text-ink-secondary hover:text-ink"
+                >
+                  Show another row of templates
+                </button>
+              )}
             </section>
 
             <section className="mt-12">
@@ -735,18 +559,34 @@ function App() {
                   <span className="text-[14px]">Create new lesson</span>
                 </button>
                 {filtered.map((item) => (
-                  <div key={item.id} className="group relative flex min-h-[180px] flex-col rounded-2xl border border-hairline/35 bg-card p-4 transition hover:border-hairline/60 hover:bg-raised/30">
-                    <button
-                      type="button"
-                      className="absolute right-2 top-2 rounded-lg p-1.5 text-ink-secondary opacity-0 hover:bg-raised hover:text-ink group-hover:opacity-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDialog({ kind: "lesson-menu", id: item.id });
-                      }}
-                      aria-label="Lesson actions"
-                    >
-                      <MoreVertical size={16} />
-                    </button>
+                  <div
+                    key={item.id}
+                    className="group relative flex min-h-[180px] flex-col rounded-2xl border border-hairline/35 bg-card p-4 transition hover:border-hairline/60 hover:bg-raised/30"
+                    onDoubleClick={() => openLesson(item.id)}
+                  >
+                    <div className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+                      <OverflowMenu
+                        items={[
+                          { label: "Open", onClick: () => openLesson(item.id) },
+                          {
+                            label: "Rename",
+                            onClick: () => {
+                              setSelectedId(item.id);
+                              setRenameValue(item.title);
+                              setDialog({ kind: "rename", title: item.title });
+                            },
+                          },
+                          {
+                            label: "Delete",
+                            danger: true,
+                            onClick: () => {
+                              setSelectedId(item.id);
+                              setDialog({ kind: "delete" });
+                            },
+                          },
+                        ]}
+                      />
+                    </div>
                     <button type="button" className="flex flex-1 flex-col items-start text-left" onClick={() => openLesson(item.id)}>
                       <LessonGlyph title={item.title} size="lg" />
                       <div className="mt-auto w-full pt-6">
@@ -788,28 +628,31 @@ function App() {
                 </span>
               ) : null}
               <ModelPicker
-                provider={provider}
-                statuses={providerStatuses}
-                onSelectProvider={async (id) => {
-                  setProvider(id);
-                  await window.opennbLM.providers.select(id);
-                  await refreshProviders();
+                instances={engineInstances}
+                selection={modelSelection}
+                onSelect={async (next) => {
+                  setModelSelection(next);
+                  await window.opennbLM.engines.setSelection(next);
+                  await refreshEngines();
                 }}
-                onRefresh={refreshProviders}
-                onOpenSettings={() => setScreen("settings")}
+                onRefresh={refreshEngines}
               />
-              <button
-                onClick={() => {
-                  setRenameValue(selected.title);
-                  setDialog({ kind: "rename", title: selected.title });
-                }}
-                className="rounded-lg px-2 py-1.5 text-[12.5px] text-ink-secondary hover:bg-raised hover:text-ink"
-              >
-                Rename
-              </button>
-              <button onClick={() => setDialog({ kind: "delete" })} className="rounded-lg px-2 py-1.5 text-[12.5px] text-ink-secondary hover:bg-danger/15 hover:text-danger">
-                Delete
-              </button>
+              <OverflowMenu
+                items={[
+                  {
+                    label: "Rename",
+                    onClick: () => {
+                      setRenameValue(selected.title);
+                      setDialog({ kind: "rename", title: selected.title });
+                    },
+                  },
+                  {
+                    label: "Delete",
+                    danger: true,
+                    onClick: () => setDialog({ kind: "delete" }),
+                  },
+                ]}
+              />
             </div>
 
             <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-5">
@@ -822,7 +665,7 @@ function App() {
                       {selected.messageCount} messages · {formatDate(selected.updatedAt)}
                     </p>
                     <p className="mx-auto mt-3 max-w-md text-[13.5px] leading-relaxed text-ink-secondary">
-                      Ask anything. Pick the teaching brain above — Settings only stores keys, not the model for this lesson.
+                      Ask anything. Use Connect brain above to install or sign in to a teaching engine — Settings is for appearance and Rumik only.
                     </p>
                   </div>
                 )}
@@ -854,12 +697,12 @@ function App() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={onComposerKey}
-                    placeholder={currentProvider?.configured ? "Ask a question or create something" : "Connect a teaching brain in Settings first"}
+                    placeholder={brainReady ? "Ask a question or create something" : "Connect a teaching brain above first"}
                     className="max-h-[9rem] min-h-6 min-w-0 flex-1 resize-none self-center bg-transparent px-1.5 py-1 text-[15px] leading-6 text-ink placeholder:text-ink-secondary"
                   />
                   <div className="mb-0.5 flex items-center gap-1">
                     <span className="mr-1 hidden rounded-full bg-inset px-2 py-0.5 text-[11px] text-ink-secondary sm:inline">
-                      {currentProvider?.configured ? currentProvider.label : "No brain"}
+                      {brainReady ? activeEngine?.displayName ?? "Brain" : "No brain"}
                     </span>
                     <button
                       type="button"
@@ -965,7 +808,7 @@ function App() {
         </div>
       )}
 
-      {screen === "library" && (
+      {screen === "templates" && (
         <LibraryPage
           onBack={() => setScreen("home")}
           onStart={(title) => void newLesson(title)}
@@ -977,8 +820,6 @@ function App() {
       {screen === "settings" && (
         <SettingsPage
           onBack={() => setScreen("home")}
-          statuses={providerStatuses}
-          setStatuses={setProviderStatuses}
           voiceReady={voiceReady}
           isDark={isDark}
           setIsDark={setIsDark}
@@ -1057,48 +898,6 @@ function App() {
             </button>
             <button className="rounded-full px-3.5 py-2 text-[13px] text-ink-secondary hover:bg-raised" onClick={() => setDialog(null)}>
               Cancel
-            </button>
-          </div>
-        </DialogShell>
-      )}
-
-      {dialog?.kind === "lesson-menu" && (
-        <DialogShell onClose={() => setDialog(null)}>
-          <h2 className="text-[18px] font-semibold text-ink">Lesson</h2>
-          <div className="mt-3 grid gap-1">
-            <button
-              className="rounded-lg px-3 py-2.5 text-left text-[14px] text-ink hover:bg-raised"
-              onClick={() => {
-                const id = dialog.id;
-                setDialog(null);
-                openLesson(id);
-              }}
-            >
-              Open
-            </button>
-            <button
-              className="rounded-lg px-3 py-2.5 text-left text-[14px] text-ink hover:bg-raised"
-              onClick={() => {
-                const item = conversations.find((c) => c.id === dialog.id);
-                if (!item) return;
-                setSelectedId(item.id);
-                setRenameValue(item.title);
-                setDialog({ kind: "rename", title: item.title });
-              }}
-            >
-              Rename
-            </button>
-            <button
-              className="rounded-lg px-3 py-2.5 text-left text-[14px] text-danger hover:bg-danger/10"
-              onClick={async () => {
-                const id = dialog.id;
-                await window.opennbLM.conversations.delete(id);
-                setConversations((items) => items.filter((i) => i.id !== id));
-                if (selectedId === id) setSelectedId("");
-                setDialog(null);
-              }}
-            >
-              Delete
             </button>
           </div>
         </DialogShell>
@@ -1204,12 +1003,14 @@ function LibraryPage({ onBack, onStart }: { onBack: () => void; onStart: (title:
         <button onClick={onBack} className="mb-6 flex items-center gap-1.5 text-[13px] text-ink-secondary hover:text-ink">
           <ArrowLeft size={15} /> Home
         </button>
-        <h1 className="text-[28px] font-semibold tracking-[-0.02em] text-ink">Library</h1>
+        <h1 className="text-[28px] font-semibold tracking-[-0.02em] text-ink">All templates</h1>
         <p className="mt-2 text-[13.5px] text-ink-secondary">Starter paths — each opens a new lesson.</p>
         <div className="mt-8 divide-y divide-hairline/35 overflow-hidden rounded-2xl border border-hairline/40 bg-card">
           {FEATURED.map((row) => (
             <button key={row.title} onClick={() => onStart(row.title)} className="flex w-full items-center gap-4 px-4 py-4 text-left hover:bg-raised/40">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-inset text-lg text-accent-text">{row.icon}</span>
+              <span className="flex size-10 items-center justify-center rounded-xl bg-inset text-accent-text">
+                <row.Icon size={20} strokeWidth={1.75} />
+              </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[14px] font-medium text-ink">{row.title}</span>
                 <span className="block text-[12.5px] text-ink-secondary">{row.detail}</span>
@@ -1303,143 +1104,30 @@ function MemoryPage({ onBack, onRequestClear }: { onBack: () => void; onRequestC
   );
 }
 
-/** Settings = connect engines + app prefs. Model choice lives in the lesson chat picker. */
+/** Settings = app prefs only. Engines connect inside the lesson model picker. */
 function SettingsPage({
   onBack,
-  statuses,
-  setStatuses,
   voiceReady,
   isDark,
   setIsDark,
 }: {
   onBack: () => void;
-  statuses: ProviderStatus[];
-  setStatuses: (v: ProviderStatus[]) => void;
   voiceReady: boolean;
   isDark: boolean;
   setIsDark: (v: boolean) => void;
 }) {
-  const [focusId, setFocusId] = useState<ProviderId>(statuses.find((s) => !s.configured)?.id ?? statuses[0]?.id ?? "openai");
-  const [keyInput, setKeyInput] = useState("");
-  const [endpoint, setEndpoint] = useState("");
-  const [message, setMessage] = useState("");
-
-  async function refresh() {
-    setStatuses(await window.opennbLM.providers.list());
-  }
-
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-3xl px-6 py-8">
+      <div className="mx-auto max-w-2xl px-6 py-8">
         <button onClick={onBack} className="mb-6 flex items-center gap-1.5 text-[13px] text-ink-secondary hover:text-ink">
           <ArrowLeft size={15} /> Home
         </button>
-        <h1 className="text-[28px] font-semibold tracking-[-0.02em] text-ink">Settings</h1>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-secondary">
-          Connect teaching engines here. Choose which model to use inside each lesson — like OpenClaw, unconfigured engines ask for setup instead of pretending they work.
-        </p>
-
-        <div className="mt-8 grid gap-4">
-          {statuses.map((item) => {
-            const open = focusId === item.id;
-            return (
-              <div key={item.id} className="overflow-hidden rounded-2xl border border-hairline/40 bg-card">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFocusId(item.id);
-                    setMessage("");
-                    setKeyInput("");
-                  }}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-raised/30"
-                >
-                  <div>
-                    <div className="text-[15px] font-medium text-ink">{item.label}</div>
-                    <div className="text-[12px] text-ink-secondary">{item.configured ? `Connected · default ${item.model}` : "Not connected"}</div>
-                  </div>
-                  <span className={cn("rounded-full border px-2.5 py-1 text-[11.5px]", item.configured ? "border-success/30 text-success" : "border-warning/30 text-warning")}>
-                    {item.configured ? "Ready" : "Setup"}
-                  </span>
-                </button>
-                {open && (
-                  <div className="border-t border-hairline/30 px-4 py-4">
-                    {item.id === "ollama" ? (
-                      <p className="text-[13px] text-ink-secondary">Ollama uses your local runtime at 127.0.0.1. No API key needed.</p>
-                    ) : (
-                      <label className="block text-[12px] text-ink-secondary">
-                        API key
-                        <input
-                          type="password"
-                          autoComplete="off"
-                          className="mt-1.5 w-full rounded-lg border border-hairline/40 bg-inset px-3 py-2.5 text-[13.5px] text-ink"
-                          value={focusId === item.id ? keyInput : ""}
-                          onChange={(e) => setKeyInput(e.target.value)}
-                          placeholder={item.configured ? "Enter a replacement key" : "Paste your API key"}
-                        />
-                      </label>
-                    )}
-                    {item.id === "custom" && (
-                      <label className="mt-3 block text-[12px] text-ink-secondary">
-                        Endpoint
-                        <input
-                          className="mt-1.5 w-full rounded-lg border border-hairline/40 bg-inset px-3 py-2.5 text-[13.5px] text-ink"
-                          value={endpoint}
-                          onChange={(e) => setEndpoint(e.target.value)}
-                          onBlur={async () => {
-                            if (endpoint.trim()) await window.opennbLM.providers.setEndpoint("custom", endpoint);
-                          }}
-                          placeholder="http://127.0.0.1:8080/v1"
-                        />
-                      </label>
-                    )}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {item.id !== "ollama" && (
-                        <button
-                          className="rounded-full bg-accent px-3.5 py-2 text-[13px] font-medium text-white hover:brightness-110"
-                          onClick={async () => {
-                            if (!keyInput.trim()) return;
-                            await window.opennbLM.providers.saveKey(item.id, keyInput);
-                            setKeyInput("");
-                            setMessage("Saved securely");
-                            await refresh();
-                          }}
-                        >
-                          {item.configured ? "Replace key" : "Add key"}
-                        </button>
-                      )}
-                      <button
-                        className="rounded-full border border-hairline/40 bg-raised px-3.5 py-2 text-[13px] text-ink hover:bg-raised-hover"
-                        onClick={async () => {
-                          setMessage("Testing…");
-                          const result = await window.opennbLM.providers.test(item.id);
-                          setStatuses(statuses.map((s) => (s.id === item.id ? result : s)));
-                          setMessage(result.connection === "connected" ? "Connected" : result.error ?? "Failed");
-                        }}
-                      >
-                        Test connection
-                      </button>
-                      {item.configured && item.id !== "ollama" && (
-                        <button
-                          className="rounded-full px-3 py-2 text-[13px] text-ink-secondary hover:text-danger"
-                          onClick={async () => {
-                            await window.opennbLM.providers.removeKey(item.id);
-                            await refresh();
-                            setMessage("Key removed");
-                          }}
-                        >
-                          Remove key
-                        </button>
-                      )}
-                      {message && focusId === item.id && <span className="self-center text-[12px] text-accent-text">{message}</span>}
-                    </div>
-                    <p className="mt-3 text-[12px] leading-relaxed text-ink-secondary">
-                      After connecting, pick this engine’s model from the lesson chat header — not here.
-                    </p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div className="flex items-center gap-3">
+          <img src="./icon.png" alt="" width={40} height={40} className="size-10 rounded-xl" draggable={false} />
+          <div>
+            <h1 className="text-[28px] font-semibold tracking-[-0.02em] text-ink">Settings</h1>
+            <p className="text-[13.5px] text-ink-secondary">Appearance and Rumik. Engines are managed in a lesson via Connect brain.</p>
+          </div>
         </div>
 
         <div className="mt-8 divide-y divide-hairline/35 overflow-hidden rounded-2xl border border-hairline/40 bg-card">
@@ -1463,7 +1151,7 @@ function SettingsPage({
             </span>
           </div>
           <div className="px-5 py-4 text-[12.5px] leading-relaxed text-ink-secondary">
-            Your workspace is this machine: lessons, memory, and keys stay local. There is no separate “workspace settings” page.
+            Lessons and learner memory stay on this machine. Open a lesson and use Connect brain to install or sign in to a teaching engine.
           </div>
         </div>
       </div>
