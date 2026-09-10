@@ -546,3 +546,4 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - `pnpm typecheck` — passed.
 - Renderer `tsc --noEmit` after provider icon import — passed.
 - Engine-runtime live discovery smoke test on this machine: OpenCode returned 31 account models; Codex app-server returned 3 subscription models (`gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`) — not the old static list.
+- Fixed Antigravity discovery: was parsing `agy` help flags as models; now uses `agy models` tab rows only (14 live models verified).

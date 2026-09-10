@@ -110,18 +110,41 @@ function extrasFromUnknown(value: unknown): ModelOption[] {
   });
 }
 
-/** Parse plain CLI model lists: `id`, `id - Label`, `(default)` markers. */
+/** Parse plain CLI model lists: `id`, `id\tLabel`, `id - Label`, `(default)` markers. */
 export function decodePlainModelText(text: string): ModelCatalog | null {
   const options: ModelOption[] = [];
   const seen = new Set<string>();
   let markedDefault: string | undefined;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
-    if (!line || line.startsWith("#") || /^available\s+models?\b/i.test(line) || /^models?\b/i.test(line)) continue;
-    const stripped = line.replace(/^[\s*•\-]+\s*/, "");
-    const parts = stripped.split(/\s+[—–|:]\s+|\s+-\s+|\s{2,}/);
-    let id = (parts[0] ?? "").trim();
-    let rawLabel = parts.slice(1).join(" ").trim();
+    if (!line || line.startsWith("#")) continue;
+    // Skip help / usage banners and flag documentation (never model rows).
+    if (
+      /^usage\b/i.test(line) ||
+      /^available\s+(sub)?commands?\b/i.test(line) ||
+      /^available\s+models?\b/i.test(line) ||
+      /^fetching\b/i.test(line) ||
+      /^models?\b/i.test(line) ||
+      /^--?[a-z]/i.test(line)
+    ) {
+      continue;
+    }
+    // Bullets only — do not strip leading `--flags` into fake ids.
+    const stripped = line.replace(/^[*•]\s+/, "").replace(/^-\s+/, "");
+    if (/^--?[a-z]/i.test(stripped)) continue;
+
+    let id = "";
+    let rawLabel = "";
+    const tab = stripped.indexOf("\t");
+    if (tab > 0) {
+      id = stripped.slice(0, tab).trim();
+      rawLabel = stripped.slice(tab + 1).trim();
+    } else {
+      const parts = stripped.split(/\s+[—–|:]\s+|\s+-\s+|\s{2,}/);
+      id = (parts[0] ?? "").trim();
+      rawLabel = parts.slice(1).join(" ").trim();
+    }
+
     let isDefault = false;
     const defaultMatch = rawLabel.match(/\s*\(default\)\s*$/i);
     if (defaultMatch) {
@@ -129,6 +152,10 @@ export function decodePlainModelText(text: string): ModelCatalog | null {
       rawLabel = rawLabel.slice(0, defaultMatch.index).trim();
     }
     if (!MODEL_ID.test(id)) continue;
+    // Reject help-ish "ids" that are clearly CLI option names without model shape.
+    if (/^(add-dir|agent|continue|conversation|effort|json-schema|log-file|mode|model|print|prompt|sandbox|project)$/i.test(id)) {
+      continue;
+    }
     if (seen.has(id)) continue;
     seen.add(id);
     options.push({ id, label: rawLabel || id });
@@ -140,12 +167,17 @@ export function decodePlainModelText(text: string): ModelCatalog | null {
 
 async function tryCliModelList(cli: string, argSets: string[][]): Promise<ModelCatalog | null> {
   for (const args of argSets) {
-    const probe = await runCli(cli, args, { timeout: 12_000 });
-    const text = `${probe.stdout}\n${probe.stderr}`;
-    if (!text.trim()) continue;
-    const fromText = decodePlainModelText(probe.stdout || text);
+    const probe = await runCli(cli, args, { timeout: 20_000 });
+    // Prefer stdout; stderr often carries progress ("Fetching…") or usage dumps.
+    const primary = probe.stdout.trim() ? probe.stdout : probe.stderr;
+    if (!primary.trim()) continue;
+    if (/^usage of\b/i.test(primary.trim()) || /\n\s*--[a-z]/i.test(primary)) {
+      // Help text — not a model catalog.
+      continue;
+    }
+    const fromText = decodePlainModelText(primary);
     if (fromText) return fromText;
-    const json = firstJsonValue(probe.stdout || text);
+    const json = firstJsonValue(primary);
     const rec = asRecord(json);
     if (rec) {
       const rows =
@@ -649,6 +681,7 @@ export function readAntigravityConfiguredModels(env: NodeJS.ProcessEnv = process
     ...extrasFromUnknown(settings.customModels),
     ...extrasFromUnknown(settings.extraModels),
     ...extrasFromUnknown(settings.models),
+    ...extrasFromUnknown(settings.model ? [settings.model] : []),
   ];
   const seen = new Set<string>();
   const options = extras.filter((option) => {
@@ -660,7 +693,9 @@ export function readAntigravityConfiguredModels(env: NodeJS.ProcessEnv = process
 }
 
 export async function discoverAntigravityModels(cli: string): Promise<ModelCatalog> {
-  const live = await tryCliModelList(cli, [["models"], ["model", "list"], ["--list-models"]]);
+  // `agy models` prints `id\tLabel` rows. Do not probe `--list-models` / help-like
+  // flags — those dump Usage text that used to be mistaken for a catalog.
+  const live = await tryCliModelList(cli, [["models"]]);
   if (live?.options.length) return live;
   return readAntigravityConfiguredModels();
 }
