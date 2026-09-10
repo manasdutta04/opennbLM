@@ -27,6 +27,11 @@ function createWindow(): void {
 app.whenReady().then(() => {
   services = createLocalServices(app.getPath("userData"));
   ipcMain.handle("app:info", () => ({ name: "opennbLM", version: app.getVersion() }));
+  ipcMain.handle("conversations:list", (_event, search?: string) => services!.memory.listConversations(search));
+  ipcMain.handle("conversations:create", (_event, input) => services!.memory.createConversation(input));
+  ipcMain.handle("conversations:rename", (_event, id: string, title: string) => services!.memory.renameConversation(id, title));
+  ipcMain.handle("conversations:add-message", (_event, input) => services!.memory.addMessage(input));
+  ipcMain.handle("conversations:delete", (_event, id: string) => services!.memory.deleteConversation(id));
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });

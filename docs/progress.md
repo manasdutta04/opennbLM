@@ -37,6 +37,37 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - No Rumik binary, model, sidecar, or audio playback.
 - Native installer/DMG builds are configuration-only until packaging is tested on target environments.
 
+## Local conversations — 2026-09-10
+
+### Completed
+
+- Added conversation and message contracts with learning topic, optional learner metadata, audio references, and teaching metadata.
+- Added a small SQLite repository owned by local-services, stored under Electron `userData` as `opennblm.sqlite`.
+- Added typed preload/main IPC for list/search, create, rename, add message, and delete operations.
+- Replaced renderer-only mock conversation loading with persisted conversation loading and sidebar search.
+- Added persisted new lesson creation, message writes for user and mock assistant replies, rename/delete controls, and an empty state.
+- Added placeholder automatic title generation via `Untitled lesson`.
+- Confirmed API keys are not part of conversation or message records.
+
+### Architecture decisions
+
+- Use two SQLite tables (`conversations`, `messages`) with a foreign-key cascade; avoid premature schema for full memory semantics.
+- Use the runtime `node:sqlite` API instead of adding a native SQLite addon in this phase.
+- Keep all database access in local-services/memory and expose only typed IPC methods to the renderer.
+
+### Verification
+
+- `pnpm install --no-frozen-lockfile` — passed after workspace dependency metadata changes.
+- `pnpm build` — passed; contracts, memory, local services, renderer, preload, and desktop compiled.
+- Direct SQLite restart test — passed: created a conversation, added two messages, closed the store, reopened it, searched it, and verified both messages remained.
+
+### Known limitations / not implemented
+
+- SQLite uses an experimental runtime API and must be verified against the packaged Electron runtime.
+- The automatic title is a placeholder; no LLM title generation exists.
+- Credential storage is not implemented; provider secrets remain future secure-storage work.
+- The UI uses browser `prompt`/`confirm` for rename/delete and should gain native-feeling dialogs later.
+
 ## Desktop shell — 2026-09-10
 
 ### Completed
@@ -61,7 +92,7 @@ Not run: interactive Electron startup smoke test and completed native installer/
 
 ### Known limitations / not implemented
 
-- Conversation data is mock/in-memory and resets on reload.
+- Conversation responses remain mock text, but conversation and message records now persist in SQLite.
 - Send responses are mock text; no LLM provider is called.
 - Microphone, attachment, Listen, Copy, and More controls are shell affordances only.
 - Rumik is represented visually but has no runtime, sidecar, or audio output.

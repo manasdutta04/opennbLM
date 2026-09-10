@@ -1,2 +1,21 @@
-export interface MemoryStore { readonly databasePath: string; close(): void; }
-export function createMemoryStore(databasePath: string): MemoryStore { return { databasePath, close() {} }; }
+import { DatabaseSync } from "node:sqlite";
+import { randomUUID } from "node:crypto";
+import type { AddMessageInput, Conversation, ConversationMessage, CreateConversationInput } from "@opennblm/contracts";
+
+export interface MemoryStore { readonly databasePath: string; listConversations(search?: string): Conversation[]; createConversation(input?: CreateConversationInput): Conversation; renameConversation(id: string, title: string): Conversation; addMessage(input: AddMessageInput): ConversationMessage; deleteConversation(id: string): void; close(): void; }
+
+export function createMemoryStore(databasePath: string): MemoryStore {
+  const db = new DatabaseSync(databasePath);
+  db.exec("PRAGMA journal_mode = WAL");
+  db.exec(`CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, learning_topic TEXT NOT NULL, subject TEXT, language TEXT, learner_context TEXT); CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, role TEXT NOT NULL, text TEXT NOT NULL, timestamp TEXT NOT NULL, audio_reference TEXT, teaching_metadata TEXT); CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at DESC); CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);`);
+  db.exec("PRAGMA foreign_keys = ON");
+  const map = (row: any): Conversation => ({ id: row.id, title: row.title, createdAt: row.created_at, updatedAt: row.updated_at, learningTopic: row.learning_topic, subject: row.subject ?? undefined, language: row.language ?? undefined, learnerContext: row.learner_context ?? undefined, messages: db.prepare("SELECT * FROM messages WHERE conversation_id = ? ORDER BY timestamp ASC").all(row.id).map((message: any) => ({ id: message.id, conversationId: message.conversation_id, role: message.role, text: message.text, timestamp: message.timestamp, audioReference: message.audio_reference ?? undefined, teachingMetadata: message.teaching_metadata ? JSON.parse(message.teaching_metadata) : undefined })) });
+  const now = () => new Date().toISOString();
+  return { databasePath,
+    listConversations(search) { const rows = search?.trim() ? db.prepare("SELECT * FROM conversations WHERE title LIKE ? OR learning_topic LIKE ? ORDER BY updated_at DESC").all(`%${search.trim()}%`, `%${search.trim()}%`) : db.prepare("SELECT * FROM conversations ORDER BY updated_at DESC").all(); return rows.map(map); },
+    createConversation(input = {}) { const timestamp = now(); const row = { id: randomUUID(), title: input.title?.trim() || "Untitled lesson", created_at: timestamp, updated_at: timestamp, learning_topic: input.learningTopic?.trim() || "Open exploration", subject: input.subject ?? null, language: input.language ?? null, learner_context: input.learnerContext ?? null }; db.prepare("INSERT INTO conversations (id,title,created_at,updated_at,learning_topic,subject,language,learner_context) VALUES (@id,@title,@created_at,@updated_at,@learning_topic,@subject,@language,@learner_context)").run(row); return map(db.prepare("SELECT * FROM conversations WHERE id = ?").get(row.id)); },
+    renameConversation(id, title) { const clean = title.trim(); if (!clean) throw new Error("Conversation title cannot be empty"); const result = db.prepare("UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?").run(clean, now(), id); if (!result.changes) throw new Error("Conversation not found"); return map(db.prepare("SELECT * FROM conversations WHERE id = ?").get(id)); },
+    addMessage(input) { const timestamp = now(); const id = randomUUID(); const exists = db.prepare("SELECT id FROM conversations WHERE id = ?").get(input.conversationId); if (!exists) throw new Error("Conversation not found"); db.prepare("INSERT INTO messages (id,conversation_id,role,text,timestamp,audio_reference,teaching_metadata) VALUES (?,?,?,?,?,?,?)").run(id, input.conversationId, input.role, input.text, timestamp, input.audioReference ?? null, input.teachingMetadata ? JSON.stringify(input.teachingMetadata) : null); db.prepare("UPDATE conversations SET updated_at = ? WHERE id = ?").run(timestamp, input.conversationId); return { id, conversationId: input.conversationId, role: input.role, text: input.text, timestamp, audioReference: input.audioReference, teachingMetadata: input.teachingMetadata }; },
+    deleteConversation(id) { db.prepare("DELETE FROM conversations WHERE id = ?").run(id); }, close() { db.close(); }
+  };
+}

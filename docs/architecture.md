@@ -14,4 +14,6 @@ UI depends on contracts through preload. Main depends on local services and cont
 
 ## Current status
 
-The renderer currently owns only temporary shell state and mock lesson data. Navigation and composer behavior are intentionally local until conversation orchestration and persistence are implemented behind the main/local-services boundary.
+The renderer requests conversation data through preload IPC. `@opennblm/local-services` owns the database lifecycle and delegates the SQLite repository to `@opennblm/memory`; the renderer never opens SQLite. Conversation records intentionally contain learning metadata and messages only—credentials are outside this model.
+
+SQLite currently uses the runtime's `node:sqlite` `DatabaseSync` API, with WAL mode, foreign keys, and a small two-table schema. This avoids an additional native addon in the foundation and keeps storage local to Electron's user-data directory.
