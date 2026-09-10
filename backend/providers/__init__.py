@@ -1,1 +1,0 @@
-"""Provider abstractions and adapters."""

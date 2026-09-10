@@ -1,1 +1,0 @@
-"""Structured teaching-plan domain."""
