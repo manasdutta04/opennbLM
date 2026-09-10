@@ -126,3 +126,33 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - Microphone, attachment, Listen, Copy, and More controls are shell affordances only.
 - Rumik is represented visually but has no runtime, sidecar, or audio output.
 - Interactive navigation and resize behavior were implemented in code but could not be visually exercised in an interactive Electron window because the launch smoke test failed in this environment.
+
+## Rumik voice subsystem — 2026-09-10
+
+### Completed
+
+- Added `RumikManager` with runtime/model detection, status, start, stop, health check, synthesis, cancellation, and supported-speaker discovery.
+- Added secure main/preload IPC for Rumik controls; no raw child process is exposed to the renderer.
+- Added the official Transformers-based development runner using `generate_audio`, Mimi decoding, and WAV output rather than reimplementing Rumik.
+- Added sentence-aware segmentation and sequential per-segment synthesis jobs to respect the documented long-form limitation.
+- Added speaker, temperature, top-k, max-token, delivery-description, and language configuration.
+- Added `NOTICE.rumik.md` with model source, license, attribution, and redistribution requirements.
+
+### Architecture decisions
+
+- Model reference is `rumik-ai/rumik-oss-1`; revision defaults to `main` and is overrideable through `RUMIK_MODEL_REVISION`.
+- The manager requires a local model path (`RUMIK_MODEL_PATH` or the app user-data model directory) and does not silently download weights.
+- CPU inference is rejected; the official model card requires an NVIDIA CUDA-capable environment for the development path.
+
+### Verification
+
+- `pnpm build` — passed after the Rumik manager, IPC, and runner integration.
+- Runtime manager smoke test — passed for Python detection, model absence reporting, speaker list, and sentence segmentation.
+- Actual synthesis — not run; no local Rumik model snapshot and CUDA inference environment were available. No Rumik audio success is claimed.
+
+### Known limitations / not implemented
+
+- No model weights are bundled or downloaded automatically.
+- No target-environment CUDA/Python packaging yet.
+- Renderer audio playback queue is not connected; the manager currently produces ordered WAV paths for future playback integration.
+- No immutable model commit was used for a verified synthesis; the configured revision remains `main`.

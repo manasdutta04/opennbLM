@@ -6,6 +6,8 @@ files:
   - apps/desktop/dist/**/*
   - apps/renderer/dist/**/*
   - packages/*/dist/**/*
+  - packages/rumik-runtime/runtime/**/*
+  - packages/rumik-runtime/NOTICE.rumik.md
   - package.json
 win:
   target:

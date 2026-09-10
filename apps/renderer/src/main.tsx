@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 type View = "lesson" | "library" | "memory" | "settings";
-type VoiceState = "idle" | "listening" | "thinking" | "speaking";
+type VoiceState = "idle" | "preparing" | "listening" | "thinking" | "speaking" | "paused" | "error";
 type Message = { id: string; role: "user" | "assistant"; text: string; time?: string };
 type Conversation = { id: string; title: string; meta: string; active?: boolean; unread?: boolean; messages: Message[] };
 const initialConversations: Conversation[] = [
@@ -31,7 +31,7 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
 
 function App() {
   const [view, setView] = useState<View>("lesson"); const [conversations, setConversations] = useState<Conversation[]>([]); const [selectedId, setSelectedId] = useState(""); const [voice, setVoice] = useState<VoiceState>("idle"); const [input, setInput] = useState(""); const [search, setSearch] = useState(""); const [isDark, setIsDark] = useState(true); const [provider, setProvider] = useState<ProviderId>("openai"); const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([]); const [isSpeaking, setIsSpeaking] = useState(false);
-  const selected = conversations.find((item) => item.id === selectedId) ?? conversations[0]; const voiceLabel = useMemo(() => ({ idle: "Ready when you are", listening: "Listening", thinking: "Thinking", speaking: "Speaking" }[voice]), [voice]);
+  const selected = conversations.find((item) => item.id === selectedId) ?? conversations[0]; const voiceLabel = useMemo(() => ({ idle: "Ready when you are", preparing: "Preparing", listening: "Listening", thinking: "Thinking", speaking: "Speaking", paused: "Paused", error: "Voice unavailable" }[voice]), [voice]);
   useEffect(() => { document.documentElement.dataset.theme = isDark ? "dark" : "light"; }, [isDark]);
   useEffect(() => { window.opennbLM?.conversations.list(search).then((items) => { const next = items.map(toShellConversation); setConversations(next); setSelectedId((current) => current && next.some((item) => item.id === current) ? current : next[0]?.id ?? ""); }); }, [search]);
   useEffect(() => { window.opennbLM?.providers.list().then(setProviderStatuses); }, []);

@@ -12,6 +12,7 @@
     "@opennblm/contracts": "workspace:*",
     "@opennblm/local-services": "workspace:*",
     "@opennblm/llm-providers": "workspace:*",
+    "@opennblm/rumik-runtime": "workspace:*",
     "@opennblm/memory": "workspace:*",
     "electron": "^34.3.3"
   }

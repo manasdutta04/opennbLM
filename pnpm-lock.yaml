@@ -35,6 +35,9 @@ importers:
       '@opennblm/memory':
         specifier: workspace:*
         version: link:../../packages/memory
+      '@opennblm/rumik-runtime':
+        specifier: workspace:*
+        version: link:../../packages/rumik-runtime
       electron:
         specifier: ^34.3.3
         version: 34.5.8

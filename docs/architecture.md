@@ -19,3 +19,5 @@ The renderer requests conversation data through preload IPC. `@opennblm/local-se
 SQLite currently uses the runtime's `node:sqlite` `DatabaseSync` API, with WAL mode, foreign keys, and a small two-table schema. This avoids an additional native addon in the foundation and keeps storage local to Electron's user-data directory.
 
 The brain provider manager lives in Electron main. It loads encrypted provider keys through OS-backed `safeStorage`, keeps provider/model preferences separate from conversations, and constructs an abstract `LLMProvider` for future teaching orchestration. The renderer receives provider status and models through preload but never receives raw credentials.
+
+Rumik follows a parallel main-process boundary: Electron main owns `RumikManager`, which owns the local Python/official-Transformers runtime and WAV output. Rumik status and commands cross preload as sanitized typed IPC only; the renderer cannot spawn or inspect the runtime process.
