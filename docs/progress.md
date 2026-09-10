@@ -68,6 +68,35 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - Credential storage is not implemented; provider secrets remain future secure-storage work.
 - The UI uses browser `prompt`/`confirm` for rename/delete and should gain native-feeling dialogs later.
 
+## Brain providers — 2026-09-10
+
+### Completed
+
+- Added the `LLMProvider` abstraction with chat, streaming, structured output, model listing, and health-check capabilities.
+- Implemented Groq, OpenAI, OpenRouter, Ollama, and Custom through an OpenAI-compatible adapter, plus a native Gemini adapter.
+- Added main-process provider management with model preferences, connection tests, Ollama local detection, and custom endpoint support.
+- Added Electron `safeStorage` credential handling for add, replace, remove, and configured-state reporting.
+- Added a provider rail/settings UX with model selection, connection status, secure key entry, and no-secret renderer state.
+- Updated teaching-engine contracts so the engine receives an abstract `LLMProvider` rather than a concrete vendor.
+
+### Architecture decisions
+
+- Provider keys never enter SQLite, conversation records, renderer state, URLs, or logs.
+- Provider status and model lists cross the secure preload bridge; raw keys do not.
+- Rumik remains a fixed, separate voice layer and is not touched by provider selection.
+
+### Verification
+
+- `pnpm build` — passed after provider implementation.
+- Mock provider test — passed for all six provider ids, including OpenAI-compatible chat/health calls and Gemini response parsing.
+
+### Known limitations / not implemented
+
+- Provider settings preferences are local JSON; secure key storage depends on Electron `safeStorage` availability in the packaged runtime.
+- Streaming is implemented for OpenAI-compatible SSE responses; Gemini currently yields the completed response as one chunk.
+- No live credentials were used; connection tests require user-configured providers.
+- Teaching conversations still use mock assistant responses; the provider abstraction is ready but not yet connected to the teaching flow.
+
 ## Desktop shell — 2026-09-10
 
 ### Completed

@@ -26,6 +26,9 @@ importers:
       '@opennblm/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@opennblm/llm-providers':
+        specifier: workspace:*
+        version: link:../../packages/llm-providers
       '@opennblm/local-services':
         specifier: workspace:*
         version: link:../../packages/local-services
@@ -91,7 +94,11 @@ importers:
 
   packages/rumik-runtime: {}
 
-  packages/teaching-engine: {}
+  packages/teaching-engine:
+    dependencies:
+      '@opennblm/llm-providers':
+        specifier: workspace:*
+        version: link:../llm-providers
 
 packages:
 

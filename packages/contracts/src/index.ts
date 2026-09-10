@@ -14,5 +14,5 @@ export interface ConversationApi {
 }
 export type ProviderId = "groq" | "openai" | "gemini" | "openrouter" | "ollama" | "custom";
 export interface ProviderStatus { id: ProviderId; label: string; configured: boolean; model: string; connection: "unknown" | "connected" | "error"; error?: string; }
-export interface ProviderSettingsApi { list(): Promise<ProviderStatus[]>; saveKey(id: ProviderId, key: string): Promise<void>; removeKey(id: ProviderId): Promise<void>; setModel(id: ProviderId, model: string): Promise<void>; test(id: ProviderId): Promise<ProviderStatus>; models(id: ProviderId): Promise<string[]>; }
+export interface ProviderSettingsApi { list(): Promise<ProviderStatus[]>; saveKey(id: ProviderId, key: string): Promise<void>; removeKey(id: ProviderId): Promise<void>; setModel(id: ProviderId, model: string): Promise<void>; setEndpoint(id: ProviderId, endpoint: string): Promise<void>; test(id: ProviderId): Promise<ProviderStatus>; models(id: ProviderId): Promise<string[]>; }
 export interface PreloadApi { getAppInfo(): Promise<AppInfo>; conversations: ConversationApi; providers: ProviderSettingsApi; }

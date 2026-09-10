@@ -1,9 +1,11 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
 import { createLocalServices } from "@opennblm/local-services";
+import { ProviderManager } from "./provider-manager.js";
 
 let mainWindow: BrowserWindow | undefined;
 let services: ReturnType<typeof createLocalServices> | undefined;
+let providers: ProviderManager | undefined;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -26,12 +28,20 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   services = createLocalServices(app.getPath("userData"));
+  providers = new ProviderManager(app.getPath("userData"));
   ipcMain.handle("app:info", () => ({ name: "opennbLM", version: app.getVersion() }));
   ipcMain.handle("conversations:list", (_event, search?: string) => services!.memory.listConversations(search));
   ipcMain.handle("conversations:create", (_event, input) => services!.memory.createConversation(input));
   ipcMain.handle("conversations:rename", (_event, id: string, title: string) => services!.memory.renameConversation(id, title));
   ipcMain.handle("conversations:add-message", (_event, input) => services!.memory.addMessage(input));
   ipcMain.handle("conversations:delete", (_event, id: string) => services!.memory.deleteConversation(id));
+  ipcMain.handle("providers:list", () => providers!.list());
+  ipcMain.handle("providers:save-key", (_event, id, key) => providers!.saveKey(id, key));
+  ipcMain.handle("providers:remove-key", (_event, id) => providers!.removeKey(id));
+  ipcMain.handle("providers:set-model", (_event, id, model) => providers!.setModel(id, model));
+  ipcMain.handle("providers:set-endpoint", (_event, id, endpoint) => providers!.setEndpoint(id, endpoint));
+  ipcMain.handle("providers:test", (_event, id) => providers!.test(id));
+  ipcMain.handle("providers:models", (_event, id) => providers!.models(id));
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
