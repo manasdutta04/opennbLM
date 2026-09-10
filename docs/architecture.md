@@ -14,4 +14,4 @@ UI depends on contracts through preload. Main depends on local services and cont
 
 ## Current status
 
-This phase provides interfaces and startup scaffolding only. No conversation orchestration, provider adapter, SQLite driver, teaching behavior, or Rumik process is implemented.
+The renderer currently owns only temporary shell state and mock lesson data. Navigation and composer behavior are intentionally local until conversation orchestration and persistence are implemented behind the main/local-services boundary.

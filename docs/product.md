@@ -6,4 +6,4 @@ The product is desktop-first and local-first, with persistent local conversation
 
 OpenMausBot is product interaction inspiration only. Its source, branding, assets, mascot, and implementation are not used.
 
-The current foundation intentionally does not implement chat, learning flows, memory behavior, or voice playback.
+The desktop shell now provides the conversation-first information architecture with local mock lesson data, navigation, composer interactions, voice-state visuals, and provider/theme settings. It still does not connect to an LLM, persist to SQLite, or play Rumik audio.
