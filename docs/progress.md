@@ -382,6 +382,25 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - `pnpm package:win` — passed; final unsigned Windows installer rebuilt at `release/opennbLM-0.1.0-win-x64.exe`.
 - Final unpacked Windows launch — running with process ID `24456` and a real window handle.
 
+## Conversational desktop UI refinement — 2026-09-10
+
+### Completed
+
+- Refined the renderer into a denser roster-and-thread workspace: persistent lesson roster, clearer active state, compact navigation, calmer chat rhythm, stronger voice focus, and more tactile composer/transport controls.
+- Added an original opennbLM visual direction with a restrained moss/lime accent, dark workspace surfaces, tighter desktop spacing, and improved light-theme tokens.
+- Removed the default Electron application menu for the Windows desktop shell; the renderer remains responsible for in-app navigation and settings.
+- Preserved the existing conversation, provider, memory, teaching, Rumik, and IPC behavior while changing presentation styles only.
+
+### Verification
+
+- `pnpm check` — passed.
+- `pnpm package:dir` — passed.
+- Updated packaged Windows launch — passed; process ID `7432` remained alive after eight seconds with a real window handle.
+
+### Known limitation
+
+- The NSIS installer should be rebuilt from this UI revision with `pnpm package:win` before distribution; the unpacked packaged build is the one currently running.
+
 ## Renderer packaged asset fix — 2026-09-10
 
 ### Completed

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, Menu } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync, writeFileSync } from "node:fs";
@@ -13,6 +13,8 @@ import type { TeachingStyle } from "@opennblm/teaching-engine";
 import type { LearnerMemory } from "@opennblm/contracts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+Menu.setApplicationMenu(null);
 
 let mainWindow: BrowserWindow | undefined;
 let services: Awaited<ReturnType<typeof createLocalServices>> | undefined;
