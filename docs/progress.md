@@ -185,6 +185,27 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - Delivery planning is deterministic and currently defaults to Ira; user voice preferences will be connected later.
 - Learner feedback and memory updates are not yet implemented.
 
+## Say it differently — 2026-09-10
+
+### Completed
+
+- Added semantic teaching styles: Teacher, Friend, 10-year-old, Story, Simple, Technical, and Hype.
+- Added a contextual “Didn't click?” action on assistant explanations with a compact inline style menu.
+- Style selection creates a new TeachingPlan and DeliveryPlan using the current explanation as reference context.
+- New style responses are appended as new assistant messages; existing conversation history is not regenerated.
+- Style-specific vocabulary, structure, examples, pace, tone, energy, pauses, and Rumik delivery instructions are generated in the Teaching Engine.
+- Added style-aware Rumik synthesis through the existing teaching-to-voice pipeline.
+
+### Verification
+
+- `pnpm build` — passed.
+- `pnpm --filter @opennblm/teaching-engine test` — passed, 4/4 tests.
+
+### Known limitations
+
+- Language variants are not yet exposed in the contextual menu; the API already carries language for future variants.
+- Style responses depend on the selected provider; fallback remains available if structured output fails.
+
 ## Teaching → Rumik integration — 2026-09-10
 
 ### Completed

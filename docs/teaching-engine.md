@@ -14,6 +14,12 @@ The validated plan contains topic, learner level, objective, key concepts, progr
 
 The engine supports beginner, intermediate, and advanced levels. The default approach is concise: establish intuition, progress through a few concepts, use an example, surface a likely misconception, and check understanding.
 
+## Say it differently
+
+The lesson UI offers a contextual “Didn't click?” action after assistant explanations. Teacher, Friend, 10-year-old, Story, Simple, Technical, and Hype are semantic `TeachingStyle` inputs. A selection sends the current explanation as reference context to the Teaching Engine, which creates a fresh TeachingPlan and DeliveryPlan. It adds a new response without regenerating or rewriting conversation history.
+
+Style guidance changes structure, vocabulary, examples, and delivery intent. For example, Technical requests precise terminology and deeper detail; Story requests a narrative explanation; Hype requests an energetic, motivational delivery. The resulting delivery intent is translated into Rumik's internal description-conditioning format in main, never exposed as raw syntax in the UI.
+
 ## DeliveryPlan
 
 Delivery planning is separate from explanation planning. It describes tone, pace, emphasis, pauses, energy, language, Rumik speaker, vocalization opportunities, and segment instructions. The current deterministic delivery planner defaults to Ira and uses the learner level to choose tone, pace, and energy; later settings can override these choices.

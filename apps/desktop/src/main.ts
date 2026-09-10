@@ -5,6 +5,7 @@ import { createLocalServices } from "@opennblm/local-services";
 import { ProviderManager } from "./provider-manager.js";
 import { createRumikManager } from "@opennblm/rumik-runtime";
 import { createTeachingEngine } from "@opennblm/teaching-engine";
+import type { TeachingStyle } from "@opennblm/teaching-engine";
 
 let mainWindow: BrowserWindow | undefined;
 let services: ReturnType<typeof createLocalServices> | undefined;
@@ -59,10 +60,10 @@ app.whenReady().then(() => {
   ipcMain.handle("rumik:synthesize", (_event, text, config) => rumik!.synthesize(text, config));
   ipcMain.handle("rumik:cancel", () => rumik!.cancel());
   ipcMain.handle("rumik:voices", () => rumik!.getVoices());
-  ipcMain.handle("teaching:teach", async (_event, conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string }) => {
+  ipcMain.handle("teaching:teach", async (_event, conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string; style?: TeachingStyle; referenceExplanation?: string }) => {
     const selected = providers!.getProvider();
     const teaching = createTeachingEngine(selected.provider);
-    const result = await teaching.teach({ question, learnerLevel: options?.learnerLevel, language: options?.language });
+    const result = await teaching.teach({ question, learnerLevel: options?.learnerLevel, language: options?.language, style: options?.style, referenceExplanation: options?.referenceExplanation });
     services!.memory.addMessage({ conversationId, role: "assistant", text: result.response, teachingMetadata: { difficulty: result.plan.learner_level } });
     const deliveryDescription = `${result.delivery.overallTone}, ${result.delivery.pace} pace`;
     void rumik!.synthesize(result.response, { speaker: result.delivery.speaker, language: result.delivery.language, deliveryDescription }).catch(() => undefined);
