@@ -17,6 +17,7 @@ const api: PreloadApi = {
   shell: {
     popupMenu: (label, x, y) => ipcRenderer.invoke("shell:popup-menu", label, x, y),
     getPlatform: () => ipcRenderer.invoke("shell:platform"),
+    openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),
   },
   rumik: { getStatus: () => ipcRenderer.invoke("rumik:status"), start: () => ipcRenderer.invoke("rumik:start"), stop: () => ipcRenderer.invoke("rumik:stop"), healthCheck: () => ipcRenderer.invoke("rumik:health"), synthesize: (text, config) => ipcRenderer.invoke("rumik:synthesize", text, config), cancel: () => ipcRenderer.invoke("rumik:cancel"), getVoices: () => ipcRenderer.invoke("rumik:voices"), onSegmentReady: (listener) => { const wrapped = (_event: Electron.IpcRendererEvent, segment: RumikSegment) => listener(segment); ipcRenderer.on("rumik:segment-ready", wrapped); return () => ipcRenderer.removeListener("rumik:segment-ready", wrapped); }, onStateChange: (listener) => { const wrapped = (_event: Electron.IpcRendererEvent, status: RumikStatus) => listener(status); ipcRenderer.on("rumik:state", wrapped); return () => ipcRenderer.removeListener("rumik:state", wrapped); } },
   teaching: { teach: (conversationId, question, options) => ipcRenderer.invoke("teaching:teach", conversationId, question, options) }

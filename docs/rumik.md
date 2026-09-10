@@ -20,6 +20,21 @@ The runner follows the official model-card path: `AutoTokenizer`, `AutoModelForC
 
 Supported config: speaker, temperature, top-k, max tokens, delivery description, language. Defaults follow the official example (`0.8`, `30`, and `2048` max new tokens). Delivery descriptions are placed in the model's `<description="...">` prompt format.
 
+### Install and bind (Windows)
+
+1. NVIDIA CUDA GPU + Python 3 with the model card’s `requirements.txt` deps (`torch`, `transformers`, `soundfile`, …).
+2. Download into the app bind path (default `%APPDATA%\opennbLM\models\rumik-oss-1`):
+
+```powershell
+pip install -U huggingface_hub
+huggingface-cli download rumik-ai/rumik-oss-1 --revision main --local-dir "$env:APPDATA\opennbLM\models\rumik-oss-1"
+```
+
+3. Optional overrides: `RUMIK_MODEL_PATH`, `RUMIK_PYTHON`, `RUMIK_MODEL_REVISION`.
+4. Restart the app. **Settings → Voice engine** shows Ready when Python and the model folder both exist.
+
+The Settings page repeats these steps with the live bind path and a copyable download command.
+
 ## Segmentation and playback
 
 Rumik's documented long-form limitation is approximately 30–35 seconds. `segmentForRumik` preserves sentence boundaries and groups sentences under a bounded character budget. `synthesize()` creates one sequential WAV job per segment and emits each completed segment through the main-process event boundary; the renderer queues those files in order and preserves the Teaching Engine's delivery description across jobs.

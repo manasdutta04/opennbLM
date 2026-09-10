@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, Menu } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, Menu, shell } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync, writeFileSync } from "node:fs";
@@ -31,13 +31,36 @@ async function getSetupStatus() {
   const packagedResources = process.resourcesPath;
   const bundledPython = process.platform === "win32" ? join(packagedResources, "rumik", "python", "python.exe") : join(packagedResources, "rumik", "python", "bin", "python3");
   const bundledModel = join(packagedResources, "rumik", "model");
+  const userModel = join(app.getPath("userData"), "models", "rumik-oss-1");
+  const bindPath = process.env.RUMIK_MODEL_PATH || (existsSync(bundledModel) ? bundledModel : userModel);
   const runtimeAvailable = await rumik!.detectRuntime();
   const modelAvailable = await rumik!.detectModel();
   let gpuStatus = "unknown";
   try { gpuStatus = app.getGPUFeatureStatus().gpu_compositing || "unknown"; } catch {}
   let audioAvailable = true; let audioDetail = "Audio output is available to the operating system.";
   try { if (process.platform === "win32") execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "Get-CimInstance Win32_SoundDevice | Select-Object -First 1 -ExpandProperty Status"], { stdio: ["ignore", "pipe", "ignore"], timeout: 3000 }); else if (process.platform === "darwin") execFileSync("system_profiler", ["SPAudioDataType"], { stdio: ["ignore", "pipe", "ignore"], timeout: 3000 }); } catch { audioAvailable = false; audioDetail = "No audio device could be confirmed."; }
-  return { firstRun: !existsSync(join(app.getPath("userData"), "setup-complete.json")), runtime: { available: runtimeAvailable, source: existsSync(bundledPython) ? "bundled" : runtimeAvailable ? "system" : "unavailable", detail: runtimeAvailable ? undefined : "Install the optional Rumik runtime assets or configure RUMIK_PYTHON for development." }, model: { available: modelAvailable, modelId: "rumik-ai/rumik-oss-1", revision: rumik!.getStatus().modelRevision, detail: modelAvailable ? undefined : `Place the licensed model snapshot in ${bundledModel} or configure RUMIK_MODEL_PATH.` }, audio: { available: audioAvailable, detail: audioDetail }, system: { freeMemoryMb: Math.round(freemem() / 1024 / 1024), gpuStatus, platform: platform(), arch: arch() }, dataPaths: { userData: app.getPath("userData"), logs: app.getPath("logs"), resources: packagedResources } };
+  return {
+    firstRun: !existsSync(join(app.getPath("userData"), "setup-complete.json")),
+    runtime: {
+      available: runtimeAvailable,
+      source: existsSync(bundledPython) ? "bundled" : runtimeAvailable ? "system" : "unavailable",
+      detail: runtimeAvailable
+        ? undefined
+        : "Install Python 3 on PATH, or set RUMIK_PYTHON to a CUDA-capable interpreter.",
+    },
+    model: {
+      available: modelAvailable,
+      modelId: "rumik-ai/rumik-oss-1",
+      revision: rumik!.getStatus().modelRevision,
+      bindPath,
+      detail: modelAvailable
+        ? undefined
+        : `Download rumik-ai/rumik-oss-1 into ${bindPath} (or set RUMIK_MODEL_PATH).`,
+    },
+    audio: { available: audioAvailable, detail: audioDetail },
+    system: { freeMemoryMb: Math.round(freemem() / 1024 / 1024), gpuStatus, platform: platform(), arch: arch() },
+    dataPaths: { userData: app.getPath("userData"), logs: app.getPath("logs"), resources: packagedResources, rumikModel: bindPath },
+  };
 }
 
 function learnerContext(memory: LearnerMemory[]): string { return memory.slice(0, 12).map((item) => `${item.kind}: ${item.key} — ${item.value}`).join("; "); }
@@ -118,6 +141,11 @@ app.whenReady().then(async () => {
     return openBlankTerminal();
   });
   ipcMain.handle("shell:platform", () => process.platform);
+  ipcMain.handle("shell:open-external", async (_event, url: string) => {
+    if (typeof url !== "string" || !/^https:\/\//i.test(url)) return false;
+    await shell.openExternal(url);
+    return true;
+  });
   ipcMain.handle("shell:popup-menu", (event, label: string, x: number, y: number) => {
     const win = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
     popupApplicationSubmenu(win, label, x, y);

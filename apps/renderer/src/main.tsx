@@ -823,6 +823,7 @@ function App() {
           voiceReady={voiceReady}
           isDark={isDark}
           setIsDark={setIsDark}
+          onVoiceStatusChange={setVoiceReady}
         />
       )}
 
@@ -1110,12 +1111,53 @@ function SettingsPage({
   voiceReady,
   isDark,
   setIsDark,
+  onVoiceStatusChange,
 }: {
   onBack: () => void;
   voiceReady: boolean;
   isDark: boolean;
   setIsDark: (v: boolean) => void;
+  onVoiceStatusChange: (ready: boolean) => void;
 }) {
+  const [setup, setSetup] = useState<SetupStatus | undefined>();
+  const [copied, setCopied] = useState<"path" | "command" | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const bindPath = setup?.dataPaths.rumikModel ?? setup?.model.bindPath ?? "";
+  const platform = setup?.system.platform ?? "win32";
+  const downloadCommand =
+    platform === "win32"
+      ? `pip install -U huggingface_hub && huggingface-cli download rumik-ai/rumik-oss-1 --revision main --local-dir "${bindPath || "%APPDATA%\\opennbLM\\models\\rumik-oss-1"}"`
+      : `pip install -U huggingface_hub && huggingface-cli download rumik-ai/rumik-oss-1 --revision main --local-dir "${bindPath || "$HOME/.config/opennbLM/models/rumik-oss-1"}"`;
+
+  const load = async () => {
+    setRefreshing(true);
+    try {
+      const [nextSetup, rumikOk] = await Promise.all([
+        window.opennbLM.setup.getStatus(),
+        window.opennbLM.rumik.healthCheck().catch(() => false),
+      ]);
+      setSetup(nextSetup);
+      onVoiceStatusChange(Boolean(rumikOk || (nextSetup.runtime.available && nextSetup.model.available)));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const copyText = async (kind: "path" | "command", value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(kind);
+      window.setTimeout(() => setCopied(null), 1600);
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-2xl px-6 py-8">
@@ -1141,15 +1183,131 @@ function SettingsPage({
               {isDark ? "Dark" : "Light"}
             </button>
           </div>
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div>
-              <div className="text-[14px] font-medium text-ink">Voice engine</div>
-              <div className="text-[12.5px] text-ink-secondary">Rumik-OSS-1 · local</div>
+
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[14px] font-medium text-ink">Voice engine</div>
+                <div className="text-[12.5px] text-ink-secondary">
+                  Rumik-OSS-1 · {setup?.model.modelId ?? "rumik-ai/rumik-oss-1"} · rev {setup?.model.revision ?? "main"}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  className="rounded-full border border-hairline/40 bg-raised p-2 text-ink-secondary hover:text-ink"
+                  title="Recheck Rumik"
+                >
+                  <RefreshCw size={14} className={cn(refreshing && "animate-spin")} />
+                </button>
+                <span className={cn("rounded-full border px-2.5 py-1 text-[11.5px]", voiceReady ? "border-success/30 text-success" : "border-warning/30 text-warning")}>
+                  {voiceReady ? "Ready" : "Not connected"}
+                </span>
+              </div>
             </div>
-            <span className={cn("rounded-full border px-2.5 py-1 text-[11.5px]", voiceReady ? "border-success/30 text-success" : "border-warning/30 text-warning")}>
-              {voiceReady ? "Ready" : "Not connected"}
-            </span>
+
+            <div className="mt-3 grid gap-2 text-[12.5px] text-ink-secondary sm:grid-cols-2">
+              <div className={cn("rounded-xl border px-3 py-2", setup?.runtime.available ? "border-success/25 bg-success/5" : "border-warning/25 bg-warning/5")}>
+                Python runtime · {setup?.runtime.available ? "found" : "missing"}
+                {setup?.runtime.detail ? <div className="mt-1 text-[11.5px] opacity-90">{setup.runtime.detail}</div> : null}
+              </div>
+              <div className={cn("rounded-xl border px-3 py-2", setup?.model.available ? "border-success/25 bg-success/5" : "border-warning/25 bg-warning/5")}>
+                Model folder · {setup?.model.available ? "found" : "missing"}
+                {setup?.model.detail ? <div className="mt-1 text-[11.5px] opacity-90">{setup.model.detail}</div> : null}
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3 rounded-xl border border-hairline/35 bg-inset/60 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
+              <div className="text-[13px] font-medium text-ink">Install Rumik so voice binds correctly</div>
+              <ol className="list-decimal space-y-2 pl-4">
+                <li>
+                  Need an <span className="text-ink">NVIDIA GPU with CUDA</span>, plus Python 3 with
+                  {" "}
+                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">torch</code>,
+                  {" "}
+                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">transformers</code>, and
+                  {" "}
+                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">soundfile</code>
+                  {" "}
+                  (see the model card’s
+                  {" "}
+                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">requirements.txt</code>).
+                </li>
+                <li>
+                  Download the official snapshot
+                  {" "}
+                  <span className="text-ink">rumik-ai/rumik-oss-1</span>
+                  {" "}
+                  from Hugging Face into the bind path below. The app does not auto-download weights.
+                </li>
+                <li>
+                  Restart opennbLM, then press refresh here. Status becomes Ready only when both Python and that folder exist.
+                </li>
+              </ol>
+
+              <div>
+                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-ink-secondary">Bind path</div>
+                <div className="flex items-start gap-2">
+                  <code className="min-w-0 flex-1 break-all rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-[11.5px] text-ink">
+                    {bindPath || "…/models/rumik-oss-1"}
+                  </code>
+                  <button
+                    type="button"
+                    disabled={!bindPath}
+                    onClick={() => void copyText("path", bindPath)}
+                    className="shrink-0 rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-ink hover:bg-control/60 disabled:opacity-40"
+                    title="Copy bind path"
+                  >
+                    {copied === "path" ? <Check size={14} /> : <Copy size={14} />}
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11.5px]">
+                  Override with env var <code className="rounded bg-raised px-1 text-[11px] text-ink">RUMIK_MODEL_PATH</code>
+                  {" "}
+                  (and optionally <code className="rounded bg-raised px-1 text-[11px] text-ink">RUMIK_PYTHON</code>).
+                </p>
+              </div>
+
+              <div>
+                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-ink-secondary">Download command</div>
+                <div className="flex items-start gap-2">
+                  <code className="min-w-0 flex-1 whitespace-pre-wrap break-all rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-[11.5px] text-ink">
+                    {downloadCommand}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => void copyText("command", downloadCommand)}
+                    className="shrink-0 rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-ink hover:bg-control/60"
+                    title="Copy download command"
+                  >
+                    {copied === "command" ? <Check size={14} /> : <Copy size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => void window.opennbLM.engines.openInstallTerminal(downloadCommand)}
+                  className="rounded-full border border-hairline/40 bg-raised px-3 py-1.5 text-[12.5px] font-medium text-ink hover:bg-control/60"
+                >
+                  Copy command + open terminal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void window.opennbLM.shell?.openExternal?.("https://huggingface.co/rumik-ai/rumik-oss-1")}
+                  className="rounded-full border border-hairline/40 bg-raised px-3 py-1.5 text-[12.5px] font-medium text-accent-text hover:bg-control/60"
+                >
+                  Model card on Hugging Face
+                </button>
+              </div>
+              <p className="text-[11.5px] text-ink-secondary/80">
+                License: CC BY-NC 4.0 (research / non-commercial). Text teaching still works without Rumik.
+              </p>
+            </div>
           </div>
+
           <div className="px-5 py-4 text-[12.5px] leading-relaxed text-ink-secondary">
             Lessons and learner memory stay on this machine. Open a lesson and use Connect brain to install or sign in to a teaching engine.
           </div>

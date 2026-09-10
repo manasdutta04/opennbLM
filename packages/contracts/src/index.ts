@@ -15,7 +15,7 @@ export interface ConversationApi {
 export type LearnerMemoryKind = "topic" | "weak_concept" | "preference" | "language" | "level" | "completed_lesson" | "recent_context";
 export interface LearnerMemory { id: string; kind: LearnerMemoryKind; key: string; value: string; confidence: number; sourceConversationId?: string; createdAt: string; updatedAt: string; }
 export interface LearnerMemoryApi { list(): Promise<LearnerMemory[]>; forget(id: string): Promise<void>; clear(): Promise<void>; }
-export interface SetupStatus { firstRun: boolean; runtime: { available: boolean; source: "bundled" | "system" | "unavailable"; detail?: string }; model: { available: boolean; modelId: string; revision: string; detail?: string }; audio: { available: boolean; detail?: string }; system: { freeMemoryMb: number; gpuStatus: string; platform: string; arch: string }; dataPaths: { userData: string; logs: string; resources: string; }; }
+export interface SetupStatus { firstRun: boolean; runtime: { available: boolean; source: "bundled" | "system" | "unavailable"; detail?: string }; model: { available: boolean; modelId: string; revision: string; detail?: string; bindPath?: string }; audio: { available: boolean; detail?: string }; system: { freeMemoryMb: number; gpuStatus: string; platform: string; arch: string }; dataPaths: { userData: string; logs: string; resources: string; rumikModel: string; }; }
 export interface SetupApi { getStatus(): Promise<SetupStatus>; complete(): Promise<void>; }
 
 /** @deprecated Prefer CLI engines; kept for optional HTTP adapters. */
@@ -100,6 +100,7 @@ export interface EnginesApi {
 export interface ShellApi {
   popupMenu(label: string, x: number, y: number): Promise<void>;
   getPlatform(): Promise<"darwin" | "win32" | "linux" | string>;
+  openExternal?(url: string): Promise<boolean>;
 }
 
 export type RumikVoiceState = "idle" | "preparing" | "speaking" | "paused" | "error";
