@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
+import { chmodSync } from "node:fs";
 import type { AddMessageInput, Conversation, ConversationMessage, CreateConversationInput, LearnerMemory, LearnerMemoryKind } from "@opennblm/contracts";
 
 export interface LearnerMemoryInput { kind: LearnerMemoryKind; key: string; value: string; confidence?: number; sourceConversationId?: string; }
@@ -7,6 +8,7 @@ export interface MemoryStore { readonly databasePath: string; listConversations(
 
 export function createMemoryStore(databasePath: string): MemoryStore {
   const db = new DatabaseSync(databasePath);
+  try { chmodSync(databasePath, 0o600); } catch {}
   db.exec("PRAGMA journal_mode = WAL");
   db.exec(`CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, learning_topic TEXT NOT NULL, subject TEXT, language TEXT, learner_context TEXT); CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, role TEXT NOT NULL, text TEXT NOT NULL, timestamp TEXT NOT NULL, audio_reference TEXT, teaching_metadata TEXT); CREATE TABLE IF NOT EXISTS learner_memory (id TEXT PRIMARY KEY, kind TEXT NOT NULL, memory_key TEXT NOT NULL, value TEXT NOT NULL, confidence REAL NOT NULL DEFAULT 0.5, source_conversation_id TEXT REFERENCES conversations(id) ON DELETE SET NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(kind, memory_key)); CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at DESC); CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id); CREATE INDEX IF NOT EXISTS idx_learner_memory_updated_at ON learner_memory(updated_at DESC);`);
   db.exec("PRAGMA foreign_keys = ON");

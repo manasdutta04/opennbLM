@@ -37,3 +37,5 @@ Packaging the Python runtime, model weights, CUDA compatibility, upstream notice
 The packaged lookup order is: explicit `RUMIK_PYTHON`/`RUMIK_MODEL_PATH` for development, bundled `resources/rumik/python` and `resources/rumik/model`, then the development system Python and user-data model directory. A release must populate the bundled paths only after the CC BY-NC 4.0 and acceptable-use constraints, Mimi notices, model revision, and target runtime redistribution permissions have been reviewed.
 
 The first-run setup check reports runtime availability, model availability, model id/revision, free memory, GPU feature status, and platform architecture. Voice is optional at startup; text learning remains available when checks fail.
+
+The runtime manager bounds each synthesis process to three minutes, marks failures as error, removes failed/cancelled WAV outputs, preserves punctuation-free short text as a segment, and is stopped from Electron's `before-quit` lifecycle hook. No actual Rumik WAV synthesis has been verified in this repository because no licensed model snapshot/CUDA environment is present.

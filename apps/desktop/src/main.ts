@@ -57,7 +57,9 @@ function createWindow(): void {
   });
 
   const rendererUrl = process.env.OPENNBLM_RENDERER_URL;
-  if (rendererUrl) void mainWindow.loadURL(rendererUrl);
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  mainWindow.webContents.on("will-navigate", (event) => { event.preventDefault(); });
+  if (rendererUrl && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(?:\/|$)/.test(rendererUrl)) void mainWindow.loadURL(rendererUrl);
   else void mainWindow.loadFile(join(__dirname, "../../renderer/dist/index.html"));
 }
 
@@ -100,7 +102,7 @@ app.whenReady().then(() => {
   ipcMain.handle("teaching:teach", async (_event, conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string; style?: TeachingStyle; referenceExplanation?: string }) => {
     const selected = providers!.getProvider();
     const teaching = createTeachingEngine(selected.provider);
-    const result = await teaching.teach({ question, learnerLevel: options?.learnerLevel, language: options?.language, style: options?.style, referenceExplanation: options?.referenceExplanation, learnerContext: learnerContext(services!.memory.listLearnerMemory()) });
+    const result = await teaching.teach({ question, model: selected.model, learnerLevel: options?.learnerLevel, language: options?.language, style: options?.style, referenceExplanation: options?.referenceExplanation, learnerContext: learnerContext(services!.memory.listLearnerMemory()) });
     services!.memory.addMessage({ conversationId, role: "assistant", text: result.response, teachingMetadata: { difficulty: result.plan.learner_level } });
     extractLearnerMemory(conversationId, result, options);
     const deliveryDescription = `${result.delivery.overallTone}, ${result.delivery.pace} pace`;
@@ -112,4 +114,4 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
-app.on("before-quit", () => { services?.close(); });
+app.on("before-quit", () => { void rumik?.stop(); services?.close(); });

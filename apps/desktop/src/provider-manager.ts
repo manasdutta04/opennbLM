@@ -1,5 +1,5 @@
 import { safeStorage } from "electron";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createProvider, providerDefaults, LLMProvider } from "@opennblm/llm-providers";
 import type { ProviderId, ProviderSettingsApi, ProviderStatus } from "@opennblm/contracts";
@@ -21,8 +21,8 @@ export class ProviderManager implements ProviderSettingsApi {
     this.loadKeys();
   }
   private loadKeys() { if (!existsSync(this.keyPath) || !safeStorage.isEncryptionAvailable()) return; try { const encrypted = JSON.parse(readFileSync(this.keyPath, "utf8")) as Record<string, string>; for (const [id, value] of Object.entries(encrypted)) this.keys[id as ProviderId] = safeStorage.decryptString(Buffer.from(value, "base64")); } catch {} }
-  private saveKeys() { if (!safeStorage.isEncryptionAvailable()) throw new Error("OS credential storage is unavailable"); const encrypted = Object.fromEntries(Object.entries(this.keys).filter(([, value]) => value).map(([id, value]) => [id, safeStorage.encryptString(value!).toString("base64")])); writeFileSync(this.keyPath, JSON.stringify(encrypted), { mode: 0o600 }); }
-  private savePreferences() { writeFileSync(this.preferencesPath, JSON.stringify(this.preferences, null, 2), { mode: 0o600 }); }
+  private saveKeys() { if (!safeStorage.isEncryptionAvailable()) throw new Error("OS credential storage is unavailable"); const encrypted = Object.fromEntries(Object.entries(this.keys).filter(([, value]) => value).map(([id, value]) => [id, safeStorage.encryptString(value!).toString("base64")])); writeFileSync(this.keyPath, JSON.stringify(encrypted), { mode: 0o600 }); try { chmodSync(this.keyPath, 0o600); } catch {} }
+  private savePreferences() { writeFileSync(this.preferencesPath, JSON.stringify(this.preferences, null, 2), { mode: 0o600 }); try { chmodSync(this.preferencesPath, 0o600); } catch {} }
   private status(id: ProviderId, connection: ProviderStatus["connection"] = "unknown", error?: string): ProviderStatus { const definition = definitions.find((item) => item.id === id)!; return { id, label: definition.label, configured: id === "ollama" ? true : Boolean(this.keys[id]), model: this.preferences[id].model, connection, error }; }
   async list() { return definitions.map(({ id }) => this.status(id)); }
   async saveKey(id: ProviderId, key: string) { if (id === "ollama") return; if (!key.trim()) throw new Error("API key cannot be empty"); this.keys[id] = key.trim(); this.saveKeys(); }

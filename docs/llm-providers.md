@@ -15,7 +15,9 @@ The OpenAI-compatible providers share one adapter while retaining distinct provi
 
 ## Secrets
 
-Keys are accepted only by a main-process IPC handler and encrypted with Electron `safeStorage` before being written to the local credential file. The renderer sees only `Configured` / `Not configured` and connection state. Keys are never put in SQLite, conversations, renderer state, URLs, or logs. Remove/replacement and connection-test actions are available in Settings.
+Keys are accepted only by a main-process IPC handler and encrypted with Electron `safeStorage` before being written to the local credential file. The renderer sees only `Configured` / `Not configured` and connection state. Keys are never put in SQLite, conversations, renderer state, URLs, or logs. Gemini uses the `x-goog-api-key` request header rather than a URL query parameter. Remove/replacement and connection-test actions are available in Settings.
+
+Provider HTTP calls use a 15-second abort timeout so unavailable networks do not leave the teaching flow hanging indefinitely. Structured teaching retries malformed output once, while provider/network exceptions fall back immediately to a usable text lesson.
 
 Provider model preferences and custom endpoint configuration are separate non-secret local preferences. Ollama defaults to `127.0.0.1:11434`.
 
