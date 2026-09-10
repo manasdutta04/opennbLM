@@ -1,0 +1,10 @@
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #e9edf5; background: #11141a; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 960px; min-height: 100vh; }
+main { display: flex; min-height: 100vh; }
+aside { width: 240px; padding: 28px 20px; background: #181c24; border-right: 1px solid #2a303b; }
+aside strong { font-size: 20px; letter-spacing: .02em; }
+aside p { color: #9ba6b8; margin-top: 28px; }
+section { flex: 1; padding: 15vh 12vw; }
+h1 { font-size: 40px; margin-bottom: 16px; }
+section p { max-width: 600px; color: #aeb8c8; line-height: 1.6; }

@@ -1,0 +1,20 @@
+{
+  "name": "opennblm",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A native, voice-first AI learning companion.",
+  "packageManager": "pnpm@9.14.4",
+  "scripts": {
+    "dev": "pnpm --filter @opennblm/renderer dev",
+    "build": "pnpm typecheck && pnpm --filter @opennblm/renderer build && pnpm --filter @opennblm/preload build && pnpm --filter @opennblm/desktop build",
+    "typecheck": "tsc --build",
+    "desktop:start": "pnpm --filter @opennblm/desktop start",
+    "package": "electron-builder --config electron-builder.yml",
+    "check": "pnpm typecheck && pnpm build"
+  },
+  "devDependencies": {
+    "electron": "^34.3.3",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.7.3"
+  }
+}

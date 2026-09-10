@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [
+    { "path": "apps/desktop/tsconfig.json" },
+    { "path": "apps/preload/tsconfig.json" },
+    { "path": "apps/renderer/tsconfig.json" },
+    { "path": "packages/contracts/tsconfig.json" },
+    { "path": "packages/local-services/tsconfig.json" },
+    { "path": "packages/llm-providers/tsconfig.json" },
+    { "path": "packages/teaching-engine/tsconfig.json" },
+    { "path": "packages/memory/tsconfig.json" },
+    { "path": "packages/rumik-runtime/tsconfig.json" }
+  ]
+}
