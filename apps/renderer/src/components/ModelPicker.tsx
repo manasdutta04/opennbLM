@@ -226,8 +226,21 @@ export function ModelPicker({
                         );
                       })}
                       {shown.length === 0 && (
-                        <div className="px-2 py-5 text-center text-[12.5px] text-ink-secondary">
-                          {normalizedQuery ? `Nothing matches “${query.trim()}”` : "No models discovered"}
+                        <div className="space-y-2 px-2 py-5 text-center text-[12.5px] text-ink-secondary">
+                          <div>
+                            {normalizedQuery
+                              ? `Nothing matches “${query.trim()}”`
+                              : "No models available for this account yet. Finish setup in the CLI, then refresh."}
+                          </div>
+                          {!normalizedQuery && (
+                            <button
+                              type="button"
+                              onClick={() => void onRefresh()}
+                              className="text-[12px] font-medium text-accent hover:underline"
+                            >
+                              Refresh catalog
+                            </button>
+                          )}
                         </div>
                       )}
                       {!normalizedQuery && !showAll && railInstance.models.options.length > compact.length && (

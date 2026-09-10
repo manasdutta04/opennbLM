@@ -539,8 +539,10 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - Lesson actions use a compact three-dot overflow menu (double-click still opens lessons).
 - Removed product-facing references to external inspiration repos from docs/UI.
 - Imported official Kimi, Qwen, and Hermes marks into `ProviderIcons` / `HermesMark` (full SVG paths).
+- Connect brain catalogs are live-only: per-engine discovery (Codex app-server, Cursor/OpenCode CLI lists, Hermes ACP, config/credential gates). No shipped static model lists; empty picker until the account/CLI exposes models. Stale selections are cleared on refresh.
 
 ### Verification
 
 - `pnpm typecheck` — passed.
 - Renderer `tsc --noEmit` after provider icon import — passed.
+- Engine-runtime live discovery smoke test on this machine: OpenCode returned 31 account models; Codex app-server returned 3 subscription models (`gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`) — not the old static list.

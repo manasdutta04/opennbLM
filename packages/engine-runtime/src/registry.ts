@@ -1,78 +1,98 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { InstanceInfo, ModelCatalog, ModelOption, ModelSelection } from "@opennblm/contracts";
+import type { InstanceInfo, ModelCatalog, ModelSelection } from "@opennblm/contracts";
+import {
+  EMPTY_CATALOG,
+  discoverAntigravityModels,
+  discoverClaudeModels,
+  discoverCodexModels,
+  discoverCursorModels,
+  discoverGrokModels,
+  discoverHermesModels,
+  discoverKimiModels,
+  discoverLmStudioModels,
+  discoverOllamaModels,
+  discoverOpenCodeModels,
+  discoverQwenModels,
+  hasCodexAuth,
+  hasGrokAuth,
+  hasKimiAuth,
+  hasOpenCodeAuth,
+  hermesHasHostedConfig,
+  probeClaudeAuth,
+  probeCursorAuth,
+} from "./discover.js";
 import { ENGINE_FLEET, type EngineDefinition } from "./fleet.js";
-import { runCli, whichCli } from "./cli.js";
-
-function labelForSlug(id: string): string {
-  const separator = id.indexOf("/");
-  if (separator > 0) {
-    const provider = id.slice(0, separator);
-    const model = id.slice(separator + 1);
-    const providerLabel =
-      provider === "opencode" ? "Zen" : provider === "opencode-go" ? "Go" : provider.charAt(0).toUpperCase() + provider.slice(1);
-    return `${providerLabel} · ${model}`;
-  }
-  return id;
-}
-
-async function discoverOpenCodeModels(cli: string, fallback: ModelCatalog): Promise<ModelCatalog> {
-  const probe = await runCli(cli, ["models"], { timeout: 20_000 });
-  if (!probe.ok && !probe.stdout.trim()) return fallback;
-  const options: ModelOption[] = [];
-  const seen = new Set<string>();
-  for (const line of probe.stdout.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("{") || trimmed.startsWith("[")) continue;
-    const slug = trimmed.split(/\s+/)[0];
-    if (!slug || !slug.includes("/") || seen.has(slug) || /\s/.test(slug)) continue;
-    seen.add(slug);
-    options.push({ id: slug, label: labelForSlug(slug) });
-  }
-  if (!options.length) return fallback;
-  const preferred = options.find((option) => option.id === fallback.default) ?? options[0]!;
-  return { default: preferred.id, options };
-}
-
-async function probeLocalModels(def: EngineDefinition): Promise<ModelCatalog | null> {
-  if (!def.localBaseUrl) return null;
-  try {
-    if (def.driverKind === "ollama") {
-      const response = await fetch(`${def.localBaseUrl.replace(/\/$/, "")}/api/tags`);
-      if (!response.ok) return null;
-      const body = (await response.json()) as { models?: Array<{ name?: string }> };
-      const options: ModelOption[] = (body.models ?? [])
-        .map((model) => model.name)
-        .filter((name): name is string => Boolean(name))
-        .map((id) => ({ id, label: id, custom: true, loaded: true }));
-      if (!options.length) return { default: def.models.default, options: def.models.options };
-      return { default: options[0]!.id, options };
-    }
-    const response = await fetch(`${def.localBaseUrl.replace(/\/$/, "")}/models`);
-    if (!response.ok) return null;
-    const body = (await response.json()) as { data?: Array<{ id?: string }> };
-    const options: ModelOption[] = (body.data ?? [])
-      .map((model) => model.id)
-      .filter((id): id is string => Boolean(id))
-      .map((id) => ({ id, label: id, custom: true, loaded: true }));
-    if (!options.length) return { default: def.models.default, options: def.models.options };
-    return { default: options[0]!.id, options };
-  } catch {
-    return null;
-  }
-}
+import { whichCli } from "./cli.js";
 
 async function resolveModels(def: EngineDefinition, cli: string | null): Promise<ModelCatalog> {
-  if (def.discoverModels === "opencode" && cli) {
-    return discoverOpenCodeModels(cli, def.models);
+  if (!cli && !def.localBaseUrl) return EMPTY_CATALOG;
+
+  switch (def.discoverModels) {
+    case "opencode":
+      return cli ? discoverOpenCodeModels(cli) : EMPTY_CATALOG;
+    case "cursor":
+      return cli ? discoverCursorModels(cli) : EMPTY_CATALOG;
+    case "codex":
+      return cli ? discoverCodexModels(cli) : EMPTY_CATALOG;
+    case "claude":
+      return cli ? discoverClaudeModels(cli) : EMPTY_CATALOG;
+    case "grok":
+      return cli ? discoverGrokModels(cli) : EMPTY_CATALOG;
+    case "kimi":
+      return cli ? discoverKimiModels(cli) : EMPTY_CATALOG;
+    case "antigravity":
+      return cli ? discoverAntigravityModels(cli) : EMPTY_CATALOG;
+    case "hermes":
+      return cli ? discoverHermesModels(cli) : EMPTY_CATALOG;
+    case "qwen":
+      return cli ? discoverQwenModels(cli) : EMPTY_CATALOG;
+    case "ollama":
+      return (def.localBaseUrl && (await discoverOllamaModels(def.localBaseUrl))) || EMPTY_CATALOG;
+    case "lmstudio":
+      return (def.localBaseUrl && (await discoverLmStudioModels(def.localBaseUrl))) || EMPTY_CATALOG;
+    default:
+      return EMPTY_CATALOG;
   }
-  return def.models;
+}
+
+async function resolveAuthenticated(
+  def: EngineDefinition,
+  cli: string | null,
+  models: ModelCatalog,
+): Promise<boolean> {
+  switch (def.discoverModels) {
+    case "claude":
+      return cli ? probeClaudeAuth(cli) : false;
+    case "cursor":
+      return cli ? probeCursorAuth(cli) : false;
+    case "codex":
+      return hasCodexAuth() || models.options.length > 0;
+    case "opencode":
+      // Free/anonymous Zen models can list without stored auth.
+      return hasOpenCodeAuth() || models.options.length > 0;
+    case "grok":
+      return hasGrokAuth();
+    case "kimi":
+      return hasKimiAuth();
+    case "hermes":
+      return hermesHasHostedConfig() || models.options.length > 0;
+    case "antigravity":
+    case "qwen":
+      // No reliable credential file; CLI present + (optional) discovered models.
+      return Boolean(cli);
+    case "ollama":
+    case "lmstudio":
+      return models.options.length > 0;
+    default:
+      return false;
+  }
 }
 
 async function snapshotEngine(def: EngineDefinition): Promise<InstanceInfo> {
   if (def.localBaseUrl) {
-    const models = await probeLocalModels(def);
-    if (models) {
+    const models = await resolveModels(def, null);
+    if (models.options.length) {
       return {
         instanceId: def.instanceId,
         driverKind: def.driverKind,
@@ -94,10 +114,10 @@ async function snapshotEngine(def: EngineDefinition): Promise<InstanceInfo> {
         state: "unavailable",
         authenticated: false,
         reason: cli
-          ? `${def.displayName} is installed but not serving models yet`
+          ? `${def.displayName} is installed but has no loaded models yet`
           : `${def.displayName} is not running`,
       },
-      models: def.models,
+      models: EMPTY_CATALOG,
     };
   }
 
@@ -114,26 +134,12 @@ async function snapshotEngine(def: EngineDefinition): Promise<InstanceInfo> {
         authenticated: false,
         reason: `${def.displayName} CLI is not installed`,
       },
-      models: def.models,
+      models: EMPTY_CATALOG,
     };
   }
 
-  let authenticated = true;
-  if (def.authArgs) {
-    const probe = await runCli(cli, def.authArgs, { timeout: 8000 });
-    if (def.driverKind === "claudeAgent") {
-      try {
-        const status = JSON.parse(probe.stdout) as { loggedIn?: boolean };
-        authenticated = status.loggedIn === true;
-      } catch {
-        authenticated = probe.ok;
-      }
-    } else {
-      authenticated = probe.ok;
-    }
-  }
-
   const models = await resolveModels(def, cli);
+  const authenticated = await resolveAuthenticated(def, cli, models);
 
   return {
     instanceId: def.instanceId,
@@ -147,7 +153,8 @@ async function snapshotEngine(def: EngineDefinition): Promise<InstanceInfo> {
       version: authenticated ? "ready" : "needs sign-in",
       reason: authenticated ? undefined : `Sign in with: ${def.install?.signInCommand ?? def.displayName}`,
     },
-    models,
+    // Only expose models the user can actually reach after auth (or free catalogs).
+    models: authenticated || def.discoverModels === "opencode" ? models : EMPTY_CATALOG,
   };
 }
 
@@ -178,9 +185,20 @@ export class EngineRegistry {
     writeFileSync(this.storePath, JSON.stringify(this.selection ?? null, null, 2), "utf8");
   }
 
+  /** Drop a saved selection if that model is no longer in the live catalog. */
+  private reconcileSelection(instances: InstanceInfo[]): void {
+    if (!this.selection) return;
+    const instance = instances.find((item) => item.instanceId === this.selection!.instanceId);
+    const stillValid = instance?.models.options.some((option) => option.id === this.selection!.model);
+    if (stillValid) return;
+    this.selection = null;
+    this.persistSelection();
+  }
+
   async list(force = false): Promise<InstanceInfo[]> {
     if (!force && this.cache.length) return this.cache;
     this.cache = await Promise.all(ENGINE_FLEET.map((def) => snapshotEngine(def)));
+    this.reconcileSelection(this.cache);
     return this.cache;
   }
 
@@ -193,6 +211,14 @@ export class EngineRegistry {
   }
 
   setSelection(selection: ModelSelection): ModelSelection {
+    const instance = this.cache.find((item) => item.instanceId === selection.instanceId);
+    if (
+      instance &&
+      instance.models.options.length > 0 &&
+      !instance.models.options.some((option) => option.id === selection.model)
+    ) {
+      throw new Error(`Model "${selection.model}" is not available for ${selection.instanceId}`);
+    }
     this.selection = selection;
     this.persistSelection();
     return selection;

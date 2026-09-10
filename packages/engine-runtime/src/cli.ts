@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -8,8 +8,15 @@ export async function whichCli(names: string[]): Promise<string | null> {
     try {
       if (process.platform === "win32") {
         const { stdout } = await execFileAsync("where.exe", [name], { timeout: 4000, windowsHide: true });
-        const first = stdout.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
-        if (first) return first;
+        const candidates = stdout
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+        // Prefer native Windows launchers; the extensionless npm shim is often a
+        // shell script that `execFile` cannot run.
+        const preferred =
+          candidates.find((path) => /\.(cmd|exe|bat)$/i.test(path)) ?? candidates[0];
+        if (preferred) return preferred;
       } else {
         const { stdout } = await execFileAsync("which", [name], { timeout: 4000 });
         const first = stdout.trim().split(/\n/)[0]?.trim();
@@ -22,15 +29,36 @@ export async function whichCli(names: string[]): Promise<string | null> {
   return null;
 }
 
+/** Resolve argv so Windows `.cmd` / `.bat` shims run via `cmd.exe /c` without `shell: true`. */
+export function cliSpawnArgs(cli: string, args: string[]): { command: string; args: string[] } {
+  if (process.platform === "win32" && /\.(cmd|bat)$/i.test(cli)) {
+    return { command: process.env.ComSpec || "cmd.exe", args: ["/d", "/s", "/c", cli, ...args] };
+  }
+  return { command: cli, args };
+}
+
+export function spawnCli(
+  cli: string,
+  args: string[],
+  options?: Parameters<typeof spawn>[2],
+): ChildProcessWithoutNullStreams {
+  const resolved = cliSpawnArgs(cli, args);
+  return spawn(resolved.command, resolved.args, {
+    windowsHide: true,
+    ...options,
+  }) as ChildProcessWithoutNullStreams;
+}
+
 export async function runCli(
   cli: string,
   args: string[],
   options?: { timeout?: number },
 ): Promise<{ ok: boolean; stdout: string; stderr: string; code: number | null }> {
   try {
-    const { stdout, stderr } = await execFileAsync(cli, args, {
+    const resolved = cliSpawnArgs(cli, args);
+    const { stdout, stderr } = await execFileAsync(resolved.command, resolved.args, {
       timeout: options?.timeout ?? 12_000,
-      maxBuffer: 4 * 1024 * 1024,
+      maxBuffer: 16 * 1024 * 1024,
       windowsHide: true,
       env: process.env,
     });
