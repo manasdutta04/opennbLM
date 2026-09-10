@@ -26,4 +26,6 @@ The Teaching Engine sits between provider output and voice delivery. It depends 
 
 Learner memory is a separate local-services concern from conversation history. Main retrieves a bounded set of SQLite learner notes before teaching, passes them into the provider-independent Teaching Engine as context, and extracts bounded structured signals from the resulting plan afterward. The renderer can inspect or delete notes through typed IPC, but cannot query SQLite directly. Clearing learner memory does not delete conversations; deleting a conversation only nulls its optional source reference.
 
+Packaging preserves these boundaries: immutable Electron app code is packaged in ASAR, optional Rumik runtime/model resources are externalized under `resources/rumik`, and mutable SQLite/audio/preferences/setup state stays under the platform user-data and logs paths. First-run diagnostics are main-process computed and cross preload as sanitized status only.
+
 The main-process teaching handler now composes the selected provider, Teaching Engine, and Rumik Manager. It persists the user message and rendered assistant lesson text, returns text immediately, and starts Rumik synthesis asynchronously. Rumik emits sanitized segment-ready events as each WAV is completed; the renderer owns sequential audio playback and transport controls.

@@ -264,3 +264,33 @@ Not run: interactive Electron startup smoke test and completed native installer/
 
 - Memory extraction currently uses plan signals and selected request options; explicit learner feedback capture is not implemented yet.
 - Interactive Electron UI verification remains unavailable in this sandbox, so native confirmation behavior and packaged SQLite compatibility still need target-environment testing.
+
+## Distributable desktop packaging — 2026-09-10
+
+### Completed
+
+- Added reproducible commands for Windows x64 NSIS, macOS Apple Silicon DMG, optional macOS Intel DMG, and unpacked directory smoke output.
+- Added ASAR packaging, explicit preload/renderer/package files, platform artifact names, per-user Windows installer settings, macOS education category, hardened-runtime settings, and project entitlements.
+- Added an external `resources/rumik` packaging boundary without committing Python runtimes, CUDA components, wheels, or model weights.
+- Added first-run main-process diagnostics for Rumik runtime/model, audio status, free memory, GPU feature status, platform, architecture, and user-data/log/resource paths.
+- Added a first-run setup sheet that keeps text learning usable and clearly reports “Voice engine unavailable” when the optional voice subsystem is incomplete.
+- Added platform data-path documentation and kept mutable databases/audio outside the install directory and macOS bundle.
+
+### Architecture decisions
+
+- Rumik assets are optional packaged resources until licensing, model revision, CUDA compatibility, and redistribution permissions are verified for each target.
+- User data remains in Electron-managed platform directories; uninstall does not remove it by default.
+- Native signing/notarization is release-environment work and is not faked in local packaging configuration.
+
+### Verification
+
+- `pnpm build` — passed after packaging and first-run changes.
+- `pnpm package:dir` — passed; electron-builder produced `release/win-unpacked` and the packaged app launched for a five-second Windows smoke check.
+- `pnpm package:win` — passed; produced `release/opennbLM-0.1.0-win-x64.exe`. The local build is intentionally unsigned; signing must be supplied by the release environment.
+- Windows x64 packaged launch — passed as a short process smoke check. Interactive navigation and first-run visual behavior were not manually exercised here.
+- macOS Apple Silicon DMG and Intel DMG — not run on this Windows host; commands and configuration are present for native macOS release workers.
+
+### Known limitations
+
+- The repository does not ship Rumik Python/model assets. A licensed release job must populate `packaging/rumik` before claiming bundled voice.
+- Electron installer/DMG signing, notarization, and launch smoke tests remain target-environment checks.

@@ -32,4 +32,8 @@ The model is CC BY-NC 4.0 with the applicable acceptable-use addendum. Commercia
 
 Development inference requires Python, `torch`, `transformers`, `soundfile`, and an NVIDIA CUDA-capable GPU according to the model card. The current implementation expects a local model directory through `RUMIK_MODEL_PATH`; it does not download weights automatically. CPU fallback is deliberately rejected because it would create a misleading “working” path for a 3B BF16 model.
 
-Packaging the Python runtime, model weights, CUDA compatibility, upstream notices, and model-license constraints remains future work. Rumik synthesis is not claimed to work until an actual WAV is produced in the target development environment.
+Packaging the Python runtime, model weights, CUDA compatibility, upstream notices, and model-license constraints remains a release-job responsibility. The electron-builder resource boundary is `packaging/rumik` → `resources/rumik`; missing resources are detected and reported rather than crashing the app. The repository does not commit model weights or generated Python environments.
+
+The packaged lookup order is: explicit `RUMIK_PYTHON`/`RUMIK_MODEL_PATH` for development, bundled `resources/rumik/python` and `resources/rumik/model`, then the development system Python and user-data model directory. A release must populate the bundled paths only after the CC BY-NC 4.0 and acceptable-use constraints, Mimi notices, model revision, and target runtime redistribution permissions have been reviewed.
+
+The first-run setup check reports runtime availability, model availability, model id/revision, free memory, GPU feature status, and platform architecture. Voice is optional at startup; text learning remains available when checks fail.
