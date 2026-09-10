@@ -156,3 +156,31 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - No target-environment CUDA/Python packaging yet.
 - Renderer audio playback queue is not connected; the manager currently produces ordered WAV paths for future playback integration.
 - No immutable model commit was used for a verified synthesis; the configured revision remains `main`.
+
+## Teaching Engine — 2026-09-10
+
+### Completed
+
+- Replaced the teaching placeholder with provider-independent `TeachingPlan` and `DeliveryPlan` types.
+- Added beginner/intermediate/advanced learner adaptation, concise natural-language response rendering, progression, examples, analogy, misconception risk, and comprehension checks.
+- Added structured-output schema requests and runtime validation.
+- Added one correction retry for malformed provider output, followed by a deterministic graceful fallback.
+- Added delivery instructions for tone, pace, emphasis, pauses, energy, language, speaker, vocalization opportunities, and segments.
+- Added `docs/teaching-engine.md`.
+
+### Architecture decisions
+
+- The engine receives only `LLMProvider`; no provider adapter is selected in teaching code.
+- Raw structured plan JSON is an internal orchestration artifact; the normal user-facing result is rendered lesson prose plus a separate delivery plan.
+- Audio synthesis, Rumik lifecycle, persistence, and learner memory remain separate concerns.
+
+### Verification
+
+- `pnpm build` — passed; workspace TypeScript, renderer, preload, and desktop builds completed.
+- `pnpm --filter @opennblm/teaching-engine test` — passed; 4 tests cover valid plans, malformed plans, missing fields, correction retry, and fallback behavior.
+
+### Known limitations / not implemented
+
+- Teaching Engine is not yet wired into the conversation IPC path; the desktop composer still uses mock assistant text.
+- Delivery planning is deterministic and currently defaults to Ira; user voice preferences will be connected later.
+- Learner feedback and memory updates are not yet implemented.

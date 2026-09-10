@@ -21,3 +21,5 @@ SQLite currently uses the runtime's `node:sqlite` `DatabaseSync` API, with WAL m
 The brain provider manager lives in Electron main. It loads encrypted provider keys through OS-backed `safeStorage`, keeps provider/model preferences separate from conversations, and constructs an abstract `LLMProvider` for future teaching orchestration. The renderer receives provider status and models through preload but never receives raw credentials.
 
 Rumik follows a parallel main-process boundary: Electron main owns `RumikManager`, which owns the local Python/official-Transformers runtime and WAV output. Rumik status and commands cross preload as sanitized typed IPC only; the renderer cannot spawn or inspect the runtime process.
+
+The Teaching Engine sits between provider output and voice delivery. It depends on `LLMProvider`, validates a structured `TeachingPlan`, creates a provider-neutral `DeliveryPlan`, renders user-facing lesson text, and leaves Rumik invocation to the voice subsystem. It has no provider-specific or renderer dependency.
