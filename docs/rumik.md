@@ -22,7 +22,7 @@ Supported config: speaker, temperature, top-k, max tokens, delivery description,
 
 ## Segmentation and playback
 
-Rumik's documented long-form limitation is approximately 30–35 seconds. `segmentForRumik` preserves sentence boundaries and groups sentences under a bounded character budget. `synthesize()` creates one sequential WAV job per segment; a future playback queue should play those files in order and preserve the teaching response's delivery description across jobs.
+Rumik's documented long-form limitation is approximately 30–35 seconds. `segmentForRumik` preserves sentence boundaries and groups sentences under a bounded character budget. `synthesize()` creates one sequential WAV job per segment and emits each completed segment through the main-process event boundary; the renderer queues those files in order and preserves the Teaching Engine's delivery description across jobs.
 
 ## License and attribution
 

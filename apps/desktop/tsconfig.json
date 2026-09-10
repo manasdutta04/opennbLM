@@ -7,5 +7,6 @@
     { "path": "../../packages/local-services/tsconfig.json" },
     { "path": "../../packages/memory/tsconfig.json" },
     { "path": "../../packages/rumik-runtime/tsconfig.json" }
+    ,{ "path": "../../packages/teaching-engine/tsconfig.json" }
   ]
 }

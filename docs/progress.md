@@ -184,3 +184,34 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - Teaching Engine is not yet wired into the conversation IPC path; the desktop composer still uses mock assistant text.
 - Delivery planning is deterministic and currently defaults to Ira; user voice preferences will be connected later.
 - Learner feedback and memory updates are not yet implemented.
+
+## Teaching → Rumik integration — 2026-09-10
+
+### Completed
+
+- Connected the selected LLM brain to the Teaching Engine through a main-process `teaching:teach` orchestration handler.
+- Persisted user questions and rendered teaching responses while keeping TeachingPlan/DeliveryPlan JSON internal to the main process.
+- Converted DeliveryPlan intent into Rumik-supported description conditioning (`tone`, `pace`, `language`, `speaker`) without exposing raw syntax to the user.
+- Started Rumik synthesis asynchronously after the text response is available, so lessons remain usable if voice generation fails.
+- Added Rumik segment-ready IPC events and renderer-side sequential audio queue.
+- Added Play, Pause, Resume, Stop, Replay, and Regenerate controls.
+- Added sanitized Rumik state propagation for idle, preparing, speaking, paused, and error states.
+- Added provider selection persistence so the selected brain drives future teaching requests without changing conversations.
+
+### Architecture decisions
+
+- Text response persistence is independent of voice success; Rumik errors do not erase or block the lesson text.
+- The renderer receives audio paths only as segment playback payloads and never receives a child-process handle or delivery prompt syntax.
+- Segment generation remains sequential in the local Rumik manager, while playback starts on the first completed segment through event-driven queueing.
+
+### Verification
+
+- `pnpm build` — passed after teaching/voice orchestration changes.
+- `pnpm --filter @opennblm/teaching-engine test` — passed, 4/4 tests.
+- No actual Rumik audio synthesis was claimed; model weights and CUDA runtime remain unavailable in this environment.
+
+### Known limitations / not implemented
+
+- The Electron desktop launch remains unverified in this sandbox, so local WAV playback needs target-environment validation.
+- Regenerate currently reuses the persisted teaching text with a fresh Rumik synthesis job; it does not yet regenerate the TeachingPlan.
+- Audio playback uses renderer `Audio` with local file URLs and requires packaged Electron security/runtime validation.

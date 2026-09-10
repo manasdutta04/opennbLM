@@ -23,3 +23,5 @@ The brain provider manager lives in Electron main. It loads encrypted provider k
 Rumik follows a parallel main-process boundary: Electron main owns `RumikManager`, which owns the local Python/official-Transformers runtime and WAV output. Rumik status and commands cross preload as sanitized typed IPC only; the renderer cannot spawn or inspect the runtime process.
 
 The Teaching Engine sits between provider output and voice delivery. It depends on `LLMProvider`, validates a structured `TeachingPlan`, creates a provider-neutral `DeliveryPlan`, renders user-facing lesson text, and leaves Rumik invocation to the voice subsystem. It has no provider-specific or renderer dependency.
+
+The main-process teaching handler now composes the selected provider, Teaching Engine, and Rumik Manager. It persists the user message and rendered assistant lesson text, returns text immediately, and starts Rumik synthesis asynchronously. Rumik emits sanitized segment-ready events as each WAV is completed; the renderer owns sequential audio playback and transport controls.
