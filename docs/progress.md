@@ -437,3 +437,54 @@ Not run: interactive Electron startup smoke test and completed native installer/
 
 - `pnpm package:win` was subsequently rerun successfully; the corrected unsigned installer is `release/opennbLM-0.1.0-win-x64.exe`.
 - The corrected unpacked app was launched with a real window for verification; process ID `8140` was alive after five seconds.
+
+## Smooth Graphite UI pass — 2026-09-10
+
+### Completed
+
+- Relaunched the full Electron desktop app after a renderer rebuild.
+- Rebuilt the renderer shell inspired by opencrew’s Graphite desktop feel: quiet panel/raised/card/inset tokens, Tide teaching accent, IBM Plex Sans + Literata, soft hairlines, and fast `msg-in` / `pop-in` motion.
+- Added a compact provider/model picker in the composer (provider rail + searchable models), matching the opencrew model-selector interaction pattern.
+- Replaced browser `prompt`/`confirm` with in-app rename/delete/clear-memory dialogs.
+- Upgraded the composer to an auto-growing textarea with toolbar, teaching shimmer state, and live Rumik readiness in Settings.
+
+### Verification
+
+- `pnpm --filter @opennblm/renderer build` — passed.
+- `pnpm --filter @opennblm/desktop start` — Electron processes remained alive after relaunch.
+
+### Known limitations
+
+- Microphone / STT remains a UI affordance only; voice synthesis still depends on optional Rumik runtime assets.
+- Library remains starter invitations rather than a full curriculum store.
+
+## OpenFolks Graphite UI port — 2026-09-10
+
+### Completed
+
+- Installed Tailwind CSS v4 (`@tailwindcss/vite`), `lucide-react`, and `clsx`/`tailwind-merge` in the renderer.
+- Ported OpenFolks/opencrew Graphite design tokens, motion keyframes, and IBM Plex Sans into the renderer stylesheet.
+- Rebuilt the shell to match desk patterns: raised sidebar rows with avatars, chat header model pill (provider rail + searchable models), bubble transcript (`bg-bubble-user` / `bg-card`), and the floating composer pill with ArrowUp send.
+- Relaunched Electron after a successful renderer build and monorepo typecheck.
+
+### Verification
+
+- `pnpm --filter @opennblm/renderer build` — passed.
+- `pnpm typecheck` — passed.
+- `pnpm --filter @opennblm/desktop start` — Electron launched with the new UI.
+
+## Product IA cleanup (NotebookLM + OpenClaw) — 2026-09-10
+
+### Completed
+
+- Removed the duplicate sidebar “Conversations / Your workspace → Settings” loop.
+- Home is now a NotebookLM-style dashboard: featured starts + recent lesson cards, Create new, top-bar Settings only.
+- Lesson view is Chat + Studio (voice, styles); model/brain picker lives only in the lesson header.
+- Settings connects engines (API keys / test) and no longer selects the teaching model; unconfigured engines in the chat picker show a setup CTA like OpenClaw.
+- Library and Memory are separate pages reached from home tabs, not a second conversation list.
+
+### Verification
+
+- `pnpm --filter @opennblm/renderer build` — passed.
+- `pnpm typecheck` — passed.
+- `pnpm --filter @opennblm/desktop start` — Electron launched with the redesigned IA.
