@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0c0e" />
+  <title>opennbLM — understand, clearly</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="wordmark" href="#home" aria-label="opennbLM home">opennb<span>LM</span></a>
+    <nav aria-label="Primary navigation">
+      <a href="#conversation">Conversation</a>
+      <a href="#memory">Memory</a>
+      <a href="#settings">Settings</a>
+    </nav>
+    <button class="icon-button" data-view="settings" aria-label="Open settings">⌘</button>
+  </header>
+
+  <main id="app" tabindex="-1">
+    <section id="home" class="view active" aria-labelledby="home-title">
+      <div class="home-copy">
+        <p class="eyebrow">A quieter way to learn</p>
+        <h1 id="home-title">What do you want<br /><em>to understand?</em></h1>
+        <p class="intro">Ask in your own words. opennbLM will shape the lesson, find the right pace, and speak it back to you.</p>
+      </div>
+      <form id="ask-form" class="ask-form">
+        <label for="question" class="sr-only">Ask anything</label>
+        <textarea id="question" rows="1" placeholder="Ask anything..." autocomplete="off"></textarea>
+        <button class="send-button" type="submit" aria-label="Ask opennbLM">↗</button>
+      </form>
+      <button id="orb" class="orb" type="button" aria-label="Start listening">
+        <span class="orb-glow"></span><span class="orb-core"></span><span class="orb-ring"></span>
+      </button>
+      <p class="orb-hint">Tap to speak <span>·</span> or type above</p>
+    </section>
+
+    <section id="conversation" class="view conversation-view" aria-labelledby="conversation-title">
+      <div class="conversation-header"><div><p class="eyebrow">Your lesson</p><h2 id="conversation-title">Ready when you are.</h2></div><button class="quiet-button" data-view="home">New question</button></div>
+      <div id="conversation-content" class="conversation-content"><p class="empty-state">Your next question will appear here.</p></div>
+      <div class="lesson-player" aria-label="Audio player"><button id="play-button" class="play-button" aria-label="Play lesson">▶</button><div class="waveform" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span id="player-status">Ready</span></div>
+    </section>
+
+    <section id="settings" class="view settings-view" aria-labelledby="settings-title">
+      <p class="eyebrow">Your space</p><h2 id="settings-title">Settings</h2>
+      <div class="settings-list"><button class="setting-row" data-view="provider"><span><b>Provider</b><small id="provider-summary">Not configured</small></span><span>→</span></button><button class="setting-row" data-view="memory"><span><b>Memory</b><small>Choose what opennbLM remembers</small></span><span>→</span></button><div class="setting-row static"><span><b>Reduce motion</b><small>Respect system preference</small></span><span class="status-dot"></span></div></div>
+    </section>
+
+    <section id="provider" class="view settings-view" aria-labelledby="provider-title"><button class="back-link" data-view="settings">← Settings</button><p class="eyebrow">Connection</p><h2 id="provider-title">Provider setup</h2><p class="section-intro">Keep keys on the server. Choose how opennbLM thinks.</p><form class="setup-form" id="provider-form"><label>Provider<select id="provider-select"><option value="ollama">Ollama · local</option><option value="groq">Groq · cloud</option></select></label><label>Model<input id="model-input" value="llama3.2" /></label><button class="primary-button" type="submit">Save provider</button></form><p id="provider-feedback" class="feedback" role="status"></p></section>
+
+    <section id="memory" class="view settings-view" aria-labelledby="memory-title"><button class="back-link" data-view="settings">← Settings</button><p class="eyebrow">Your context</p><h2 id="memory-title">Memory</h2><p class="section-intro">Only useful learning preferences belong here. You stay in control.</p><div class="memory-list"><div><span class="memory-key">Language</span><strong>English</strong></div><div><span class="memory-key">Explanation style</span><strong>Clear, with examples</strong></div><div><span class="memory-key">Recent focus</span><strong>Nothing saved yet</strong></div></div><button class="quiet-button">Clear learning memory</button></section>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
