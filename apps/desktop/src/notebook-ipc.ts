@@ -3,9 +3,16 @@ import { dialog } from "electron";
 import type { BrowserWindow } from "electron";
 import type { NotebookStore } from "@opennblm/memory";
 import type { LLMProvider } from "@opennblm/llm-providers";
+import type {
+  AudioOverviewOptions,
+  StudioArtifactKind,
+} from "@opennblm/contracts";
 import {
+  buildGuidePrompt,
   buildPodcastScriptPrompt,
   buildSourceContext,
+  buildStudioArtifactPrompt,
+  collectMaterial,
   defaultTransformPrompt,
   ingestFileSource,
   ingestTextSource,
@@ -15,6 +22,18 @@ import type { createRumikManager } from "@opennblm/rumik-runtime";
 import { RUMIK_SPEAKERS } from "@opennblm/rumik-runtime";
 
 type Rumik = ReturnType<typeof createRumikManager>;
+
+function speakersForFormat(format: AudioOverviewOptions["format"], count?: number): string[] {
+  if (format === "brief") return [RUMIK_SPEAKERS[0]!];
+  const n = Math.min(4, Math.max(2, count ?? 2));
+  return [...RUMIK_SPEAKERS].slice(0, n);
+}
+
+function maxSynthLines(length: AudioOverviewOptions["length"]): number {
+  if (length === "shorter") return 12;
+  if (length === "longer") return 36;
+  return 24;
+}
 
 export function registerNotebookHandlers(
   ipcMain: IpcMain,
@@ -53,6 +72,10 @@ export function registerNotebookHandlers(
     store().removeNote(noteId);
   });
   ipcMain.handle("notebooks:search", (_e, query: string, notebookId?: string) => store().searchAll(query, notebookId));
+  ipcMain.handle("notebooks:list-artifacts", (_e, notebookId: string) => store().listArtifacts(notebookId));
+  ipcMain.handle("notebooks:remove-artifact", (_e, artifactId: string) => {
+    store().removeArtifact(artifactId);
+  });
   ipcMain.handle("notebooks:pick-source-file", async () => {
     const win = getWindow();
     const result = await dialog.showOpenDialog(win!, {
@@ -66,107 +89,197 @@ export function registerNotebookHandlers(
     return result.canceled ? null : result.filePaths[0] ?? null;
   });
 
-  ipcMain.handle("notebooks:transform-note", async (_e, notebookId: string, transform: "summarize" | "concepts" | "faq") => {
-    const chunks = store().listChunks(notebookId, { excludeExcluded: true });
-    const material = chunks.map((c) => c.text).join("\n\n");
-    if (!material.trim()) throw new Error("Add ready sources before generating an AI note.");
-    const { provider, model } = await getProvider();
-    const prompt = defaultTransformPrompt(transform, material);
-    const response = await provider.chat({
-      model,
-      messages: [
-        { role: "system", content: "You write concise study notes for a private local notebook. Return plain text only." },
-        { role: "user", content: prompt.instruction },
-      ],
-    });
-    return store().createNote(notebookId, {
-      title: prompt.title,
-      body: response.content.trim(),
-      kind: "ai",
-    });
-  });
-
-  ipcMain.handle("notebooks:ask", async (_e, notebookId: string, question: string) => {
-    const { context, citations } = buildSourceContext(store(), notebookId, question);
-    if (!context.trim()) throw new Error("Add ready sources before asking.");
-    const { provider, model } = await getProvider();
-    const response = await provider.chat({
-      model,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Answer using only the provided notebook excerpts. Write a clear research answer with natural citations like [1].",
-        },
-        { role: "user", content: `Question: ${question}\n\nExcerpts:\n${context}` },
-      ],
-    });
-    const text = response.content.trim();
-    const rumik = getRumik();
-    const healthy = await rumik.healthCheck().catch(() => false);
-    if (healthy) {
-      void rumik.synthesize(text, { deliveryDescription: "professional, steady pace", language: "English" }).catch(() => undefined);
-    }
-    return { text, citations };
-  });
-
-  ipcMain.handle("notebooks:list-podcasts", (_e, notebookId: string) => store().listPodcasts(notebookId));
   ipcMain.handle(
-    "notebooks:create-podcast",
-    async (_e, notebookId: string, options?: { title?: string; speakers?: number }) => {
-      const speakerCount = Math.min(4, Math.max(1, options?.speakers ?? 2));
-      const speakers = [...RUMIK_SPEAKERS].slice(0, speakerCount);
-      const episode = store().createPodcast({
+    "notebooks:transform-note",
+    async (
+      _e,
+      notebookId: string,
+      transform: "summarize" | "concepts" | "faq",
+      options?: { sourceIds?: string[]; language?: string },
+    ) => {
+      const material = collectMaterial(store(), notebookId, options?.sourceIds);
+      if (!material.trim()) throw new Error("Add ready sources before generating an AI note.");
+      const { provider, model } = await getProvider();
+      const prompt = defaultTransformPrompt(transform, material, options?.language ?? "English");
+      const response = await provider.chat({
+        model,
+        messages: [
+          { role: "system", content: "You write concise study notes for a private local notebook. Return plain text only." },
+          { role: "user", content: prompt.instruction },
+        ],
+      });
+      return store().createNote(notebookId, {
+        title: prompt.title,
+        body: response.content.trim(),
+        kind: "ai",
+      });
+    },
+  );
+
+  ipcMain.handle(
+    "notebooks:ask",
+    async (_e, notebookId: string, question: string, options?: { sourceIds?: string[]; language?: string }) => {
+      const { context, citations } = buildSourceContext(store(), notebookId, question, 6, options?.sourceIds);
+      if (!context.trim()) throw new Error("Add ready sources before asking.");
+      const { provider, model } = await getProvider();
+      const language = options?.language ?? "English";
+      const response = await provider.chat({
+        model,
+        messages: [
+          {
+            role: "system",
+            content: `Answer in ${language} using only the provided notebook excerpts. Write a clear research answer with natural citations like [1]. Focus on understanding, not dumping every detail.`,
+          },
+          { role: "user", content: `Question: ${question}\n\nExcerpts:\n${context}` },
+        ],
+      });
+      const text = response.content.trim();
+      const rumik = getRumik();
+      const healthy = await rumik.healthCheck().catch(() => false);
+      if (healthy) {
+        void rumik
+          .synthesize(text, { deliveryDescription: "professional, steady pace", language })
+          .catch(() => undefined);
+      }
+      return { text, citations };
+    },
+  );
+
+  ipcMain.handle(
+    "notebooks:generate-guide",
+    async (_e, notebookId: string, options?: { sourceIds?: string[]; language?: string }) => {
+      const material = collectMaterial(store(), notebookId, options?.sourceIds);
+      if (!material.trim()) return { text: "Add sources on the left to generate a notebook guide." };
+      const { provider, model } = await getProvider();
+      const response = await provider.chat({
+        model,
+        messages: [
+          { role: "system", content: "You write concise notebook guides. Plain text with light markdown." },
+          { role: "user", content: buildGuidePrompt(material, options?.language ?? "English") },
+        ],
+      });
+      return { text: response.content.trim() };
+    },
+  );
+
+  ipcMain.handle(
+    "notebooks:generate-artifact",
+    async (
+      _e,
+      notebookId: string,
+      kind: Exclude<StudioArtifactKind, "audio_overview" | "note">,
+      options?: { sourceIds?: string[]; language?: string; focusPrompt?: string },
+    ) => {
+      const material = collectMaterial(store(), notebookId, options?.sourceIds);
+      if (!material.trim()) throw new Error("Add ready sources before generating Studio output.");
+      const artifact = store().createArtifact({
         notebookId,
-        title: options?.title?.trim() || "Study audio overview",
-        speakers,
+        kind,
+        title: kind.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
         status: "processing",
       });
       try {
-        const chunks = store().listChunks(notebookId, { excludeExcluded: true });
-        const material = chunks.map((c) => c.text).join("\n\n");
-        if (!material.trim()) throw new Error("Add ready sources before creating study audio.");
         const { provider, model } = await getProvider();
-        const scriptResponse = await provider.chat({
+        const prompt = buildStudioArtifactPrompt(kind, material, options?.language ?? "English", options?.focusPrompt);
+        const response = await provider.chat({
           model,
           messages: [
-            { role: "system", content: "You write short educational dialogue scripts. Plain text only." },
-            { role: "user", content: buildPodcastScriptPrompt(material, speakers) },
+            { role: "system", content: "You generate structured study artifacts. Follow the output format exactly." },
+            { role: "user", content: prompt.instruction },
           ],
         });
-        const script = scriptResponse.content.trim();
-        store().updatePodcast(episode.id, { script });
-        const rumik = getRumik();
-        const healthy = await rumik.healthCheck().catch(() => false);
-        if (!healthy) throw new Error(rumik.getStatus().error || "Rumik voice is not available");
-        const lines = script
-          .split(/\n+/)
-          .map((line) => line.trim())
-          .filter(Boolean);
-        const audioPaths: string[] = [];
-        for (const line of lines.slice(0, 24)) {
-          const match = line.match(/^([A-Za-z]+)\s*:\s*(.+)$/);
-          const speakerName = match?.[1];
-          const speaker = (
-            speakerName && (speakers as string[]).includes(speakerName) ? speakerName : speakers[0]
-          ) as "Ira" | "Aisha" | "Siya" | "Zoya";
-          const text = match?.[2] || line;
-          const result = await rumik.synthesize(text, {
-            speaker,
-            language: "English",
-            deliveryDescription: "warm, conversational, steady pace",
-            maxTokens: 512,
-          });
-          for (const segment of result.segments) audioPaths.push(segment.wavPath);
-        }
-        void audioDir;
-        return store().updatePodcast(episode.id, { status: "ready", audioPaths, error: null });
+        return store().updateArtifact(artifact.id, {
+          status: "ready",
+          title: prompt.title,
+          body: response.content.trim(),
+          error: null,
+        });
       } catch (error) {
-        return store().updatePodcast(episode.id, {
+        return store().updateArtifact(artifact.id, {
           status: "error",
-          error: error instanceof Error ? error.message : "Study audio failed",
+          error: error instanceof Error ? error.message : "Studio generation failed",
         });
       }
     },
   );
+
+  ipcMain.handle("notebooks:list-podcasts", (_e, notebookId: string) => store().listPodcasts(notebookId));
+  ipcMain.handle("notebooks:create-podcast", async (_e, notebookId: string, options?: AudioOverviewOptions) => {
+    const format = options?.format ?? "deep_dive";
+    const length = options?.length ?? "default";
+    const language = options?.language ?? "English";
+    const speakers = speakersForFormat(format, options?.speakers);
+    const episode = store().createPodcast({
+      notebookId,
+      title: options?.title?.trim() || "Audio Overview",
+      speakers,
+      status: "processing",
+    });
+    const artifact = store().createArtifact({
+      notebookId,
+      kind: "audio_overview",
+      title: episode.title,
+      status: "processing",
+      meta: { format, length, language, podcastId: episode.id },
+    });
+    try {
+      const material = collectMaterial(store(), notebookId, options?.sourceIds);
+      if (!material.trim()) throw new Error("Add ready sources before creating an Audio Overview.");
+      const { provider, model } = await getProvider();
+      const scriptResponse = await provider.chat({
+        model,
+        messages: [
+          { role: "system", content: "You write educational dialogue scripts. Plain text only." },
+          {
+            role: "user",
+            content: buildPodcastScriptPrompt(material, speakers, {
+              format,
+              length,
+              language,
+              focusPrompt: options?.focusPrompt,
+            }),
+          },
+        ],
+      });
+      const script = scriptResponse.content.trim();
+      store().updatePodcast(episode.id, { script });
+      store().updateArtifact(artifact.id, { body: script });
+      const rumik = getRumik();
+      const healthy = await rumik.healthCheck().catch(() => false);
+      if (!healthy) throw new Error(rumik.getStatus().error || "Rumik voice is not available");
+      const lines = script
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const audioPaths: string[] = [];
+      for (const line of lines.slice(0, maxSynthLines(length))) {
+        const match = line.match(/^([A-Za-z]+)\s*:\s*(.+)$/);
+        const speakerName = match?.[1];
+        const speaker = (
+          speakerName && (speakers as string[]).includes(speakerName) ? speakerName : speakers[0]
+        ) as "Ira" | "Aisha" | "Siya" | "Zoya";
+        const text = match?.[2] || line;
+        const result = await rumik.synthesize(text, {
+          speaker,
+          language,
+          deliveryDescription: "warm, conversational, steady pace",
+          maxTokens: 512,
+        });
+        for (const segment of result.segments) audioPaths.push(segment.wavPath);
+      }
+      void audioDir;
+      const ready = store().updatePodcast(episode.id, { status: "ready", audioPaths, error: null });
+      store().updateArtifact(artifact.id, {
+        status: "ready",
+        audioPaths,
+        error: null,
+        meta: { format, length, language, podcastId: episode.id },
+      });
+      return { ...ready, format, length, language };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Audio Overview failed";
+      store().updateArtifact(artifact.id, { status: "error", error: message });
+      return store().updatePodcast(episode.id, { status: "error", error: message });
+    }
+  });
 }

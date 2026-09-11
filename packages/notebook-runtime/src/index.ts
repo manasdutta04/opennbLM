@@ -1,5 +1,11 @@
 import type { NotebookStore } from "@opennblm/memory";
-import type { NotebookSource, SourceKind } from "@opennblm/contracts";
+import type {
+  AudioOverviewFormat,
+  AudioOverviewLength,
+  NotebookSource,
+  SourceKind,
+  StudioArtifactKind,
+} from "@opennblm/contracts";
 import { chunkText, extractPlainText, fetchUrlText } from "./ingest.js";
 
 export async function ingestTextSource(
@@ -77,15 +83,42 @@ export async function ingestFileSource(store: NotebookStore, notebookId: string,
   }
 }
 
-export function buildSourceContext(store: NotebookStore, notebookId: string, question: string, limit = 6): {
+export function collectMaterial(
+  store: NotebookStore,
+  notebookId: string,
+  sourceIds?: string[],
+  maxChars = 14000,
+): string {
+  const chunks = store.listChunks(notebookId, { excludeExcluded: true, sourceIds });
+  if (!chunks.length) return "";
+  // Prefer evenly spaced chunks for long sources (gist, not page-by-page).
+  const step = Math.max(1, Math.floor(chunks.length / 24));
+  const sampled = chunks.filter((_, i) => i % step === 0).slice(0, 24);
+  let out = "";
+  for (const chunk of sampled) {
+    const source = store.listSources(notebookId).find((s) => s.id === chunk.sourceId);
+    const block = `(${source?.title || "Source"})\n${chunk.text}\n\n`;
+    if (out.length + block.length > maxChars) break;
+    out += block;
+  }
+  return out.trim();
+}
+
+export function buildSourceContext(
+  store: NotebookStore,
+  notebookId: string,
+  question: string,
+  limit = 6,
+  sourceIds?: string[],
+): {
   context: string;
   citations: Array<{ sourceId: string; title: string; excerpt: string }>;
 } {
-  const hits = store.searchChunks(question, notebookId, limit);
+  const hits = store.searchChunks(question, notebookId, limit, { sourceIds, excludeExcluded: true });
   const fallback = hits.length
     ? hits
     : store
-        .listChunks(notebookId, { excludeExcluded: true })
+        .listChunks(notebookId, { excludeExcluded: true, sourceIds })
         .slice(0, limit)
         .map((chunk) => {
           const source = store.listSources(notebookId).find((item) => item.id === chunk.sourceId);
@@ -111,32 +144,126 @@ export function buildSourceContext(store: NotebookStore, notebookId: string, que
 export function defaultTransformPrompt(
   transform: "summarize" | "concepts" | "faq",
   material: string,
+  language = "English",
 ): { title: string; instruction: string } {
+  const lang = `Write in ${language}.`;
   if (transform === "summarize") {
     return {
       title: "Summary",
-      instruction: `Write a clear summary note from these notebook sources:\n\n${material.slice(0, 12000)}`,
+      instruction: `${lang} Write a clear summary note from these notebook sources. Focus on the core ideas, not a page-by-page retelling.\n\n${material.slice(0, 12000)}`,
     };
   }
   if (transform === "concepts") {
     return {
       title: "Key concepts",
-      instruction: `Extract key concepts and short definitions from these notebook sources:\n\n${material.slice(0, 12000)}`,
+      instruction: `${lang} Extract key concepts and short definitions from these notebook sources:\n\n${material.slice(0, 12000)}`,
     };
   }
   return {
     title: "FAQ",
-    instruction: `Create a short FAQ (5–8 Q&A pairs) grounded in these notebook sources:\n\n${material.slice(0, 12000)}`,
+    instruction: `${lang} Create a short FAQ (5–8 Q&A pairs) grounded in these notebook sources:\n\n${material.slice(0, 12000)}`,
   };
 }
 
-export function buildPodcastScriptPrompt(material: string, speakerNames: string[]): string {
-  return `Create a short study-audio dialogue script (about 600–900 words) for speakers: ${speakerNames.join(", ")}.
-Format each line as "SpeakerName: dialogue".
-Ground the conversation in these notebook sources. Keep it educational and conversational.
+export function buildGuidePrompt(material: string, language = "English"): string {
+  return `You are writing the notebook guide card for a private research notebook.
+Language: ${language}.
+Write 2–4 short paragraphs that give a learner the gist of the selected sources: what the notebook is about, the core themes, and why they matter.
+Do NOT list every section or retell documents page by page. Bold key terms with **markdown** sparingly.
+Sources material:
+${material.slice(0, 12000)}`;
+}
+
+const LENGTH_WORDS: Record<AudioOverviewLength, { min: number; max: number; label: string }> = {
+  shorter: { min: 600, max: 900, label: "about 1–2 minutes spoken" },
+  default: { min: 1800, max: 2500, label: "a medium overview (gist-focused)" },
+  longer: { min: 4000, max: 5500, label: "a deep overview; still a story arc, not a full transcript of every page" },
+};
+
+export function buildPodcastScriptPrompt(
+  material: string,
+  speakerNames: string[],
+  options?: {
+    format?: AudioOverviewFormat;
+    length?: AudioOverviewLength;
+    language?: string;
+    focusPrompt?: string;
+  },
+): string {
+  const format = options?.format ?? "deep_dive";
+  const length = options?.length ?? "default";
+  const language = options?.language ?? "English";
+  const budget = LENGTH_WORDS[length];
+  const focus = options?.focusPrompt?.trim()
+    ? `Focus instructions from the learner: ${options.focusPrompt.trim()}`
+    : "";
+
+  const formatGuide: Record<AudioOverviewFormat, string> = {
+    deep_dive: `Deep Dive: lively conversation between ${speakerNames.join(" and ")} that unpacks and connects core topics.`,
+    brief: `The Brief: a single host (${speakerNames[0]}) delivers key takeaways quickly.`,
+    critique: `The Critique: ${speakerNames.slice(0, 2).join(" and ")} constructively evaluate the material.`,
+    debate: `The Debate: ${speakerNames.slice(0, 2).join(" and ")} take opposing but fair perspectives on the topic.`,
+  };
+
+  return `Create an educational Audio Overview script in ${language}.
+Format: ${formatGuide[format]}
+Length target: ${budget.min}–${budget.max} words (${budget.label}).
+Style: story-like gist of the sources — help the listener understand the CORE ideas. Do NOT read documents line by line.
+Format each line as "SpeakerName: dialogue" using only these speakers: ${speakerNames.join(", ")}.
+${focus}
 
 SOURCES:
 ${material.slice(0, 14000)}`;
+}
+
+export function buildStudioArtifactPrompt(
+  kind: Exclude<StudioArtifactKind, "audio_overview" | "note">,
+  material: string,
+  language = "English",
+  focusPrompt?: string,
+): { title: string; instruction: string } {
+  const focus = focusPrompt?.trim() ? `\nLearner focus: ${focusPrompt.trim()}` : "";
+  const base = `Language: ${language}. Ground every claim in the sources. Prefer core concepts over exhaustive coverage.${focus}\n\nSOURCES:\n${material.slice(0, 12000)}`;
+
+  switch (kind) {
+    case "report":
+      return {
+        title: "Report",
+        instruction: `${base}\n\nWrite a structured briefing report with short sections: Overview, Key ideas, Important details, Open questions. Plain text with markdown headings.`,
+      };
+    case "mind_map":
+      return {
+        title: "Mind map",
+        instruction: `${base}\n\nReturn ONLY valid JSON: {"root":"Topic","children":[{"label":"...","children":[{"label":"..."}]}]}. Max depth 3. Focus on the conceptual map of the sources.`,
+      };
+    case "flashcards":
+      return {
+        title: "Flashcards",
+        instruction: `${base}\n\nReturn ONLY valid JSON: {"cards":[{"front":"...","back":"..."}]} with 8–16 cards covering core definitions and ideas.`,
+      };
+    case "quiz":
+      return {
+        title: "Quiz",
+        instruction: `${base}\n\nReturn ONLY valid JSON: {"questions":[{"prompt":"...","choices":["A","B","C","D"],"answerIndex":0,"explanation":"..."}]} with 6–10 multiple-choice questions.`,
+      };
+    case "slide_deck":
+      return {
+        title: "Slide deck",
+        instruction: `${base}\n\nReturn ONLY valid JSON: {"slides":[{"title":"...","bullets":["..."]}]} with 6–12 slides telling a clear teaching story.`,
+      };
+    case "infographic":
+      return {
+        title: "Infographic",
+        instruction: `${base}\n\nReturn ONLY valid JSON: {"headline":"...","sections":[{"title":"...","points":["..."]}]} summarizing the gist visually as text blocks.`,
+      };
+    case "data_table":
+      return {
+        title: "Data table",
+        instruction: `${base}\n\nReturn ONLY valid JSON: {"columns":["..."],"rows":[["..."]]} extracting comparable facts or concepts from the sources.`,
+      };
+    default:
+      return { title: "Studio artifact", instruction: base };
+  }
 }
 
 export { chunkText, extractPlainText, fetchUrlText } from "./ingest.js";

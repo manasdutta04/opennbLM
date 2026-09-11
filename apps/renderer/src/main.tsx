@@ -67,6 +67,7 @@ type Conversation = {
 type DialogState =
   | null
   | { kind: "rename"; title: string }
+  | { kind: "rename-notebook"; id: string; title: string }
   | { kind: "delete" }
   | { kind: "clear-memory" };
 
@@ -134,7 +135,7 @@ function SetupBanner() {
         <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-accent-text">First run · Local setup</div>
         <h2 className="mt-2 text-[28px] font-semibold tracking-[-0.02em] text-ink">Welcome to opennbLM.</h2>
         <p className="mt-2 max-w-[430px] text-[13.5px] leading-relaxed text-ink-secondary">
-          Local lessons are ready. Open a lesson and use Connect brain to install or sign in to a teaching engine.
+          Local notebooks are ready. Create a notebook, add sources, and use Connect brain for grounded chat and Studio.
         </p>
         <div className="mt-5 divide-y divide-hairline/35 border-y border-hairline/35">
           {[
@@ -497,20 +498,12 @@ function App() {
         </button>
         <div className="flex-1" />
         {screen === "home" && (
-          <>
-            <button
-              onClick={() => void newNotebook()}
-              className="rounded-full border border-hairline/40 px-3.5 py-1.5 text-[13px] text-ink-secondary hover:bg-raised hover:text-ink"
-            >
-              + Notebook
-            </button>
-            <button
-              onClick={() => void newLesson()}
-              className="rounded-full bg-white px-3.5 py-1.5 text-[13px] font-medium text-black hover:brightness-95"
-            >
-              + Create lesson
-            </button>
-          </>
+          <button
+            onClick={() => void newNotebook()}
+            className="rounded-full bg-white px-3.5 py-1.5 text-[13px] font-medium text-black hover:brightness-95"
+          >
+            + Create notebook
+          </button>
         )}
         <button
           onClick={() => setScreen("memory")}
@@ -554,7 +547,7 @@ function App() {
                       autoFocus
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search lessons"
+                      placeholder="Search notebooks"
                       className="w-44 bg-transparent text-[13px] text-ink placeholder:text-ink-secondary"
                       onBlur={() => {
                         if (!search) setSearchOpen(false);
@@ -569,47 +562,12 @@ function App() {
               </div>
             </div>
 
-            <section className="mt-10">
-              <div className="mb-4 flex items-end justify-between">
-                <h2 className="text-[18px] font-medium text-ink">Featured starts</h2>
-                <button
-                  onClick={() => {
-                    if (featuredExpanded) setFeaturedExpanded(false);
-                    else setScreen("templates");
-                  }}
-                  className="text-[13px] text-ink-secondary hover:text-ink"
-                >
-                  View all ›
-                </button>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {(featuredExpanded ? FEATURED : FEATURED_HOME).map((card) => (
-                  <button
-                    key={card.title}
-                    onClick={() => void newLesson(card.title)}
-                    className="group relative overflow-hidden rounded-2xl border border-hairline/35 bg-card p-4 text-left transition hover:border-hairline/60 hover:bg-raised/40"
-                  >
-                    <div className="mb-8 text-accent-text opacity-80">
-                      <card.Icon size={28} strokeWidth={1.75} />
-                    </div>
-                    <div className="text-[15px] font-semibold text-ink">{card.title}</div>
-                    <div className="mt-1 text-[12.5px] leading-relaxed text-ink-secondary">{card.detail}</div>
-                  </button>
-                ))}
-              </div>
-              {!featuredExpanded && (
-                <button
-                  type="button"
-                  onClick={() => setFeaturedExpanded(true)}
-                  className="mt-3 text-[13px] text-ink-secondary hover:text-ink"
-                >
-                  Show another row of templates
-                </button>
-              )}
-            </section>
-
             <NotebookHomeSection
-              notebooks={notebooks}
+              notebooks={notebooks.filter((nb) => {
+                const q = search.trim().toLowerCase();
+                if (!q) return true;
+                return nb.title.toLowerCase().includes(q);
+              })}
               onOpen={openNotebook}
               onCreate={() => void newNotebook()}
               onRemove={(id) =>
@@ -619,63 +577,11 @@ function App() {
                   if (activeNotebookId === id) setActiveNotebookId("");
                 })()
               }
+              onRename={(id, title) => {
+                setRenameValue(title);
+                setDialog({ kind: "rename-notebook", id, title });
+              }}
             />
-
-            <section className="mt-12">
-              <h2 className="mb-4 text-[22px] font-medium tracking-[-0.02em] text-ink">Recent lessons</h2>
-              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                <button
-                  onClick={() => void newLesson()}
-                  className="flex min-h-[180px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-hairline/50 bg-transparent text-ink-secondary transition hover:border-accent/40 hover:bg-card hover:text-ink"
-                >
-                  <Plus size={28} />
-                  <span className="text-[14px]">Create new lesson</span>
-                </button>
-                {filtered.map((item) => (
-                  <div
-                    key={item.id}
-                    className="group relative flex min-h-[180px] flex-col rounded-2xl border border-hairline/35 bg-card p-4 transition hover:border-hairline/60 hover:bg-raised/30"
-                    onDoubleClick={() => openLesson(item.id)}
-                  >
-                    <div className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
-                      <OverflowMenu
-                        items={[
-                          { label: "Open", onClick: () => openLesson(item.id) },
-                          {
-                            label: "Rename",
-                            onClick: () => {
-                              setSelectedId(item.id);
-                              setRenameValue(item.title);
-                              setDialog({ kind: "rename", title: item.title });
-                            },
-                          },
-                          {
-                            label: "Delete",
-                            danger: true,
-                            onClick: () => {
-                              setSelectedId(item.id);
-                              setDialog({ kind: "delete" });
-                            },
-                          },
-                        ]}
-                      />
-                    </div>
-                    <button type="button" className="flex flex-1 flex-col items-start text-left" onClick={() => openLesson(item.id)}>
-                      <LessonGlyph title={item.title} size="lg" />
-                      <div className="mt-auto w-full pt-6">
-                        <div className="line-clamp-2 text-[15px] font-semibold leading-snug text-ink">{item.title}</div>
-                        <div className="mt-1 text-[12px] text-ink-secondary">
-                          {formatDate(item.updatedAt)} · {item.messageCount} msg
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                ))}
-              </div>
-              {filtered.length === 0 && (
-                <p className="mt-2 text-[13px] text-ink-secondary">No lessons yet — create one to begin.</p>
-              )}
-            </section>
           </div>
         </div>
       )}
@@ -686,6 +592,9 @@ function App() {
           onBack={() => {
             setScreen("home");
             void refreshNotebooks();
+          }}
+          onRenamed={(nb) => {
+            setNotebooks((items) => items.map((item) => (item.id === nb.id ? nb : item)));
           }}
           engineInstances={engineInstances}
           modelSelection={modelSelection}
@@ -917,6 +826,34 @@ function App() {
           setIsDark={setIsDark}
           onVoiceStatusChange={setVoiceReady}
         />
+      )}
+
+      {dialog?.kind === "rename-notebook" && (
+        <DialogShell onClose={() => setDialog(null)}>
+          <h2 className="text-[20px] font-semibold text-ink">Rename notebook</h2>
+          <input
+            autoFocus
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            className="mt-4 w-full rounded-lg bg-raised px-3 py-2.5 text-[14px] text-ink focus:ring-1 focus:ring-accent"
+          />
+          <div className="mt-5 flex gap-2">
+            <button
+              className="rounded-full bg-white px-3.5 py-2 text-[13px] font-medium text-black"
+              onClick={async () => {
+                const id = dialog.id;
+                const updated = await window.opennbLM.notebooks.rename(id, renameValue.trim() || dialog.title);
+                setNotebooks((items) => items.map((item) => (item.id === id ? updated : item)));
+                setDialog(null);
+              }}
+            >
+              Save
+            </button>
+            <button className="rounded-full px-3.5 py-2 text-[13px] text-ink-secondary hover:bg-raised" onClick={() => setDialog(null)}>
+              Cancel
+            </button>
+          </div>
+        </DialogShell>
       )}
 
       {dialog?.kind === "rename" && selected && (

@@ -53,5 +53,19 @@ test("notebooks store sources, chunks, notes, and search", async () => {
   assert.equal(db.notebooks.listNotes(notebook.id).length, 1);
   db.notebooks.updateSource(source.id, { contextLevel: "excluded" });
   assert.equal(db.notebooks.listChunks(notebook.id, { excludeExcluded: true }).length, 0);
+  const listed = db.notebooks.listNotebooks();
+  assert.equal(listed[0].sourceCount, 1);
+  const art = db.notebooks.createArtifact({
+    notebookId: notebook.id,
+    kind: "report",
+    title: "Briefing",
+    body: "Overview text",
+    status: "ready",
+  });
+  assert.equal(db.notebooks.listArtifacts(notebook.id)[0].id, art.id);
+  db.notebooks.removeArtifact(art.id);
+  assert.equal(db.notebooks.listArtifacts(notebook.id).length, 0);
+  const filtered = db.notebooks.listChunks(notebook.id, { excludeExcluded: false, sourceIds: [source.id] });
+  assert.equal(filtered.length, 1);
   db.close();
 });

@@ -9,6 +9,8 @@ import type {
   SourceContextLevel,
   SourceKind,
   SourceStatus,
+  StudioArtifact,
+  StudioArtifactKind,
 } from "@opennblm/contracts";
 
 type SqlDatabase = {
@@ -47,6 +49,11 @@ export interface ChunkRow {
   text: string;
 }
 
+export interface ChunkQueryOpts {
+  excludeExcluded?: boolean;
+  sourceIds?: string[];
+}
+
 export interface NotebookStore {
   ensureSchema(): void;
   listNotebooks(): Notebook[];
@@ -78,8 +85,13 @@ export interface NotebookStore {
   ): NotebookSource;
   removeSource(id: string): void;
   replaceChunks(sourceId: string, notebookId: string, texts: string[]): void;
-  listChunks(notebookId: string, opts?: { excludeExcluded?: boolean }): ChunkRow[];
-  searchChunks(query: string, notebookId?: string, limit?: number): Array<ChunkRow & { title: string }>;
+  listChunks(notebookId: string, opts?: ChunkQueryOpts): ChunkRow[];
+  searchChunks(
+    query: string,
+    notebookId?: string,
+    limit?: number,
+    opts?: ChunkQueryOpts,
+  ): Array<ChunkRow & { title: string; score?: number }>;
   listNotes(notebookId: string): NotebookNote[];
   createNote(notebookId: string, input: { title: string; body: string; kind?: NoteKind }): NotebookNote;
   updateNote(id: string, input: { title?: string; body?: string }): NotebookNote;
@@ -96,6 +108,28 @@ export interface NotebookStore {
     id: string,
     patch: Partial<{ status: PodcastEpisode["status"]; script: string; audioPaths: string[]; error: string | null }>,
   ): PodcastEpisode;
+  listArtifacts(notebookId: string): StudioArtifact[];
+  createArtifact(input: {
+    notebookId: string;
+    kind: StudioArtifactKind;
+    title: string;
+    body?: string;
+    status?: StudioArtifact["status"];
+    meta?: Record<string, unknown>;
+    audioPaths?: string[];
+  }): StudioArtifact;
+  updateArtifact(
+    id: string,
+    patch: Partial<{
+      status: StudioArtifact["status"];
+      title: string;
+      body: string;
+      meta: Record<string, unknown>;
+      audioPaths: string[];
+      error: string | null;
+    }>,
+  ): StudioArtifact;
+  removeArtifact(id: string): void;
   searchAll(query: string, notebookId?: string): NotebookSearchHit[];
 }
 
@@ -107,6 +141,7 @@ export function createNotebookStore(db: SqlDatabase, persist: () => void): Noteb
     title: String(row.title),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
+    sourceCount: row.source_count !== undefined ? Number(row.source_count) : undefined,
   });
 
   const mapSource = (row: Record<string, unknown>): NotebookSource => ({
@@ -141,6 +176,20 @@ export function createNotebookStore(db: SqlDatabase, persist: () => void): Noteb
     script: row.script ? String(row.script) : undefined,
     speakers: row.speakers ? (JSON.parse(String(row.speakers)) as string[]) : [],
     audioPaths: row.audio_paths ? (JSON.parse(String(row.audio_paths)) as string[]) : [],
+    error: row.error ? String(row.error) : undefined,
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  });
+
+  const mapArtifact = (row: Record<string, unknown>): StudioArtifact => ({
+    id: String(row.id),
+    notebookId: String(row.notebook_id),
+    kind: row.kind as StudioArtifactKind,
+    title: String(row.title),
+    status: row.status as StudioArtifact["status"],
+    body: String(row.body || ""),
+    meta: row.meta ? (JSON.parse(String(row.meta)) as Record<string, unknown>) : undefined,
+    audioPaths: row.audio_paths ? (JSON.parse(String(row.audio_paths)) as string[]) : undefined,
     error: row.error ? String(row.error) : undefined,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
@@ -196,10 +245,24 @@ export function createNotebookStore(db: SqlDatabase, persist: () => void): Noteb
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS notebook_artifacts (
+          id TEXT PRIMARY KEY,
+          notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
+          kind TEXT NOT NULL,
+          title TEXT NOT NULL,
+          status TEXT NOT NULL,
+          body TEXT NOT NULL DEFAULT '',
+          meta TEXT,
+          audio_paths TEXT NOT NULL DEFAULT '[]',
+          error TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
         CREATE INDEX IF NOT EXISTS idx_notebooks_updated ON notebooks(updated_at DESC);
         CREATE INDEX IF NOT EXISTS idx_notebook_sources_nb ON notebook_sources(notebook_id);
         CREATE INDEX IF NOT EXISTS idx_notebook_chunks_nb ON notebook_chunks(notebook_id);
         CREATE INDEX IF NOT EXISTS idx_notebook_notes_nb ON notebook_notes(notebook_id);
+        CREATE INDEX IF NOT EXISTS idx_notebook_artifacts_nb ON notebook_artifacts(notebook_id);
       `);
       try {
         db.exec(`ALTER TABLE conversations ADD COLUMN notebook_id TEXT REFERENCES notebooks(id) ON DELETE SET NULL`);
@@ -209,7 +272,13 @@ export function createNotebookStore(db: SqlDatabase, persist: () => void): Noteb
     },
 
     listNotebooks() {
-      return rows(db, "SELECT * FROM notebooks ORDER BY updated_at DESC").map(mapNotebook);
+      return rows(
+        db,
+        `SELECT n.*,
+          (SELECT COUNT(*) FROM notebook_sources s WHERE s.notebook_id = n.id) AS source_count
+         FROM notebooks n
+         ORDER BY n.updated_at DESC`,
+      ).map(mapNotebook);
     },
 
     createNotebook(title) {
@@ -222,7 +291,7 @@ export function createNotebookStore(db: SqlDatabase, persist: () => void): Noteb
         timestamp,
       ]);
       persist();
-      return mapNotebook(rows(db, "SELECT * FROM notebooks WHERE id = ?", [id])[0]!);
+      return { ...mapNotebook(rows(db, "SELECT * FROM notebooks WHERE id = ?", [id])[0]!), sourceCount: 0 };
     },
 
     renameNotebook(id, title) {
@@ -316,9 +385,11 @@ export function createNotebookStore(db: SqlDatabase, persist: () => void): Noteb
       const sources = rows(db, "SELECT id, context_level FROM notebook_sources WHERE notebook_id = ? AND status = 'ready'", [
         notebookId,
       ]);
+      const selected = opts?.sourceIds?.length ? new Set(opts.sourceIds) : null;
       const allowed = new Set(
         sources
           .filter((s) => !opts?.excludeExcluded || String(s.context_level) !== "excluded")
+          .filter((s) => !selected || selected.has(String(s.id)))
           .map((s) => String(s.id)),
       );
       return rows(db, "SELECT * FROM notebook_chunks WHERE notebook_id = ? ORDER BY chunk_index ASC", [notebookId])
@@ -332,13 +403,14 @@ export function createNotebookStore(db: SqlDatabase, persist: () => void): Noteb
         }));
     },
 
-    searchChunks(query, notebookId, limit = 8) {
+    searchChunks(query, notebookId, limit = 8, opts) {
       const terms = query
         .trim()
         .toLowerCase()
         .split(/\s+/)
         .filter((t) => t.length > 1);
       if (!terms.length) return [];
+      const selected = opts?.sourceIds?.length ? new Set(opts.sourceIds) : null;
       const sql = notebookId
         ? "SELECT c.*, s.title as title, s.context_level as context_level FROM notebook_chunks c JOIN notebook_sources s ON s.id = c.source_id WHERE c.notebook_id = ? AND s.status = 'ready' AND s.context_level != 'excluded'"
         : "SELECT c.*, s.title as title, s.context_level as context_level FROM notebook_chunks c JOIN notebook_sources s ON s.id = c.source_id WHERE s.status = 'ready' AND s.context_level != 'excluded'";
@@ -360,6 +432,7 @@ export function createNotebookStore(db: SqlDatabase, persist: () => void): Noteb
           };
         })
         .filter((row) => row.score > 0)
+        .filter((row) => !selected || selected.has(row.sourceId))
         .sort((a, b) => b.score - a.score)
         .slice(0, limit);
     },
@@ -450,6 +523,61 @@ export function createNotebookStore(db: SqlDatabase, persist: () => void): Noteb
       return mapPodcast(rows(db, "SELECT * FROM notebook_podcasts WHERE id = ?", [id])[0]!);
     },
 
+    listArtifacts(notebookId) {
+      return rows(db, "SELECT * FROM notebook_artifacts WHERE notebook_id = ? ORDER BY created_at DESC", [notebookId]).map(mapArtifact);
+    },
+
+    createArtifact(input) {
+      const timestamp = now();
+      const id = randomUUID();
+      run(
+        db,
+        "INSERT INTO notebook_artifacts (id, notebook_id, kind, title, status, body, meta, audio_paths, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [
+          id,
+          input.notebookId,
+          input.kind,
+          input.title,
+          input.status ?? "processing",
+          input.body ?? "",
+          input.meta ? JSON.stringify(input.meta) : null,
+          JSON.stringify(input.audioPaths ?? []),
+          timestamp,
+          timestamp,
+        ],
+      );
+      run(db, "UPDATE notebooks SET updated_at = ? WHERE id = ?", [timestamp, input.notebookId]);
+      persist();
+      return mapArtifact(rows(db, "SELECT * FROM notebook_artifacts WHERE id = ?", [id])[0]!);
+    },
+
+    updateArtifact(id, patch) {
+      const current = rows(db, "SELECT * FROM notebook_artifacts WHERE id = ?", [id])[0];
+      if (!current) throw new Error("Artifact not found");
+      const timestamp = now();
+      run(
+        db,
+        "UPDATE notebook_artifacts SET status = ?, title = ?, body = ?, meta = ?, audio_paths = ?, error = ?, updated_at = ? WHERE id = ?",
+        [
+          patch.status ?? current.status,
+          patch.title ?? current.title,
+          patch.body ?? current.body,
+          patch.meta ? JSON.stringify(patch.meta) : current.meta,
+          patch.audioPaths ? JSON.stringify(patch.audioPaths) : current.audio_paths,
+          patch.error === undefined ? current.error : patch.error,
+          timestamp,
+          id,
+        ],
+      );
+      persist();
+      return mapArtifact(rows(db, "SELECT * FROM notebook_artifacts WHERE id = ?", [id])[0]!);
+    },
+
+    removeArtifact(id) {
+      run(db, "DELETE FROM notebook_artifacts WHERE id = ?", [id]);
+      persist();
+    },
+
     searchAll(query, notebookId) {
       const hits: NotebookSearchHit[] = [];
       for (const chunk of this.searchChunks(query, notebookId, 12)) {
@@ -459,6 +587,7 @@ export function createNotebookStore(db: SqlDatabase, persist: () => void): Noteb
           id: chunk.sourceId,
           title: chunk.title,
           excerpt: chunk.text.slice(0, 240),
+          score: chunk.score,
         });
       }
       for (const note of this.searchNotes(query, notebookId).slice(0, 8)) {

@@ -38,9 +38,10 @@ Short handoff for agents. Product: native, local-first, voice-first learning com
 ## Notebooks (local research containers)
 
 - Package: `@opennblm/notebook-runtime` (ingest/chunk/context/transforms/podcast prompt) + `memory` notebook store.
-- IPC: `notebooks:*` (CRUD, sources, notes, search, ask, podcast, file pick).
-- UI: Home **Notebooks** grid → Sources | Chat | Notes | Search | Audio. Lessons remain for free exploration.
-- Sources: paste, PDF, URL, DOCX/PPTX, YouTube captions when available. Context levels Full/Summary/Excluded.
+- IPC: `notebooks:*` (CRUD, sources, notes, search, ask, guide, podcast, Studio artifacts, file pick).
+- UI: Home is **notebooks-only**. Open notebook → three columns **Sources | Chat+guide | Studio**.
+- Sources: paste, PDF, URL, DOCX/PPTX, YouTube captions when available; checkboxes select grounding set; context Full/Summary/Excluded.
+- Studio (no Video): Audio Overview (format/length/language/focus), Reports, Mind Map, Flashcards, Quiz, Slide deck, Infographic, Data table — all via Connect brain; Audio via Rumik.
 - Privacy: Settings states data stays in Electron `userData`; cloud only if user picks cloud brain / remote Rumik.
 
 ## UI / shell

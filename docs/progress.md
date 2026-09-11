@@ -613,3 +613,24 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - Podcast generation synthesizes lines sequentially (slow on local Rumik).
 - No STT path for raw audio/video yet — UI states this clearly.
 - Embeddings / true SQLite FTS5 not enabled yet.
+
+## NotebookLM-style three-column shell — 2026-09-11
+
+### Completed
+
+- Home is notebooks-only (lessons removed from primary Home); rename/delete notebooks; source counts on cards.
+- Notebook workspace: Sources | Chat+notebook guide | Studio (collapsible side panels).
+- Source checkboxes ground chat, guide, Audio Overview, and Studio artifacts.
+- Audio Overview: Deep Dive / Brief / Critique / Debate; Shorter / Default / Longer word budgets; language chips; focus prompt; Rumik playlist.
+- Studio artifacts table: report, mind_map, flashcards, quiz, slide_deck, infographic, data_table (no Video).
+- Docs updated; package tests extended.
+
+### Verification
+
+- `pnpm typecheck` / package tests / `pnpm build` / `pnpm desktop:start`.
+
+### Known limitations
+
+- Longer Audio Overview synthesizes a capped number of lines for local Rumik feasibility (not a guaranteed multi-dozen-minute podcast).
+- Studio visuals are local structured viewers (JSON → UI), not Google Slides / pixel-perfect infographics.
+- Interactive Audio “join the hosts” mode is not implemented.

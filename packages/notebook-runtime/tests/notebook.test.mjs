@@ -3,7 +3,7 @@ import test from "node:test";
 import { writeFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { chunkText, extractPlainText } from "../dist/index.js";
+import { buildPodcastScriptPrompt, buildStudioArtifactPrompt, chunkText, extractPlainText } from "../dist/index.js";
 import JSZip from "jszip";
 
 test("chunkText splits long material into word windows", () => {
@@ -18,7 +18,7 @@ test("chunkText returns empty for blank input", () => {
   assert.deepEqual(chunkText("   "), []);
 });
 
-test("extractPlainText reads markdown and docx", async () => {
+test("extractPlainText reads markdown, docx, and pptx", async () => {
   const dir = mkdtempSync(join(tmpdir(), "opennblm-nb-"));
   const mdPath = join(dir, "notes.md");
   writeFileSync(mdPath, "# Hello\n\nPhotosynthesis converts light into chemical energy.");
@@ -47,4 +47,23 @@ test("extractPlainText reads markdown and docx", async () => {
   const pptx = await extractPlainText(pptxPath);
   assert.equal(pptx.kind, "pptx");
   assert.match(pptx.text, /PPTX mitosis/);
+});
+
+test("podcast prompt encodes length and format", () => {
+  const prompt = buildPodcastScriptPrompt("AES encrypts blocks", ["Ira", "Aisha"], {
+    format: "brief",
+    length: "shorter",
+    language: "Hindi",
+    focusPrompt: "exam revision",
+  });
+  assert.match(prompt, /Hindi/);
+  assert.match(prompt, /The Brief/);
+  assert.match(prompt, /600–900/);
+  assert.match(prompt, /exam revision/);
+});
+
+test("studio artifact prompt returns JSON instructions for mind map", () => {
+  const prompt = buildStudioArtifactPrompt("mind_map", "recursion and stacks", "English");
+  assert.equal(prompt.title, "Mind map");
+  assert.match(prompt.instruction, /ONLY valid JSON/);
 });

@@ -156,8 +156,14 @@ app.whenReady().then(async () => {
     outputDirectory: rumikOutput,
   });
   await rumik.healthCheck().catch(() => false);
-  rumik.onSegmentReady((segment) => { mainWindow?.webContents.send("rumik:segment-ready", segment); });
-  rumik.onStateChange((status) => { mainWindow?.webContents.send("rumik:state", status); });
+  rumik.onSegmentReady((segment) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send("rumik:segment-ready", segment);
+  });
+  rumik.onStateChange((status) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send("rumik:state", status);
+  });
   ipcMain.handle("app:info", () => ({ name: "opennbLM", version: app.getVersion() }));
   ipcMain.handle("setup:status", async () => { setupStatus = await getSetupStatus(); return setupStatus; });
   ipcMain.handle("setup:complete", () => { writeFileSync(join(app.getPath("userData"), "setup-complete.json"), JSON.stringify({ completedAt: new Date().toISOString() })); });
@@ -203,7 +209,7 @@ app.whenReady().then(async () => {
   ipcMain.handle("rumik:synthesize", (_event, text, config) => rumik!.synthesize(text, config));
   ipcMain.handle("rumik:cancel", () => rumik!.cancel());
   ipcMain.handle("rumik:voices", () => rumik!.getVoices());
-  ipcMain.handle("teaching:teach", async (_event, conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string; style?: TeachingStyle; referenceExplanation?: string; notebookId?: string }) => {
+  ipcMain.handle("teaching:teach", async (_event, conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string; style?: TeachingStyle; referenceExplanation?: string; notebookId?: string; sourceIds?: string[] }) => {
     const selection = engines!.getSelection();
     if (!selection?.instanceId || !selection.model) {
       throw new Error("Connect a teaching brain in the lesson picker first.");
@@ -212,7 +218,7 @@ app.whenReady().then(async () => {
     const provider = createEngineLLMProvider(engines!, selection);
     const teaching = createTeachingEngine(provider);
     const grounded = options?.notebookId
-      ? buildSourceContext(services!.memory.notebooks, options.notebookId, question)
+      ? buildSourceContext(services!.memory.notebooks, options.notebookId, question, 6, options.sourceIds)
       : { context: "", citations: [] as Array<{ sourceId: string; title: string; excerpt: string }> };
     const result = await teaching.teach({
       question,

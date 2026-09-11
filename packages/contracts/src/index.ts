@@ -132,19 +132,52 @@ export interface RumikConfig { speaker: "Ira" | "Aisha" | "Siya" | "Zoya"; tempe
 export interface RumikSegment { id: string; text: string; wavPath: string; }
 export interface RumikApi { getStatus(): Promise<RumikStatus>; start(): Promise<void>; stop(): Promise<void>; healthCheck(): Promise<boolean>; synthesize(text: string, config?: Partial<RumikConfig>): Promise<{ segments: RumikSegment[] }>; cancel(): Promise<void>; getVoices(): Promise<readonly string[]>; onSegmentReady(listener: (segment: RumikSegment) => void): () => void; onStateChange(listener: (status: RumikStatus) => void): () => void; }
 export type TeachingStyle = "teacher" | "friend" | "10-year-old" | "story" | "simple" | "technical" | "hype";
-export interface TeachingApi { teach(conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string; style?: TeachingStyle; referenceExplanation?: string; notebookId?: string }): Promise<{ text: string; deliveryLabel: string; voiceStarted: boolean; voiceError?: string; usedFallback?: boolean; citations?: Array<{ sourceId: string; title: string; excerpt: string }> }>; }
+export interface TeachingApi {
+  teach(
+    conversationId: string,
+    question: string,
+    options?: {
+      learnerLevel?: "beginner" | "intermediate" | "advanced";
+      language?: string;
+      style?: TeachingStyle;
+      referenceExplanation?: string;
+      notebookId?: string;
+      sourceIds?: string[];
+    },
+  ): Promise<{
+    text: string;
+    deliveryLabel: string;
+    voiceStarted: boolean;
+    voiceError?: string;
+    usedFallback?: boolean;
+    citations?: Array<{ sourceId: string; title: string; excerpt: string }>;
+  }>;
+}
 
 /** Notebook research containers (local-first). */
 export type SourceKind = "pdf" | "url" | "text" | "pptx" | "docx" | "youtube";
 export type SourceStatus = "processing" | "ready" | "error";
 export type SourceContextLevel = "full" | "summary" | "excluded";
 export type NoteKind = "manual" | "ai";
+export type StudioArtifactKind =
+  | "audio_overview"
+  | "report"
+  | "mind_map"
+  | "flashcards"
+  | "quiz"
+  | "slide_deck"
+  | "infographic"
+  | "data_table"
+  | "note";
+export type AudioOverviewFormat = "deep_dive" | "brief" | "critique" | "debate";
+export type AudioOverviewLength = "shorter" | "default" | "longer";
 
 export interface Notebook {
   id: string;
   title: string;
   createdAt: string;
   updatedAt: string;
+  sourceCount?: number;
 }
 
 export interface NotebookSource {
@@ -191,6 +224,33 @@ export interface PodcastEpisode {
   error?: string;
   createdAt: string;
   updatedAt: string;
+  format?: AudioOverviewFormat;
+  length?: AudioOverviewLength;
+  language?: string;
+}
+
+export interface StudioArtifact {
+  id: string;
+  notebookId: string;
+  kind: StudioArtifactKind;
+  title: string;
+  status: "processing" | "ready" | "error";
+  body: string;
+  meta?: Record<string, unknown>;
+  audioPaths?: string[];
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AudioOverviewOptions {
+  title?: string;
+  format?: AudioOverviewFormat;
+  length?: AudioOverviewLength;
+  language?: string;
+  sourceIds?: string[];
+  speakers?: number;
+  focusPrompt?: string;
 }
 
 export interface NotebooksApi {
@@ -208,11 +268,30 @@ export interface NotebooksApi {
   createNote(notebookId: string, input: { title: string; body: string; kind?: NoteKind }): Promise<NotebookNote>;
   updateNote(noteId: string, input: { title?: string; body?: string }): Promise<NotebookNote>;
   removeNote(noteId: string): Promise<void>;
-  transformNote(notebookId: string, transform: "summarize" | "concepts" | "faq"): Promise<NotebookNote>;
+  transformNote(
+    notebookId: string,
+    transform: "summarize" | "concepts" | "faq",
+    options?: { sourceIds?: string[]; language?: string },
+  ): Promise<NotebookNote>;
   search(query: string, notebookId?: string): Promise<NotebookSearchHit[]>;
-  ask(notebookId: string, question: string): Promise<{ text: string; citations: Array<{ sourceId: string; title: string; excerpt: string }> }>;
+  ask(
+    notebookId: string,
+    question: string,
+    options?: { sourceIds?: string[]; language?: string },
+  ): Promise<{ text: string; citations: Array<{ sourceId: string; title: string; excerpt: string }> }>;
+  generateGuide(
+    notebookId: string,
+    options?: { sourceIds?: string[]; language?: string },
+  ): Promise<{ text: string }>;
   listPodcasts(notebookId: string): Promise<PodcastEpisode[]>;
-  createPodcast(notebookId: string, options?: { title?: string; speakers?: number }): Promise<PodcastEpisode>;
+  createPodcast(notebookId: string, options?: AudioOverviewOptions): Promise<PodcastEpisode>;
+  listArtifacts(notebookId: string): Promise<StudioArtifact[]>;
+  generateArtifact(
+    notebookId: string,
+    kind: Exclude<StudioArtifactKind, "audio_overview" | "note">,
+    options?: { sourceIds?: string[]; language?: string; focusPrompt?: string },
+  ): Promise<StudioArtifact>;
+  removeArtifact(artifactId: string): Promise<void>;
   pickSourceFile(): Promise<string | null>;
 }
 
