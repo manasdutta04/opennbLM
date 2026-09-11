@@ -33,8 +33,11 @@ async function getSetupStatus() {
   const bundledModel = join(packagedResources, "rumik", "model");
   const userModel = join(app.getPath("userData"), "models", "rumik-oss-1");
   const bindPath = process.env.RUMIK_MODEL_PATH || (existsSync(bundledModel) ? bundledModel : userModel);
+  await rumik!.detectCuda();
+  const rumikStatus = rumik!.getStatus();
   const runtimeAvailable = await rumik!.detectRuntime();
   const modelAvailable = await rumik!.detectModel();
+  const mode = rumik!.getMode();
   let gpuStatus = "unknown";
   try { gpuStatus = app.getGPUFeatureStatus().gpu_compositing || "unknown"; } catch {}
   let audioAvailable = true; let audioDetail = "Audio output is available to the operating system.";
@@ -43,23 +46,38 @@ async function getSetupStatus() {
     firstRun: !existsSync(join(app.getPath("userData"), "setup-complete.json")),
     runtime: {
       available: runtimeAvailable,
-      source: existsSync(bundledPython) ? "bundled" : runtimeAvailable ? "system" : "unavailable",
-      detail: runtimeAvailable
-        ? undefined
-        : "Install Python 3 on PATH, or set RUMIK_PYTHON to a CUDA-capable interpreter.",
+      source: mode === "remote" ? "remote" : existsSync(bundledPython) ? "bundled" : runtimeAvailable ? "system" : "unavailable",
+      detail:
+        mode === "remote"
+          ? rumikStatus.cudaAvailable
+            ? "CUDA detected, but local Rumik weights are not bound — using hosted voice fallback (not local inference)."
+            : "No NVIDIA CUDA — using hosted Rumik voice fallback (not local inference)."
+          : runtimeAvailable
+            ? undefined
+            : "Install Python 3 on PATH, or set RUMIK_PYTHON to a CUDA-capable interpreter.",
     },
     model: {
       available: modelAvailable,
       modelId: "rumik-ai/rumik-oss-1",
-      revision: rumik!.getStatus().modelRevision,
+      revision: rumikStatus.modelRevision,
       bindPath,
-      detail: modelAvailable
-        ? undefined
-        : `Download rumik-ai/rumik-oss-1 into ${bindPath} (or set RUMIK_MODEL_PATH).`,
+      detail:
+        mode === "remote"
+          ? rumikStatus.cudaAvailable
+            ? `Bind official weights at ${bindPath} to use local inference. Until then, voice uses the public rumik-ai Space.`
+            : "Remote mode uses the public rumik-ai ZeroGPU Space; local weights are optional."
+          : modelAvailable
+            ? undefined
+            : `Download rumik-ai/rumik-oss-1 into ${bindPath} (or set RUMIK_MODEL_PATH).`,
     },
     audio: { available: audioAvailable, detail: audioDetail },
     system: { freeMemoryMb: Math.round(freemem() / 1024 / 1024), gpuStatus, platform: platform(), arch: arch() },
     dataPaths: { userData: app.getPath("userData"), logs: app.getPath("logs"), resources: packagedResources, rumikModel: bindPath },
+    rumik: {
+      mode,
+      cudaAvailable: rumikStatus.cudaAvailable,
+      remoteEndpoint: rumikStatus.remoteEndpoint,
+    },
   };
 }
 
@@ -110,6 +128,7 @@ app.whenReady().then(async () => {
   const bundledPython = process.platform === "win32" ? join(process.resourcesPath, "rumik", "python", "python.exe") : join(process.resourcesPath, "rumik", "python", "bin", "python3");
   const bundledModel = join(process.resourcesPath, "rumik", "model");
   rumik = createRumikManager({ pythonPath: process.env.RUMIK_PYTHON || (existsSync(bundledPython) ? bundledPython : undefined), modelPath: process.env.RUMIK_MODEL_PATH || (existsSync(bundledModel) ? bundledModel : join(app.getPath("userData"), "models", "rumik-oss-1")), outputDirectory: rumikOutput });
+  await rumik.healthCheck().catch(() => false);
   rumik.onSegmentReady((segment) => { mainWindow?.webContents.send("rumik:segment-ready", segment); });
   rumik.onStateChange((status) => { mainWindow?.webContents.send("rumik:state", status); });
   ipcMain.handle("app:info", () => ({ name: "opennbLM", version: app.getVersion() }));
@@ -177,8 +196,11 @@ app.whenReady().then(async () => {
     services!.memory.addMessage({ conversationId, role: "assistant", text: result.response, teachingMetadata: { difficulty: result.plan.learner_level } });
     extractLearnerMemory(conversationId, result, options);
     const deliveryDescription = `${result.delivery.overallTone}, ${result.delivery.pace} pace`;
-    void rumik!.synthesize(result.response, { speaker: result.delivery.speaker, language: result.delivery.language, deliveryDescription }).catch(() => undefined);
-    return { text: result.response, deliveryLabel: result.delivery.overallTone, voiceStarted: Boolean(rumik!.getStatus().runtimeAvailable && rumik!.getStatus().modelAvailable) };
+    const healthy = await rumik!.healthCheck().catch(() => false);
+    if (healthy) {
+      void rumik!.synthesize(result.response, { speaker: result.delivery.speaker, language: result.delivery.language, deliveryDescription }).catch(() => undefined);
+    }
+    return { text: result.response, deliveryLabel: result.delivery.overallTone, voiceStarted: healthy };
   });
   installAppMenu();
   createWindow();

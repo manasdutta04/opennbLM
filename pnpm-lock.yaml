@@ -128,7 +128,11 @@ importers:
         specifier: 1.13.0
         version: 1.13.0
 
-  packages/rumik-runtime: {}
+  packages/rumik-runtime:
+    dependencies:
+      '@gradio/client':
+        specifier: ^2.6.0
+        version: 2.6.0
 
   packages/teaching-engine:
     dependencies:
@@ -413,6 +417,10 @@ packages:
 
   '@gar/promisify@1.1.3':
     resolution: {integrity: sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw==}
+
+  '@gradio/client@2.6.0':
+    resolution: {integrity: sha512-6UEzLru4kHI1zrnIVM1TEo9R6Qn3M9Ov+AySbonaCb57X5R7wesne9sXT7tbrGLiGFKeLnC7UgEGF6QaJoTHrw==}
+    engines: {node: '>=18.0.0'}
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -1223,6 +1231,9 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
+
+  fetch-event-stream@0.1.6:
+    resolution: {integrity: sha512-GREtJ5HNikdU2AXtZ6E/5bk+aslMU6ie5mPG6H9nvsdDkkHQ6m5lHwmmmDTOBexok9hApQ7EprsXCdmz9ZC68w==}
 
   filelist@1.0.6:
     resolution: {integrity: sha512-5giy2PkLYY1cP39p17Ech+2xlpTRL9HLspOfEgm0L6CwBXBTgsK5ou0JtzYuepxkaQ/tvhCFIJ5uXo0OrM2DxA==}
@@ -2498,6 +2509,10 @@ snapshots:
 
   '@gar/promisify@1.1.3': {}
 
+  '@gradio/client@2.6.0':
+    dependencies:
+      fetch-event-stream: 0.1.6
+
   '@isaacs/cliui@8.0.2':
     dependencies:
       string-width: 5.1.2
@@ -3401,6 +3416,8 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:
       picomatch: 4.0.7
+
+  fetch-event-stream@0.1.6: {}
 
   filelist@1.0.6:
     dependencies:

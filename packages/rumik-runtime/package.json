@@ -1,1 +1,14 @@
-{"name":"@opennblm/rumik-runtime","private":true,"version":"0.1.0","type":"module","main":"dist/index.js","types":"dist/index.d.ts","scripts":{"test":"node --test tests/rumik.test.mjs"}}
+{
+  "name": "@opennblm/rumik-runtime",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "node --test tests/rumik.test.mjs"
+  },
+  "dependencies": {
+    "@gradio/client": "^2.6.0"
+  }
+}

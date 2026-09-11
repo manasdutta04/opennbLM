@@ -548,3 +548,21 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - Engine-runtime live discovery smoke test on this machine: OpenCode returned 31 account models; Codex app-server returned 3 subscription models (`gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`) — not the old static list.
 - Fixed Antigravity discovery: was parsing `agy` help flags as models; now uses `agy models` tab rows only (14 live models verified).
 - Settings → Voice engine shows Rumik install/bind steps, live bind path, copyable download command, Hugging Face link, and refresh/health recheck.
+- Rumik runner: auto **low-VRAM / 4-bit NF4** on ≤6 GB GPUs (`bitsandbytes`), FP16 compute, shorter token cap — not Unsloth.
+
+## Rumik remote fallback + quant decision — 2026-09-11
+
+### Completed
+
+- Added `rumik` modes: **local** (CUDA + weights) vs **remote** (public rumik-ai Gradio/ZeroGPU Space). No CUDA → remote by default; Settings shows **Remote fallback** (explicitly not “runs on Mac locally”).
+- Renderer `rumik:*` IPC unchanged; mode owned in `@opennblm/rumik-runtime` (`cuda.ts`, `remote.ts`).
+- Documented auto load-time 4-bit quant; **no** plan to publish a separate quantized HF checkpoint.
+- README + `docs/demo/rumik-expressive-sample.wav` safety-net clip; UI screen-cap instructions in `docs/demo/README.md`.
+
+### Verification
+
+- `pnpm --filter @opennblm/rumik-runtime test` — 4/4 passed (forced local fail + remote mode select + delivery parse).
+- Contracts + rumik-runtime `tsc`, preload/renderer/desktop build — passed.
+- Remote smoke: `synthesizeRemoteSegment` → ~150 KB WAV from `https://rumik-ai-rumik-oss-1.hf.space`.
+- Desktop launch check (2026-09-11): app boots; Settings shows **Remote fallback** + CUDA detected when weights unbound; setup copy distinguishes missing weights vs missing CUDA.
+- Anonymous ZeroGPU quota on this machine is exhausted (~24h cooldown); remote errors now surface the Gradio/HF quota message (via `@gradio/client`). Optional `HF_TOKEN` documented. Local CUDA path remains preferred once weights are bound.

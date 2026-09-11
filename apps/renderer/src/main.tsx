@@ -1201,6 +1201,21 @@ function SettingsPage({
                 >
                   <RefreshCw size={14} className={cn(refreshing && "animate-spin")} />
                 </button>
+                <span
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-[11.5px]",
+                    setup?.rumik?.mode === "remote"
+                      ? "border-accent/30 text-accent-text"
+                      : "border-hairline/40 text-ink-secondary",
+                  )}
+                  title={
+                    setup?.rumik?.mode === "remote"
+                      ? "Hosted voice fallback — not local CUDA inference"
+                      : "Local CUDA inference when model weights are bound"
+                  }
+                >
+                  {setup?.rumik?.mode === "remote" ? "Remote fallback" : "Local"}
+                </span>
                 <span className={cn("rounded-full border px-2.5 py-1 text-[11.5px]", voiceReady ? "border-success/30 text-success" : "border-warning/30 text-warning")}>
                   {voiceReady ? "Ready" : "Not connected"}
                 </span>
@@ -1208,31 +1223,59 @@ function SettingsPage({
             </div>
 
             <div className="mt-3 grid gap-2 text-[12.5px] text-ink-secondary sm:grid-cols-2">
-              <div className={cn("rounded-xl border px-3 py-2", setup?.runtime.available ? "border-success/25 bg-success/5" : "border-warning/25 bg-warning/5")}>
-                Python runtime · {setup?.runtime.available ? "found" : "missing"}
-                {setup?.runtime.detail ? <div className="mt-1 text-[11.5px] opacity-90">{setup.runtime.detail}</div> : null}
+              <div className={cn("rounded-xl border px-3 py-2", setup?.rumik?.cudaAvailable ? "border-success/25 bg-success/5" : "border-hairline/35 bg-inset/40")}>
+                CUDA · {setup?.rumik?.cudaAvailable ? "detected" : "not available"}
+                <div className="mt-1 text-[11.5px] opacity-90">
+                  {setup?.rumik?.cudaAvailable
+                    ? "Local path preferred when weights are installed."
+                    : "Local inference needs NVIDIA CUDA. Voice can still run via remote fallback."}
+                </div>
               </div>
-              <div className={cn("rounded-xl border px-3 py-2", setup?.model.available ? "border-success/25 bg-success/5" : "border-warning/25 bg-warning/5")}>
-                Model folder · {setup?.model.available ? "found" : "missing"}
-                {setup?.model.detail ? <div className="mt-1 text-[11.5px] opacity-90">{setup.model.detail}</div> : null}
+              <div className={cn("rounded-xl border px-3 py-2", setup?.runtime.available ? "border-success/25 bg-success/5" : "border-warning/25 bg-warning/5")}>
+                {setup?.rumik?.mode === "remote" ? "Hosted endpoint" : "Python runtime"} · {setup?.runtime.available ? "ready" : "missing"}
+                {setup?.runtime.detail ? <div className="mt-1 text-[11.5px] opacity-90">{setup.runtime.detail}</div> : null}
               </div>
             </div>
 
+            {setup?.rumik?.mode === "remote" ? (
+              <div className="mt-4 space-y-2 rounded-xl border border-accent/25 bg-accent/5 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
+                <div className="text-[13px] font-medium text-ink">Remote voice fallback</div>
+                <p>
+                  This machine is not using local Rumik inference. Expressive voice is produced by calling the
+                  public <span className="text-ink">rumik-ai</span> ZeroGPU Space over HTTPS. That is a reachability
+                  fallback — it does <span className="text-ink">not</span> mean Rumik runs locally on Mac or without CUDA.
+                </p>
+                {setup.rumik.remoteEndpoint ? (
+                  <code className="block break-all rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-[11.5px] text-ink">
+                    {setup.rumik.remoteEndpoint}
+                  </code>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="mt-4 space-y-3 rounded-xl border border-hairline/35 bg-inset/60 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
-              <div className="text-[13px] font-medium text-ink">Install Rumik so voice binds correctly</div>
+              <div className="text-[13px] font-medium text-ink">
+                {setup?.rumik?.mode === "remote" ? "Optional: install local CUDA path" : "Install Rumik so local voice binds correctly"}
+              </div>
               <ol className="list-decimal space-y-2 pl-4">
                 <li>
                   Need an <span className="text-ink">NVIDIA GPU with CUDA</span>, plus Python 3 with
                   {" "}
                   <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">torch</code>,
                   {" "}
-                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">transformers</code>, and
+                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">transformers</code>,
                   {" "}
-                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">soundfile</code>
+                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">soundfile</code>,
                   {" "}
-                  (see the model card’s
+                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">accelerate</code>, and
                   {" "}
-                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">requirements.txt</code>).
+                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">bitsandbytes</code>
+                  {" "}
+                  (4 GB cards need 4-bit; see the model card’s
+                  {" "}
+                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">requirements.txt</code>
+                  {" "}
+                  plus bitsandbytes).
                 </li>
                 <li>
                   Download the official snapshot
@@ -1242,7 +1285,8 @@ function SettingsPage({
                   from Hugging Face into the bind path below. The app does not auto-download weights.
                 </li>
                 <li>
-                  Restart opennbLM, then press refresh here. Status becomes Ready only when both Python and that folder exist.
+                  Laptop GPUs ≤6 GB VRAM auto-enable <span className="text-ink">low-VRAM / 4-bit</span> mode
+                  (not Unsloth). Restart opennbLM, then press refresh here.
                 </li>
               </ol>
 
@@ -1304,6 +1348,11 @@ function SettingsPage({
               </div>
               <p className="text-[11.5px] text-ink-secondary/80">
                 License: CC BY-NC 4.0 (research / non-commercial). Text teaching still works without Rumik.
+                Force modes with <code className="rounded bg-raised px-1 text-[11px] text-ink">RUMIK_LOW_VRAM=1</code>
+                {" "}
+                / <code className="rounded bg-raised px-1 text-[11px] text-ink">RUMIK_LOAD_IN_4BIT=1</code>
+                {" "}
+                (set to <code className="rounded bg-raised px-1 text-[11px] text-ink">0</code> to disable).
               </p>
             </div>
           </div>
