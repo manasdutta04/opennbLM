@@ -6,6 +6,13 @@ test("segmentation preserves short text without terminal punctuation", () => {
   assert.deepEqual(segmentForRumik("Explain recursion"), ["Explain recursion"]);
 });
 
+test("segmentation splits oversized sentences on word boundaries", () => {
+  const long = Array.from({ length: 80 }, (_, i) => `word${i}`).join(" ");
+  const chunks = segmentForRumik(long, 120);
+  assert.ok(chunks.length > 1);
+  assert.ok(chunks.every((c) => c.length <= 120));
+});
+
 test("forced local mode reports missing runtime without synthesis success", async () => {
   const manager = createRumikManager({
     preferredMode: "local",

@@ -87,6 +87,44 @@ const defaultConfig: RumikConfig = {
 };
 const SYNTHESIS_TIMEOUT_MS = 180000;
 
+/** Split an oversized sentence on clause/word boundaries so Rumik stays under ~30s/segment. */
+function splitOversizedSentence(sentence: string, maxCharacters: number): string[] {
+  if (sentence.length <= maxCharacters) return [sentence];
+  const parts: string[] = [];
+  const clauses = sentence.split(/(?<=[,;:—–])\s+/u).filter(Boolean);
+  let current = "";
+  const pushCurrent = () => {
+    if (current) {
+      parts.push(current);
+      current = "";
+    }
+  };
+  for (const clause of clauses.length ? clauses : [sentence]) {
+    if (clause.length > maxCharacters) {
+      pushCurrent();
+      const words = clause.split(/\s+/);
+      let piece = "";
+      for (const word of words) {
+        const next = piece ? `${piece} ${word}` : word;
+        if (piece && next.length > maxCharacters) {
+          parts.push(piece);
+          piece = word;
+        } else {
+          piece = next;
+        }
+      }
+      if (piece) parts.push(piece);
+      continue;
+    }
+    if (current && current.length + clause.length + 1 > maxCharacters) {
+      pushCurrent();
+    }
+    current = current ? `${current} ${clause}` : clause;
+  }
+  pushCurrent();
+  return parts;
+}
+
 export function segmentForRumik(text: string, maxCharacters = 420): string[] {
   const normalized = text.replace(/\s+/g, " ").trim();
   if (!normalized) return [];
@@ -94,11 +132,13 @@ export function segmentForRumik(text: string, maxCharacters = 420): string[] {
   const chunks: string[] = [];
   let current = "";
   for (const sentence of sentences) {
-    if (current && current.length + sentence.length + 1 > maxCharacters) {
-      chunks.push(current);
-      current = "";
+    for (const piece of splitOversizedSentence(sentence, maxCharacters)) {
+      if (current && current.length + piece.length + 1 > maxCharacters) {
+        chunks.push(current);
+        current = "";
+      }
+      current = current ? `${current} ${piece}` : piece;
     }
-    current = current ? `${current} ${sentence}` : sentence;
   }
   if (current) chunks.push(current);
   return chunks;

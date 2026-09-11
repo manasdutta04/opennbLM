@@ -189,15 +189,81 @@ export function parseGuideResponse(raw: string): { title?: string; text: string 
   return { title: title || undefined, text: text || trimmed };
 }
 
+/** Spoken-length targets at ~150 wpm. maxLines is a safety ceiling, not a quality goal. */
 const LENGTH_WORDS: Record<AudioOverviewLength, { min: number; max: number; label: string; maxLines: number }> = {
-  // Keep shorter truly short — each Rumik line is a full model pass and dominates wall time.
-  shorter: { min: 120, max: 180, label: "about 45–75 seconds spoken", maxLines: 4 },
-  default: { min: 350, max: 500, label: "a medium overview (a few minutes)", maxLines: 8 },
-  longer: { min: 700, max: 950, label: "a deeper overview; still a gist, not a page-by-page read", maxLines: 12 },
+  shorter: { min: 160, max: 280, label: "about 1–2 minutes spoken", maxLines: 12 },
+  default: { min: 450, max: 650, label: "about 3–4 minutes spoken", maxLines: 20 },
+  longer: { min: 750, max: 1050, label: "about 5–7 minutes spoken", maxLines: 28 },
 };
 
 export function audioLengthLimits(length: AudioOverviewLength = "default") {
   return LENGTH_WORDS[length];
+}
+
+export type PodcastTurn = { speaker: string; text: string };
+
+/**
+ * Parse "Speaker: dialogue" scripts into clean turns.
+ * Merges continuation lines, drops junk, and keeps only complete spoken text.
+ */
+export function parsePodcastScript(
+  raw: string,
+  allowedSpeakers: string[],
+  maxLines?: number,
+): PodcastTurn[] {
+  const speakers = allowedSpeakers.length ? allowedSpeakers : ["Ira"];
+  const defaultSpeaker = speakers[0]!;
+  const speakerSet = new Set(speakers.map((s) => s.toLowerCase()));
+  const turns: PodcastTurn[] = [];
+
+  const cleaned = raw
+    .replace(/^```[\s\S]*?```/gm, (block) => block.replace(/^```\w*\n?|\n?```$/g, ""))
+    .replace(/^\s*(script|dialogue|transcript)\s*:?\s*$/gim, "")
+    .trim();
+
+  for (const rawLine of cleaned.split(/\n+/)) {
+    let line = rawLine.trim();
+    if (!line) continue;
+    line = line.replace(/^[-*•]\s+/, "").replace(/^\d+[.)]\s+/, "");
+    if (/^\[.*\]$/.test(line) || /^\(.*\)$/.test(line)) continue;
+
+    const match = line.match(/^([A-Za-z][A-Za-z0-9_-]{0,24})\s*[:：]\s*(.+)$/);
+    if (match) {
+      const name = match[1]!;
+      const text = match[2]!.trim();
+      if (!text) continue;
+      if (speakerSet.has(name.toLowerCase())) {
+        const speaker = speakers.find((s) => s.toLowerCase() === name.toLowerCase()) || defaultSpeaker;
+        turns.push({ speaker, text });
+      } else if (turns.length) {
+        // Unknown "Name: …" — fold into previous turn so we don't invent cracked speaker jumps.
+        const prev = turns[turns.length - 1]!;
+        prev.text = `${prev.text} ${text}`.replace(/\s+/g, " ").trim();
+      } else {
+        turns.push({ speaker: defaultSpeaker, text });
+      }
+      continue;
+    }
+
+    // Continuation of previous turn (wrapped dialogue without a speaker prefix).
+    if (turns.length) {
+      const prev = turns[turns.length - 1]!;
+      prev.text = `${prev.text} ${line}`.replace(/\s+/g, " ").trim();
+    }
+  }
+
+  const normalized = turns
+    .map((turn) => {
+      let text = turn.text.replace(/\s+/g, " ").trim();
+      text = text.replace(/^["“]|["”]$/g, "").trim();
+      if (!text) return null;
+      if (!/[.!?。！？]$/.test(text)) text = `${text}.`;
+      return { speaker: turn.speaker, text };
+    })
+    .filter((t): t is PodcastTurn => Boolean(t));
+
+  if (maxLines != null && maxLines > 0) return normalized.slice(0, maxLines);
+  return normalized;
 }
 
 export function buildPodcastScriptPrompt(
@@ -215,28 +281,47 @@ export function buildPodcastScriptPrompt(
   const language = options?.language ?? "English";
   const budget = LENGTH_WORDS[length];
   const focus = options?.focusPrompt?.trim()
-    ? `Focus instructions from the learner: ${options.focusPrompt.trim()}`
+    ? `Learner focus (honor this throughout): ${options.focusPrompt.trim()}`
     : "";
 
   const formatGuide: Record<AudioOverviewFormat, string> = {
-    deep_dive: `Deep Dive: lively conversation between ${speakerNames.join(" and ")} that unpacks and connects core topics.`,
-    brief: `The Brief: a single host (${speakerNames[0]}) delivers key takeaways quickly.`,
-    critique: `The Critique: ${speakerNames.slice(0, 2).join(" and ")} constructively evaluate the material.`,
-    debate: `The Debate: ${speakerNames.slice(0, 2).join(" and ")} take opposing but fair perspectives on the topic.`,
+    deep_dive: `Deep Dive: a natural two-host conversation between ${speakerNames.join(" and ")} that unpacks core ideas, explains why they matter, and connects them.`,
+    brief: `The Brief: a single host (${speakerNames[0]}) delivers a clear spoken briefing with takeaways — still full sentences, not bullet fragments.`,
+    critique: `The Critique: ${speakerNames.slice(0, 2).join(" and ")} evaluate strengths, gaps, and implications of the material constructively.`,
+    debate: `The Debate: ${speakerNames.slice(0, 2).join(" and ")} take opposing but fair perspectives, then land on a clear wrap-up.`,
   };
 
-  return `Create an educational Audio Overview script in ${language}.
+  const structure =
+    length === "shorter"
+      ? "Structure: quick hook → 2–3 core ideas with brief examples → crisp close."
+      : length === "longer"
+        ? "Structure: hook → several core ideas with examples/contrasts → how pieces connect → memorable close."
+        : "Structure: hook → core ideas with concrete examples → how they connect → practical close.";
+
+  return `Write a polished educational Audio Overview script in ${language}.
+This will be spoken aloud by a voice model — quality and completeness matter more than brevity tricks.
+
 Format: ${formatGuide[format]}
-HARD LIMITS (must obey):
-- At most ${budget.max} words total (aim ${budget.min}–${budget.max}). ${budget.label}.
-- At most ${budget.maxLines} dialogue lines total.
-- Each line under 220 characters.
-Style: story-like gist of the sources — CORE ideas only. Do NOT retell long documents.
-Format each line as "SpeakerName: dialogue" using only these speakers: ${speakerNames.join(", ")}.
+${structure}
+
+DURATION (must hit — do not undershoot):
+- Total spoken words: ${budget.min}–${budget.max} (${budget.label}).
+- Use about ${Math.max(6, Math.round(budget.maxLines * 0.65))}–${budget.maxLines} dialogue turns.
+- Each turn is 1–3 COMPLETE sentences (roughly 35–90 words). Never leave a sentence unfinished.
+- Every line MUST end with . ! or ?
+
+QUALITY RULES (non-negotiable):
+- Format EXACTLY: SpeakerName: dialogue
+- Speakers allowed: ${speakerNames.join(", ")} only.
+- Alternate speakers naturally (except The Brief).
+- Each turn is a finished thought that the next turn can build on — no mid-sentence cuts, no abrupt topic teleporting.
+- Do NOT use stage directions, markdown, bullets, numbering, or quotes around the whole line.
+- Do NOT write hooks like "Do you know this" without finishing the idea in the SAME turn.
+- Cover the CORE story of the sources; do not read documents page by page.
 ${focus}
 
-SOURCES (excerpt):
-${material.slice(0, length === "shorter" ? 5000 : length === "longer" ? 10000 : 8000)}`;
+SOURCES:
+${material.slice(0, length === "shorter" ? 8000 : length === "longer" ? 14000 : 11000)}`;
 }
 
 export function buildStudioArtifactPrompt(

@@ -3,7 +3,7 @@ import test from "node:test";
 import { writeFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { buildPodcastScriptPrompt, buildStudioArtifactPrompt, chunkText, extractPlainText, parseGuideResponse } from "../dist/index.js";
+import { buildPodcastScriptPrompt, buildStudioArtifactPrompt, chunkText, extractPlainText, parseGuideResponse, parsePodcastScript } from "../dist/index.js";
 import JSZip from "jszip";
 
 test("chunkText splits long material into word windows", () => {
@@ -49,15 +49,16 @@ test("extractPlainText reads markdown, docx, and pptx", async () => {
   assert.match(pptx.text, /PPTX mitosis/);
 });
 
-test("podcast prompt encodes length and format", () => {
+test("podcast prompt encodes duration targets and quality rules", () => {
   const prompt = buildPodcastScriptPrompt("AES encrypts blocks", ["Ira", "Aisha"], {
     format: "brief",
     length: "shorter",
     language: "Hindi",
     focusPrompt: "exam revision",
   });
-  assert.match(prompt, /HARD LIMITS/);
-  assert.match(prompt, /At most 180 words/);
+  assert.match(prompt, /1–2 minutes spoken/);
+  assert.match(prompt, /160–280/);
+  assert.match(prompt, /COMPLETE sentences/);
   assert.match(prompt, /exam revision/);
 });
 
@@ -65,4 +66,21 @@ test("parseGuideResponse extracts TITLE and body", () => {
   const parsed = parseGuideResponse("TITLE: AES Encryption\n\nAES is a symmetric cipher used widely in network security.");
   assert.equal(parsed.title, "AES Encryption");
   assert.match(parsed.text, /symmetric cipher/);
+});
+
+test("parsePodcastScript merges continuations and completes punctuation", () => {
+  const turns = parsePodcastScript(
+    `Ira: Do you know how AES protects data in transit
+Aisha: It encrypts fixed-size blocks with a shared key.
+and that key must stay secret.
+Siya: unrelated`,
+    ["Ira", "Aisha"],
+    10,
+  );
+  assert.equal(turns.length, 2);
+  assert.equal(turns[0].speaker, "Ira");
+  assert.match(turns[0].text, /\.$/);
+  assert.equal(turns[1].speaker, "Aisha");
+  assert.match(turns[1].text, /shared key/);
+  assert.match(turns[1].text, /stay secret/);
 });

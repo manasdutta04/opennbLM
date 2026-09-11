@@ -763,7 +763,9 @@ export function NotebookWorkspace({
               {audioOpen ? (
                 <div className="border-b border-hairline/25 px-3 py-2">
                   <div className="text-[12.5px] font-medium text-ink">Audio Overview</div>
-                  <p className="mt-1 text-[11px] text-ink-secondary">Script first, then Rumik voice. Won’t autoplay.</p>
+                  <p className="mt-1 text-[11px] text-ink-secondary">
+                    Full dialogue first, then Rumik voice. Shorter ≈1–2 min · Default ≈3–4 min · Longer ≈5–7 min. Won’t autoplay.
+                  </p>
                   <select
                     value={audioFormat}
                     onChange={(e) => setAudioFormat(e.target.value as AudioOverviewFormat)}
@@ -779,9 +781,9 @@ export function NotebookWorkspace({
                     onChange={(e) => setAudioLength(e.target.value as AudioOverviewLength)}
                     className="mt-2 w-full rounded-lg border border-hairline/40 bg-inset px-2 py-1.5 text-[12px] text-ink"
                   >
-                    <option value="shorter">Shorter</option>
-                    <option value="default">Default</option>
-                    <option value="longer">Longer</option>
+                    <option value="shorter">Shorter (1–2 min)</option>
+                    <option value="default">Default (3–4 min)</option>
+                    <option value="longer">Longer (5–7 min)</option>
                   </select>
                   <div className="mt-2 flex gap-2">
                     <button

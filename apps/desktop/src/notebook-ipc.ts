@@ -11,6 +11,7 @@ import {
   audioLengthLimits,
   buildGuidePrompt,
   parseGuideResponse,
+  parsePodcastScript,
   buildPodcastScriptPrompt,
   buildSourceContext,
   buildStudioArtifactPrompt,
@@ -247,7 +248,11 @@ export function registerNotebookHandlers(
       const scriptResponse = await provider.chat({
         model,
         messages: [
-          { role: "system", content: "You write educational dialogue scripts. Plain text only." },
+          {
+            role: "system",
+            content:
+              "You write polished educational podcast scripts meant to be spoken aloud. Every line must be a complete thought ending with punctuation. Never cut a sentence mid-way or jump topics abruptly. Plain text only as SpeakerName: dialogue.",
+          },
           {
             role: "user",
             content: buildPodcastScriptPrompt(material, speakers, {
@@ -276,32 +281,28 @@ export function registerNotebookHandlers(
       const rumik = getRumik();
       const healthy = await rumik.healthCheck().catch(() => false);
       if (!healthy) throw new Error(rumik.getStatus().error || "Rumik voice is not available");
-      const lines = script
-        .split(/\n+/)
-        .map((line) => line.trim())
-        .filter(Boolean);
-      const maxLines = audioLengthLimits(length).maxLines;
+      const budget = audioLengthLimits(length);
+      const turns = parsePodcastScript(script, speakers, budget.maxLines);
+      if (!turns.length) throw new Error("Could not parse a usable Audio Overview script.");
       const segmentPaths: string[] = [];
-      for (const line of lines.slice(0, maxLines)) {
-        const match = line.match(/^([A-Za-z]+)\s*:\s*(.+)$/);
-        const speakerName = match?.[1];
+      for (const turn of turns) {
         const speaker = (
-          speakerName && (speakers as string[]).includes(speakerName) ? speakerName : speakers[0]
+          (speakers as string[]).includes(turn.speaker) ? turn.speaker : speakers[0]
         ) as "Ira" | "Aisha" | "Siya" | "Zoya";
-        const text = (match?.[2] || line).slice(0, 420);
-        // Silent batch: do not broadcast to the global autoplay queue (fixes stuttering mid-generation).
-        const result = await rumik.synthesize(text, {
+        // Full turn text — Rumik segments by sentence; do not hard-truncate mid-thought.
+        const result = await rumik.synthesize(turn.text, {
           speaker,
           language,
-          deliveryDescription: "warm, conversational, steady pace",
-          maxTokens: 768,
+          deliveryDescription: "warm, clear, conversational; finish every sentence fully at a steady pace",
+          maxTokens: 2048,
           broadcast: false,
         });
         for (const segment of result.segments) segmentPaths.push(segment.wavPath);
       }
       if (!segmentPaths.length) throw new Error("Rumik produced no audio for this overview.");
       const mergedPath = join(audioDir, `overview-${episode.id}.wav`);
-      concatWavFiles(segmentPaths, mergedPath);
+      // Short gap between segments softens cracked speaker handoffs.
+      concatWavFiles(segmentPaths, mergedPath, { gapMs: 350 });
       const audioPaths = [mergedPath];
       const ready = store().updatePodcast(episode.id, { status: "ready", audioPaths, error: null });
       store().updateArtifact(artifact.id, {
@@ -317,6 +318,7 @@ export function registerNotebookHandlers(
           podcastId: episode.id,
           sourceCount: options?.sourceIds?.length,
           phase: "ready",
+          turnCount: turns.length,
         },
       });
       return { ...ready, format, length, language };

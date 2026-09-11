@@ -665,3 +665,27 @@ Global `rumik.onSegmentReady` autoplay was receiving each dialogue segment while
 - If the notebook is still `Untitled notebook`, main renames it to a short subject label (2–6 words) and returns `title` to the renderer for header/Home refresh.
 - Cached guide loads do not rename again.
 - Verified: `pnpm typecheck`, notebook-runtime tests (incl. parseGuideResponse), `pnpm build`, `pnpm desktop:start`.
+
+## Audio Overview re-engineered — 2026-09-11
+
+### Problem
+
+Prior speed caps made “Shorter” ~30s and cracked playback: ≤4 lines / 180 words, hard `.slice(0, 420)` mid-line, `maxTokens: 768` cutting utterances, and WAV concat with zero gap.
+
+### Completed
+
+- Duration targets: Shorter **1–2 min** (160–280 words), Default **3–4 min** (450–650), Longer **5–7 min** (750–1050).
+- Prompt rewritten for complete sentences, natural handoffs, and no mid-thought cuts.
+- `parsePodcastScript` merges wrapped lines, folds unknown speakers, ensures terminal punctuation.
+- Synthesis uses full turn text + Rumik sentence segmentation (oversized sentences split safely); `maxTokens: 2048`.
+- `concatWavFiles` inserts ~350ms silence between segments and rejects format mismatches.
+- Studio UI shows duration hints on length options.
+
+### Verification
+
+- Package tests + `pnpm typecheck` / `pnpm build` / `pnpm desktop:start`.
+
+### Known limitations
+
+- Generation wall time scales with turn count (each Rumik pass is still a full local/remote model run).
+- Exact spoken duration depends on model pacing; budgets target the ranges above, not a stopwatch guarantee.
