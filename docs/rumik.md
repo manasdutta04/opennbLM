@@ -53,10 +53,16 @@ Quantization happens **automatically at load time** on this machine when VRAM is
 Supported config: speaker, temperature, top-k, max tokens, delivery description, language. Defaults follow the official example (`0.8`, `30`, and `2048` max new tokens).
 
 **Delivery (automatic):** Audio Overview does not expose Tone / Accent / Pace pickers.
-- **Tone** is only `excited` (default teaching energy) or `professional` (calm clarity). Format guides the mix: Deep Dive / Brief lean excited; Debate keeps one host professional and the other excited; Critique pairs clear analysis with lively insight. Sad, angry, and happy labels are remapped away.
+- **Tone** is only `excited` (default teaching energy) or `professional` (calm clarity). Format guides the mix.
 - **Accent** is derived from Studio language (e.g. Hindi → Hindi accent, English → Indian English accent).
 - **Pace** is always `steady pace`.
 - No `<laugh>` / `<chuckle>` / `<sigh>` — delivery stays teaching-focused.
+
+**Formats (script craft):**
+- **Deep Dive** — two co-teachers unpack the topic.
+- **The Brief** — one host, crisp briefing + takeaways.
+- **The Critique** — Critic vs strengths advocate.
+- **The Debate** — Challenger (questions/rebuts) vs Advocate (answers/defends), strict alternation, short turns, learner wrap of both sides.
 
 Each utterance is synthesized with a canonical HF description:
 

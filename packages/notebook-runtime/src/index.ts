@@ -200,6 +200,16 @@ export function audioLengthLimits(length: AudioOverviewLength = "default") {
   return LENGTH_WORDS[length];
 }
 
+/** Debate needs more back-and-forth turns than a lecture overview. */
+export function audioTurnBudget(format: AudioOverviewFormat = "deep_dive", length: AudioOverviewLength = "default") {
+  const base = LENGTH_WORDS[length];
+  if (format !== "debate") return base;
+  return {
+    ...base,
+    maxLines: Math.min(48, Math.round(base.maxLines * 1.4)),
+  };
+}
+
 export type PodcastTurn = { speaker: string; text: string; tone: string };
 
 /** Teaching-safe tones only — never sad/angry/happy melodrama. */
@@ -209,7 +219,6 @@ function normalizeLineTone(raw?: string): string {
   const tone = (raw || "").trim().toLowerCase();
   if (tone === "professional") return "professional";
   if (tone === "excited" || tone === "happy") return "excited";
-  // sad / angry / unknown → default teaching energy
   return "excited";
 }
 
@@ -230,7 +239,8 @@ export function sanitizeSpokenText(raw: string): string {
     .trim();
   if (!text) return "";
   const words = text.split(/\s+/).filter(Boolean);
-  if (words.length < 3) return "";
+  // Allow short complete rebuttals ("I disagree.") while dropping telegraphic junk.
+  if (words.length < 2) return "";
   if (!/[.!?。！？]$/.test(text)) {
     text = `${text.replace(/[.!?。！？]*$/, "")}.`;
   }
@@ -252,6 +262,15 @@ export function utterancesFromPodcastTurns(turns: PodcastTurn[]): PodcastTurn[] 
   return out;
 }
 
+/** Keep opening + closing when trimming — debate wrap-ups must survive. */
+export function trimPodcastTurns(turns: PodcastTurn[], maxLines?: number, preserveClose = 0): PodcastTurn[] {
+  if (maxLines == null || maxLines <= 0 || turns.length <= maxLines) return turns;
+  if (preserveClose <= 0) return turns.slice(0, maxLines);
+  const close = Math.min(preserveClose, Math.floor(maxLines / 2));
+  const head = maxLines - close;
+  return [...turns.slice(0, head), ...turns.slice(turns.length - close)];
+}
+
 /**
  * Parse "Speaker [tone]: dialogue" scripts into clean turns.
  * Tone is excited or professional only (teaching energy, not melodrama).
@@ -260,6 +279,7 @@ export function parsePodcastScript(
   raw: string,
   allowedSpeakers: string[],
   maxLines?: number,
+  options?: { preserveClose?: number },
 ): PodcastTurn[] {
   const speakers = allowedSpeakers.length ? allowedSpeakers : ["Ira"];
   const defaultSpeaker = speakers[0]!;
@@ -311,8 +331,7 @@ export function parsePodcastScript(
     })
     .filter((t): t is PodcastTurn => t != null);
 
-  if (maxLines != null && maxLines > 0) return normalized.slice(0, maxLines);
-  return normalized;
+  return trimPodcastTurns(normalized, maxLines, options?.preserveClose ?? 0);
 }
 
 function toneGuideForFormat(format: AudioOverviewFormat, speakerNames: string[]): string {
@@ -322,12 +341,89 @@ function toneGuideForFormat(format: AudioOverviewFormat, speakerNames: string[])
     case "brief":
       return `Tone for The Brief: keep ${a} mostly [excited] — an eager teacher who wants the learner to get it. Use [professional] only for crisp definitions or takeaways.`;
     case "critique":
-      return `Tone for The Critique: ${a} stays mostly [professional] and clear; ${b} stays mostly [excited] when highlighting insights. Never sad or angry.`;
+      return `Tone for The Critique: ${a} stays mostly [professional] (clear critic). ${b} stays mostly [excited] when defending strengths or naming insights. Never sad or angry.`;
     case "debate":
-      return `Tone for The Debate: ${a} speaks [professional] (calm, plain, grounded). ${b} speaks [excited] (energetic advocate). Keep both teaching-focused — no mockery, sadness, or anger.`;
+      return `Tone for The Debate: ${a} (Challenger) speaks [professional] — calm, probing, skeptical. ${b} (Advocate) speaks [excited] — energetic, clear, teaching the case. Keep both respectful and educational.`;
     case "deep_dive":
     default:
       return `Tone for Deep Dive: default to [excited] for both hosts so teaching feels lively. Use [professional] sparingly for precise definitions. Never sad, angry, or theatrical.`;
+  }
+}
+
+function structureForFormat(
+  format: AudioOverviewFormat,
+  length: AudioOverviewLength,
+  speakerNames: string[],
+): string {
+  const a = speakerNames[0] || "Ira";
+  const b = speakerNames[1] || "Aisha";
+  const rounds =
+    length === "shorter" ? "2" : length === "longer" ? "4–5" : "3–4";
+
+  switch (format) {
+    case "brief":
+      return `STRUCTURE for The Brief (single host only — ${a}):
+1) Hook: name the topic and why the learner should care (1 turn).
+2) Core briefing: ${length === "shorter" ? "2–3" : length === "longer" ? "5–6" : "3–4"} clear idea turns with concrete examples.
+3) Takeaways: 1–2 turns with practical remember-this points.
+4) Close: one confident wrap sentence.
+Do NOT invent a second speaker. Do NOT turn this into a Q&A.`;
+
+    case "critique":
+      return `STRUCTURE for The Critique (${a} = Critic, ${b} = Strengths advocate):
+1) Frame: ${a} states what is being reviewed and the review lens (1 turn).
+2) Exchange (${rounds} rounds): ${a} raises a gap, risk, or weak spot; ${b} answers with a fair strength, nuance, or fix grounded in the sources.
+3) Synthesis: both help the learner weigh trade-offs (2 turns).
+4) Close: one clear "what to remember" from each side.
+Never pile on; stay constructive and source-grounded.`;
+
+    case "debate":
+      return `STRUCTURE for The Debate — this MUST sound like a real educational debate, not a polite dual lecture.
+
+ROLES (fixed):
+- ${a} = Challenger: asks sharp questions, probes weak claims, presses for precision.
+- ${b} = Advocate: answers, defends a clear position, teaches the "how/why" with examples.
+
+FLOW (follow in order):
+1) Frame (2 turns): ${a} names the debate question in one sentence. ${b} states their position in one sentence.
+2) Opening case (2 turns): ${b} gives the strongest case. ${a} challenges one specific claim.
+3) Clash (${rounds} question→answer pairs): STRICT alternation.
+   - ${a} asks OR rebuts (one focused challenge per turn).
+   - ${b} answers that challenge directly before adding anything new.
+   - Each reply must address the previous speaker's last point — no parallel monologues.
+4) Learner wrap (2–3 turns): both restate the clash in plain words, then ${b} or ${a} lands one balanced takeaway so the learner understands BOTH sides.
+
+HARD RULES for Debate:
+- Alternate speakers every turn after the frame (no two ${a} lines in a row, no two ${b} lines in a row).
+- Prefer short turns: 1 sentence, sometimes 2 — never long speeches.
+- Do NOT have both hosts agree early. Steelman disagreement first, then reconcile at the end.
+- Do NOT narrate stage directions ("I disagree with you because…" is fine; "(laughs)" is not).
+- The learner should finish knowing: the question, Side A, Side B, and a clear wrap.`;
+
+    case "deep_dive":
+    default:
+      return `STRUCTURE for Deep Dive (${a} + ${b} as co-teachers):
+1) Open: one host names the topic and the learning goal (1 turn).
+2) Build: alternate hosts unpack ${length === "shorter" ? "2–3" : length === "longer" ? "5–6" : "3–4"} core ideas with concrete examples.
+3) Connect: show how the ideas fit together (1–2 turns).
+4) Close: a practical "now you understand / remember this" turn.
+Sound like two good teachers helping one learner — curious, clear, collaborative.`;
+  }
+}
+
+export function buildPodcastSystemPrompt(format: AudioOverviewFormat = "deep_dive"): string {
+  const base =
+    "You write educational Audio Overview scripts for TTS. Every line must be exactly: SpeakerName [tone]: dialogue. Tone is only excited or professional — default excited. No laughter, sadness, anger, markdown, or stage directions.";
+  switch (format) {
+    case "debate":
+      return `${base} Format is The Debate: one Challenger questions/rebuts; one Advocate answers/defends. Strict speaker alternation. Short turns. End with a learner wrap that teaches both sides.`;
+    case "brief":
+      return `${base} Format is The Brief: one host only. Crisp spoken briefing with takeaways — full sentences, not bullets.`;
+    case "critique":
+      return `${base} Format is The Critique: constructive critic vs strengths advocate. Fair, source-grounded, educational.`;
+    case "deep_dive":
+    default:
+      return `${base} Format is Deep Dive: two co-teachers unpacking core ideas so a learner understands the whole topic.`;
   }
 }
 
@@ -344,53 +440,65 @@ export function buildPodcastScriptPrompt(
   const format = options?.format ?? "deep_dive";
   const length = options?.length ?? "default";
   const language = options?.language ?? "English";
-  const budget = LENGTH_WORDS[length];
+  const budget = audioTurnBudget(format, length);
   const focus = options?.focusPrompt?.trim()
     ? `Learner focus (honor this throughout): ${options.focusPrompt.trim()}`
     : "";
+  const a = speakerNames[0] || "Ira";
+  const b = speakerNames[1] || "Aisha";
 
   const formatGuide: Record<AudioOverviewFormat, string> = {
-    deep_dive: `Deep Dive: a natural two-host conversation between ${speakerNames.join(" and ")} that unpacks core ideas, explains why they matter, and connects them.`,
-    brief: `The Brief: a single host (${speakerNames[0]}) delivers a clear spoken briefing with takeaways — still full sentences, not bullet fragments.`,
-    critique: `The Critique: ${speakerNames.slice(0, 2).join(" and ")} evaluate strengths, gaps, and implications of the material constructively.`,
-    debate: `The Debate: ${speakerNames.slice(0, 2).join(" and ")} take opposing but fair perspectives, then land on a clear wrap-up that helps the learner understand both sides.`,
+    deep_dive: `Deep Dive: ${a} and ${b} co-teach the topic like two clear, lively teachers helping one learner understand the whole story.`,
+    brief: `The Brief: single host ${a} delivers a focused spoken briefing — what matters, why it matters, what to remember.`,
+    critique: `The Critique: ${a} (Critic) and ${b} (Strengths advocate) pressure-test the material so the learner sees gaps and strengths clearly.`,
+    debate: `The Debate: ${a} (Challenger) questions and presses; ${b} (Advocate) answers and defends. It must feel like a real educational debate with clash and a clear wrap — not two people politely summarizing the same notes.`,
   };
 
-  const structure =
-    length === "shorter"
-      ? "Structure: open with a clear topic sentence → 2–3 core ideas with brief examples → crisp close."
-      : length === "longer"
-        ? "Structure: open → several core ideas with examples/contrasts → how pieces connect → memorable close."
-        : "Structure: open → core ideas with concrete examples → how they connect → practical close.";
+  const turnHint =
+    format === "debate"
+      ? `- Use ${Math.max(10, Math.round(budget.maxLines * 0.7))}–${budget.maxLines} short dialogue turns (question / answer rhythm).
+- Each turn: usually 1 COMPLETE sentence (2 max). Each sentence under 24 words.`
+      : `- Use ${Math.max(6, Math.round(budget.maxLines * 0.55))}–${budget.maxLines} dialogue turns.
+- Each turn: 1–2 COMPLETE sentences. Each sentence under 28 words.`;
+
+  const speakRules =
+    format === "debate"
+      ? `- Speakers allowed: ${a}, ${b} only.
+- Alternate every turn after the opening frame.
+- ${a} challenges or asks; ${b} answers that challenge.
+- Use plain, clear vocabulary. Full statements only — never telegraphic fragments like "math, math introduction."
+- Do NOT write cliffhangers or dangling continuations that need the previous line to make sense as incomplete grammar.
+- Do NOT use stage directions, markdown, bullets, numbering, or quotes around the whole line.
+- Ground every claim in the sources; invent a fair clash from the material, not random drama.`
+      : `- Speakers allowed: ${speakerNames.join(", ")} only.
+- Alternate speakers naturally (except The Brief — ${a} only).
+- Use plain, clear vocabulary. Prefer full statements like "Machine learning finds patterns in data." Never telegraphic fragments like "math, math introduction, math law."
+- Do NOT write cliffhanger hooks ("Do you know this") or dangling continuations ("And that…", "This again…") that need the previous line to make sense.
+- Do NOT use stage directions, markdown, bullets, numbering, or quotes around the whole line.
+- Cover the CORE story of the sources; do not read documents page by page.`;
 
   return `Write an educational Audio Overview script in ${language} meant to be read aloud by a TTS voice model (Rumik).
 Each sentence is synthesized alone, so every sentence must be a complete, self-contained thought.
-Goal: help the learner understand the whole topic. Sound like an eager, clear teacher — energetic and helpful, not theatrical.
+Goal: help the learner understand the whole topic. Sound clear, eager to teach, and controlled — never theatrical.
 
 Format: ${formatGuide[format]}
-${structure}
+${structureForFormat(format, length, speakerNames)}
 ${toneGuideForFormat(format, speakerNames)}
 
 LINE FORMAT (exact):
 SpeakerName [tone]: dialogue
 - tone MUST be exactly one of: excited, professional
-- Default to excited. Use professional only when a calm, plain explanation helps understanding.
+- Default to excited. Use professional when calm precision helps.
 - NEVER use sad, angry, happy, or any other tone label.
 - NEVER include <laugh>, <chuckle>, <sigh>, jokes-as-filler, or stage emotion. No laughter.
 
 WORD LIMIT (hard requirement — count spoken words only):
 - Write between ${budget.min} and ${budget.max} words total (${budget.label}).
-- Use ${Math.max(6, Math.round(budget.maxLines * 0.55))}–${budget.maxLines} dialogue turns.
-- Each turn: 1–2 COMPLETE sentences. Each sentence under 30 words.
+${turnHint}
 - Every line MUST end with . ! or ?
 
 SPEAKABILITY RULES (non-negotiable):
-- Speakers allowed: ${speakerNames.join(", ")} only.
-- Alternate speakers naturally (except The Brief).
-- Use plain, clear vocabulary. Prefer full statements like "Machine learning finds patterns in data." Never telegraphic fragments like "math, math introduction, math law."
-- Do NOT write cliffhanger hooks ("Do you know this") or dangling continuations ("And that…", "This again…") that need the previous line to make sense.
-- Do NOT use stage directions, markdown, bullets, numbering, or quotes around the whole line.
-- Cover the CORE story of the sources; do not read documents page by page.
+${speakRules}
 ${focus}
 
 SOURCES:

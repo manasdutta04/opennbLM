@@ -8,12 +8,13 @@ import type {
   StudioArtifactKind,
 } from "@opennblm/contracts";
 import {
-  audioLengthLimits,
+  audioTurnBudget,
   buildGuidePrompt,
   parseGuideResponse,
   parsePodcastScript,
   utterancesFromPodcastTurns,
   buildPodcastScriptPrompt,
+  buildPodcastSystemPrompt,
   buildSourceContext,
   buildStudioArtifactPrompt,
   collectMaterial,
@@ -253,8 +254,7 @@ export function registerNotebookHandlers(
         messages: [
           {
             role: "system",
-            content:
-              "You write educational podcast scripts meant to be spoken aloud by TTS. Every line must be SpeakerName [tone]: dialogue. Tone is only excited or professional — default excited. No laughter, sadness, or anger. Plain text only. No markdown.",
+            content: buildPodcastSystemPrompt(format),
           },
           {
             role: "user",
@@ -269,8 +269,10 @@ export function registerNotebookHandlers(
       });
       const script = scriptResponse.content.trim();
       store().updatePodcast(episode.id, { script });
-      const budget = audioLengthLimits(length);
-      const turns = parsePodcastScript(script, speakers, budget.maxLines);
+      const budget = audioTurnBudget(format, length);
+      const turns = parsePodcastScript(script, speakers, budget.maxLines, {
+        preserveClose: format === "debate" || format === "critique" ? 3 : 0,
+      });
       if (!turns.length) throw new Error("Could not parse a usable Audio Overview script.");
       const utterances = utterancesFromPodcastTurns(turns);
       if (!utterances.length) throw new Error("Could not prepare speakable sentences for Rumik.");
@@ -319,7 +321,9 @@ export function registerNotebookHandlers(
       }
       if (!segmentPaths.length) throw new Error("Rumik produced no audio for this overview.");
       const mergedPath = join(audioDir, `overview-${episode.id}.wav`);
-      concatWavFiles(segmentPaths, mergedPath, { gapMs: 450 });
+      // Debate needs clearer handoffs between challenger and advocate.
+      const gapMs = format === "debate" ? 550 : format === "brief" ? 400 : 450;
+      concatWavFiles(segmentPaths, mergedPath, { gapMs });
       const audioPaths = [mergedPath];
       const ready = store().updatePodcast(episode.id, { status: "ready", audioPaths, error: null });
       store().updateArtifact(artifact.id, {

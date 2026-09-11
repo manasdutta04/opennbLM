@@ -3,7 +3,18 @@ import test from "node:test";
 import { writeFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { buildPodcastScriptPrompt, buildStudioArtifactPrompt, chunkText, extractPlainText, parseGuideResponse, parsePodcastScript, sanitizeSpokenText, utterancesFromPodcastTurns } from "../dist/index.js";
+import {
+  buildPodcastScriptPrompt,
+  buildPodcastSystemPrompt,
+  buildStudioArtifactPrompt,
+  chunkText,
+  extractPlainText,
+  parseGuideResponse,
+  parsePodcastScript,
+  sanitizeSpokenText,
+  trimPodcastTurns,
+  utterancesFromPodcastTurns,
+} from "../dist/index.js";
 import JSZip from "jszip";
 
 test("chunkText splits long material into word windows", () => {
@@ -64,15 +75,32 @@ test("podcast prompt encodes word budgets and teaching tone rules", () => {
   assert.match(prompt, /excited, professional/);
   assert.match(prompt, /NEVER include <laugh>/);
   assert.match(prompt, /Default to excited/);
+  assert.match(prompt, /STRUCTURE for The Brief/);
 });
 
-test("debate prompt assigns calm vs excited host tones", () => {
+test("debate prompt assigns challenger vs advocate roles", () => {
   const prompt = buildPodcastScriptPrompt("AES encrypts blocks", ["Ira", "Aisha"], {
     format: "debate",
     length: "default",
   });
-  assert.match(prompt, /Ira speaks \[professional\]/);
-  assert.match(prompt, /Aisha speaks \[excited\]/);
+  assert.match(prompt, /Challenger/);
+  assert.match(prompt, /Advocate/);
+  assert.match(prompt, /Ira \(Challenger\) speaks \[professional\]/);
+  assert.match(prompt, /Aisha \(Advocate\) speaks \[excited\]/);
+  assert.match(prompt, /question→answer/);
+  assert.match(prompt, /STRICT alternation/);
+  assert.match(prompt, /STRUCTURE for The Debate/);
+  const system = buildPodcastSystemPrompt("debate");
+  assert.match(system, /Challenger/);
+  assert.match(system, /Advocate/);
+});
+
+test("deep dive and critique prompts have distinct structures", () => {
+  const dive = buildPodcastScriptPrompt("AES", ["Ira", "Aisha"], { format: "deep_dive" });
+  const critique = buildPodcastScriptPrompt("AES", ["Ira", "Aisha"], { format: "critique" });
+  assert.match(dive, /STRUCTURE for Deep Dive/);
+  assert.match(critique, /STRUCTURE for The Critique/);
+  assert.match(critique, /Critic/);
 });
 
 test("parseGuideResponse extracts TITLE and body", () => {
@@ -111,11 +139,29 @@ Aisha [angry]: The shared key must stay private always.`,
   assert.equal(turns[1].tone, "excited");
 });
 
+test("trimPodcastTurns preserves closing debate wrap", () => {
+  const turns = Array.from({ length: 10 }, (_, i) => ({
+    speaker: i % 2 === 0 ? "Ira" : "Aisha",
+    tone: "excited",
+    text: `Turn number ${i + 1} is spoken clearly.`,
+  }));
+  const trimmed = trimPodcastTurns(turns, 6, 2);
+  assert.equal(trimmed.length, 6);
+  assert.match(trimmed[0].text, /Turn number 1/);
+  assert.match(trimmed[4].text, /Turn number 9/);
+  assert.match(trimmed[5].text, /Turn number 10/);
+});
+
 test("sanitizeSpokenText strips markdown and removes laugh tags", () => {
   const text = sanitizeSpokenText("**AES** protects data <laugh> in transit.");
   assert.match(text, /AES protects/);
   assert.ok(!text.includes("<laugh>"));
   assert.ok(!text.includes("**"));
+});
+
+test("sanitizeSpokenText keeps short rebuttals", () => {
+  const text = sanitizeSpokenText("I disagree.");
+  assert.equal(text, "I disagree.");
 });
 
 test("utterancesFromPodcastTurns preserves tone per sentence", () => {
@@ -129,4 +175,10 @@ test("utterancesFromPodcastTurns preserves tone per sentence", () => {
   assert.equal(utterances[1].tone, "excited");
   assert.equal(utterances[2].speaker, "Aisha");
   assert.equal(utterances[2].tone, "excited");
+});
+
+test("buildStudioArtifactPrompt returns report instruction", () => {
+  const prompt = buildStudioArtifactPrompt("report", "AES material", "English");
+  assert.equal(prompt.title, "Report");
+  assert.match(prompt.instruction, /AES material/);
 });

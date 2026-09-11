@@ -743,3 +743,15 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Verification
 
 - Package tests + `pnpm build` + `pnpm desktop:start`.
+
+## Audio Overview product craft — 2026-09-11
+
+### Completed
+
+- Distinct structures per format (Deep Dive, Brief, Critique, Debate) instead of one shared lecture skeleton.
+- Debate is Challenger (Ira, professional, questions/rebuts) vs Advocate (Aisha, excited, answers/defends) with strict alternation, short turns, and a learner wrap.
+- Format-specific system prompts; debate gets more turn budget; closing turns preserved when trimming; short rebuttals allowed; slightly longer WAV gaps for debate handoffs.
+
+### Verification
+
+- Package tests + `pnpm build` + `pnpm desktop:start`.
