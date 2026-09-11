@@ -95,7 +95,7 @@ const defaultConfig: RumikConfig = {
   language: "English",
 };
 /** Per-sentence synthesis after the model is warm. */
-const SYNTHESIS_TIMEOUT_MS = 180000;
+const SYNTHESIS_TIMEOUT_MS = 240000;
 /** First local load (LM + Mimi) can take several minutes on 4 GB laptop GPUs. */
 const WORKER_READY_TIMEOUT_MS = 900000;
 
@@ -111,17 +111,33 @@ export function summarizeRumikFailure(raw: string, fallback = "Rumik voice synth
   if (/out of memory|cuda out of memory|cudnn_status/i.test(lower)) {
     return "Rumik ran out of GPU memory. Close other GPU apps and try again.";
   }
+  if (/timed out|timeout/i.test(lower)) {
+    return "Rumik timed out while synthesizing speech. Try again — long Audio Overviews can take a while on local GPU.";
+  }
   if (/cancelled/i.test(lower)) return "Rumik synthesis cancelled";
+  if (/worker (exited|stopped)|not available|did not write audio/i.test(lower)) {
+    const line =
+      text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .filter((l) => !/%\|/.test(l) && !/it\/s/.test(l))
+        .at(-1) || fallback;
+    return line.replace(/^\[rumik\]\s*/i, "").slice(0, 240);
+  }
   const lines = text
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean)
     .filter((l) => !/%\|/.test(l) && !/it\/s/.test(l) && !/^loading checkpoint/i.test(l) && !/^\d+%/.test(l));
   const useful = lines.filter((l) =>
-    /error|exception|failed|traceback|runtimeerror|\[rumik\]/i.test(l),
+    /error|exception|failed|traceback|runtimeerror|\[rumik\]|timeout|timed out|cuda|memory/i.test(l),
   );
   const pick = useful.at(-1) || lines.find((l) => l.startsWith("[rumik]")) || "";
   if (pick) return pick.replace(/^\[rumik\]\s*/i, "").slice(0, 240);
+  // Keep short, already-clean messages (do not replace with a generic fallback).
+  const compact = lines.join(" ").trim() || text.replace(/\s+/g, " ").trim();
+  if (compact && compact.length <= 240 && !/%\|/.test(compact)) return compact.slice(0, 240);
   return fallback.slice(0, 240);
 }
 

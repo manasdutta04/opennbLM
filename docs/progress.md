@@ -755,3 +755,14 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Verification
 
 - Package tests + `pnpm build` + `pnpm desktop:start`.
+
+## Audio Overview Rumik mid-run failure — 2026-09-11
+
+### Completed
+
+- Diagnosed Debate failure: script OK (20 utterances); local Rumik completed ~16 sentences then died; UI showed generic "Rumik voice synthesis failed" because summarizer dropped timeout/worker messages.
+- Preserve real timeout/worker errors; retry once after worker restart; keep partial overview audio when most lines already synthesized; raise sentence timeout; cap overview tokens at 1536 for stability.
+
+### Verification
+
+- Package tests + `pnpm build` + `pnpm desktop:start`.

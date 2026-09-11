@@ -300,6 +300,7 @@ export function registerNotebookHandlers(
       const healthy = await rumik.healthCheck().catch(() => false);
       if (!healthy) throw new Error(rumik.getStatus().error || "Rumik voice is not available");
       const segmentPaths: string[] = [];
+      let voiceWarning: string | undefined;
       for (let i = 0; i < utterances.length; i += 1) {
         const utterance = utterances[i]!;
         const speaker = (
@@ -310,14 +311,54 @@ export function registerNotebookHandlers(
           language,
           pace,
         });
-        const result = await rumik.synthesize(utterance.text, {
-          speaker,
-          language,
-          deliveryDescription,
-          maxTokens: 2048,
-          broadcast: false,
-        });
+        const synthOnce = () =>
+          rumik.synthesize(utterance.text, {
+            speaker,
+            language,
+            deliveryDescription,
+            // Cap slightly under HF max so long debates stay stable on low VRAM.
+            maxTokens: 1536,
+            broadcast: false,
+          });
+        let result;
+        try {
+          result = await synthOnce();
+        } catch (firstError) {
+          // Worker often dies mid-overview after many sentences — restart once and retry.
+          await rumik.cancel().catch(() => undefined);
+          try {
+            result = await synthOnce();
+          } catch (retryError) {
+            const detail = summarizeRumikFailure(
+              retryError instanceof Error ? retryError.message : String(firstError),
+            );
+            const progress = `Rumik failed on line ${i + 1}/${utterances.length}: ${detail}`;
+            if (segmentPaths.length >= Math.max(4, Math.ceil(utterances.length * 0.45))) {
+              voiceWarning = progress;
+              break;
+            }
+            throw new Error(progress);
+          }
+        }
         for (const segment of result.segments) segmentPaths.push(segment.wavPath);
+        if (i === 0 || (i + 1) % 4 === 0 || i === utterances.length - 1) {
+          store().updateArtifact(artifact.id, {
+            status: "processing",
+            meta: {
+              format,
+              length,
+              language,
+              pace,
+              podcastId: episode.id,
+              sourceCount: options?.sourceIds?.length,
+              phase: "voice",
+              script: cleanedScript,
+              turnCount: turns.length,
+              utteranceCount: utterances.length,
+              voiceProgress: `${i + 1}/${utterances.length}`,
+            },
+          });
+        }
       }
       if (!segmentPaths.length) throw new Error("Rumik produced no audio for this overview.");
       const mergedPath = join(audioDir, `overview-${episode.id}.wav`);
@@ -325,12 +366,16 @@ export function registerNotebookHandlers(
       const gapMs = format === "debate" ? 550 : format === "brief" ? 400 : 450;
       concatWavFiles(segmentPaths, mergedPath, { gapMs });
       const audioPaths = [mergedPath];
-      const ready = store().updatePodcast(episode.id, { status: "ready", audioPaths, error: null });
+      const ready = store().updatePodcast(episode.id, {
+        status: "ready",
+        audioPaths,
+        error: voiceWarning || null,
+      });
       store().updateArtifact(artifact.id, {
         status: "ready",
         body: "",
         audioPaths,
-        error: null,
+        error: voiceWarning || null,
         meta: {
           format,
           length,
@@ -342,6 +387,9 @@ export function registerNotebookHandlers(
           script: cleanedScript,
           turnCount: turns.length,
           utteranceCount: utterances.length,
+          synthesizedUtterances: segmentPaths.length,
+          partialVoice: Boolean(voiceWarning),
+          voiceWarning,
         },
       });
       return { ...ready, format, length, language };

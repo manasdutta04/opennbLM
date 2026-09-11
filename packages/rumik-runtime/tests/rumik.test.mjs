@@ -78,4 +78,12 @@ test("summarizeRumikFailure strips tqdm dumps and command-line errors", () => {
   );
   assert.match(dumped, /GPU memory|out of memory/i);
   assert.ok(!dumped.includes("it/s"));
+  assert.match(
+    summarizeRumikFailure("Rumik sentence synthesis timed out"),
+    /timed out/i,
+  );
+  assert.match(
+    summarizeRumikFailure("Rumik did not write audio output"),
+    /did not write audio/i,
+  );
 });
