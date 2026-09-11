@@ -2,7 +2,9 @@
 
 Rumik-OSS-1 is opennbLM's fixed, first-class voice engine. It is not interchangeable with arbitrary cloud TTS and this project is not a generic TTS marketplace.
 
-Local-first stays the preferred path. When NVIDIA CUDA (and local weights) are unavailable, the app falls back to a **remote** hosted endpoint so evaluators without an NVIDIA GPU can still hear expressive voice — without claiming that local inference runs on Mac or CPU.
+Local-first stays the preferred path. Settings offers **two free choices**: (1) **Local** — NVIDIA CUDA + official weights (preferred, unlimited on-device after download); (2) **Remote fallback** — public rumik-ai Space with no install so evaluators without a GPU can still hear voice. Remote does **not** mean local inference on Mac or CPU.
+
+There is **no** HF-token field in Settings. Optional `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` env vars may raise ZeroGPU quota for remote power users only — never a shared project token.
 
 ## Source and model
 
@@ -29,7 +31,7 @@ Overrides:
 - `RUMIK_FORCE_LOCAL=1` — always local (fails if CUDA/weights missing)
 - `RUMIK_REMOTE_URL` — alternate Gradio Space root (default `https://rumik-ai-rumik-oss-1.hf.space`)
 - `RUMIK_REMOTE_SPACE` — Hugging Face Space id for the Gradio client (default `rumik-ai/rumik-oss-1`)
-- `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` — optional; raises ZeroGPU quota on the public Space (anonymous quota is small and resets daily)
+- `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` — optional **environment** vars only (not Settings UI); may raise ZeroGPU quota on the public Space (anonymous quota is small and resets daily). Do not ship a shared token.
 
 ## Runtime architecture
 
@@ -54,15 +56,18 @@ Supported config: speaker, temperature, top-k, max tokens, delivery description,
 
 1. NVIDIA CUDA GPU + Python 3 with the model card’s `requirements.txt` deps (`torch`, `transformers`, `soundfile`, …).
 2. On **≤6 GB VRAM** laptops, also: `pip install -U bitsandbytes accelerate`
-3. Download into the bind path (default `%APPDATA%\opennbLM\models\rumik-oss-1`):
+3. Download into the Electron bind path (this app’s default is under Electron `userData`, e.g. `%APPDATA%\@opennblm\desktop\models\rumik-oss-1` — always copy the path from **Settings → Voice engine**):
 
 ```powershell
 pip install -U huggingface_hub
-huggingface-cli download rumik-ai/rumik-oss-1 --revision main --local-dir "$env:APPDATA\opennbLM\models\rumik-oss-1"
+python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir=r'$env:APPDATA\@opennblm\desktop\models\rumik-oss-1')"
 ```
 
+Prefer a CUDA-capable Python (e.g. 3.12 with `torch` cu124). opennbLM auto-picks a local CUDA interpreter when `RUMIK_PYTHON` is unset; override with `RUMIK_PYTHON` if needed.
 4. Optional: `RUMIK_MODEL_PATH`, `RUMIK_PYTHON`, `RUMIK_MODEL_REVISION`, `RUMIK_LOW_VRAM`, `RUMIK_LOAD_IN_4BIT`.
-5. Restart. **Settings → Voice engine** shows **Local** + Ready when CUDA and the folder exist.
+5. Restart or press refresh. **Settings → Voice engine** shows **Local** + Ready when CUDA and the folder exist.
+
+`teaching:teach` returns the lesson text as soon as the teaching brain responds, then starts Rumik in the background. If Rumik is unhealthy it returns `voiceError` immediately; synthesis failures still update `rumik:state` so the UI is not stuck waiting on voice.
 
 ## Segmentation and playback
 

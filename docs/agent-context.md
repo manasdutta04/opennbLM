@@ -25,11 +25,14 @@ Short handoff for agents. Product: native, local-first, voice-first learning com
 ## Rumik voice
 
 - Fixed engine: `rumik-ai/rumik-oss-1` via `@opennblm/rumik-runtime` + `runtime/rumik_runner.py`.
-- Modes: **`local`** (CUDA + weights) preferred; **`remote`** HTTPS fallback to public Space `rumik-ai/rumik-oss-1` when CUDA/weights missing. Renderer IPC unchanged.
+- **Two free paths:** **`local`** (CUDA + official weights, preferred) and **`remote`** (public Space fallback). Renderer IPC unchanged.
 - Do **not** claim “Rumik works on Mac” — remote means voice output, not local Apple Silicon inference.
-- Bind order (local): `RUMIK_MODEL_PATH` → bundled `resources/rumik/model` → `{userData}/models/rumik-oss-1`.
-- Does **not** auto-download weights. Settings shows mode badge, bind path, download command, HF link, refresh.
+- Bind order (local): `RUMIK_MODEL_PATH` → bundled `resources/rumik/model` → `{userData}/models/rumik-oss-1` (Electron package userData is typically `%APPDATA%\@opennblm\desktop` on Windows).
+- Python: `RUMIK_PYTHON`, else bundled, else first local Windows Python with `torch.cuda` (312→311→310→313).
+- Does **not** auto-download weights. Settings shows dual-path copy, mode badge, bind path, download command (`snapshot_download`), HF link, refresh, and last Rumik error when present.
 - Low-VRAM: auto 4-bit NF4 (`bitsandbytes`) at load time on ≤6 GB GPUs. No separately published quantized HF checkpoint — users always pull official weights.
+- No HF-token Settings UI; optional `HF_TOKEN` env for remote quota only.
+- `teaching:teach` returns lesson text immediately, then starts Rumik in the background (`voiceStarted` if health ok; `voiceError` if voice unavailable). Voice failures still surface via `rumik:state`.
 - Demo safety net: `docs/demo/rumik-expressive-sample.wav` + README.
 
 ## UI / shell
@@ -59,4 +62,5 @@ Short handoff for agents. Product: native, local-first, voice-first learning com
 - Expose Node to the renderer.
 - Claim Rumik “works on Mac” for local inference, or “quantized = better quality for everyone.”
 - Publish a separate static quantized rumik checkpoint to our HF account (redundant with dynamic bitsandbytes).
+- Add HF token fields to Settings or ship a shared ZeroGPU token.
 - Mention OpenCrew / OpenFolks / OpenClaw in product UI or user-facing docs.

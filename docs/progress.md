@@ -566,3 +566,19 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - Remote smoke: `synthesizeRemoteSegment` → ~150 KB WAV from `https://rumik-ai-rumik-oss-1.hf.space`.
 - Desktop launch check (2026-09-11): app boots; Settings shows **Remote fallback** + CUDA detected when weights unbound; setup copy distinguishes missing weights vs missing CUDA.
 - Anonymous ZeroGPU quota on this machine is exhausted (~24h cooldown); remote errors now surface the Gradio/HF quota message (via `@gradio/client`). Optional `HF_TOKEN` documented. Local CUDA path remains preferred once weights are bound.
+
+## Rumik free dual paths — 2026-09-11
+
+### Completed
+
+- Settings → Voice engine: **Two free paths** copy (local preferred / remote fallback), auto 4-bit note (no separate quant download), surfaces `rumik.status.error`.
+- `teaching:teach` awaits `rumik.synthesize` and returns `voiceError` on failure (no optimistic `voiceStarted` from health alone).
+- Docs: Electron `userData` bind path (`%@opennblm\desktop\models\rumik-oss-1`), HF token env-only (not Settings), no static quant publish.
+
+### Verification
+
+- Official weights downloaded to `%APPDATA%\@opennblm\desktop\models\rumik-oss-1` (~6.4 GB shards).
+- Python 3.12 CUDA torch `2.6.0+cu124` + transformers/soundfile/accelerate/bitsandbytes; desktop auto-resolves CUDA Python when `RUMIK_PYTHON` unset.
+- Local smoke: `preferredMode: local` synthesize → ~100 KB WAV (`Hello from local Rumik.`).
+- Build: renderer + desktop `tsc`/`vite` passed after Settings dual-path + honest teach voice.
+- Fix (same day): do **not** await Rumik inside `teaching:teach` — that blocked the lesson answer on “Preparing how to teach…” until voice finished. Text returns immediately; voice runs in background.

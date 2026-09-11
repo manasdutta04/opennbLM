@@ -1120,6 +1120,7 @@ function SettingsPage({
   onVoiceStatusChange: (ready: boolean) => void;
 }) {
   const [setup, setSetup] = useState<SetupStatus | undefined>();
+  const [rumikError, setRumikError] = useState<string | undefined>();
   const [copied, setCopied] = useState<"path" | "command" | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -1127,17 +1128,19 @@ function SettingsPage({
   const platform = setup?.system.platform ?? "win32";
   const downloadCommand =
     platform === "win32"
-      ? `pip install -U huggingface_hub && huggingface-cli download rumik-ai/rumik-oss-1 --revision main --local-dir "${bindPath || "%APPDATA%\\opennbLM\\models\\rumik-oss-1"}"`
-      : `pip install -U huggingface_hub && huggingface-cli download rumik-ai/rumik-oss-1 --revision main --local-dir "${bindPath || "$HOME/.config/opennbLM/models/rumik-oss-1"}"`;
+      ? `pip install -U huggingface_hub && python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir=r'${(bindPath || "%APPDATA%\\\\@opennblm\\\\desktop\\\\models\\\\rumik-oss-1").replace(/\\/g, "\\\\")}')"`
+      : `pip install -U huggingface_hub && python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir='${bindPath || "$HOME/.config/@opennblm/desktop/models/rumik-oss-1"}')"`;
 
   const load = async () => {
     setRefreshing(true);
     try {
-      const [nextSetup, rumikOk] = await Promise.all([
+      const [nextSetup, rumikOk, rumikStatus] = await Promise.all([
         window.opennbLM.setup.getStatus(),
         window.opennbLM.rumik.healthCheck().catch(() => false),
+        window.opennbLM.rumik.getStatus().catch(() => undefined),
       ]);
       setSetup(nextSetup);
+      setRumikError(rumikStatus?.error);
       onVoiceStatusChange(Boolean(rumikOk || (nextSetup.runtime.available && nextSetup.model.available)));
     } finally {
       setRefreshing(false);
@@ -1222,6 +1225,32 @@ function SettingsPage({
               </div>
             </div>
 
+            {rumikError ? (
+              <div className="mt-3 rounded-xl border border-warning/30 bg-warning/5 px-3 py-2 text-[12.5px] leading-relaxed text-warning">
+                {rumikError}
+              </div>
+            ) : null}
+
+            <div className="mt-3 space-y-2 rounded-xl border border-hairline/35 bg-inset/50 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
+              <div className="text-[13px] font-medium text-ink">Two free paths</div>
+              <ol className="list-decimal space-y-1.5 pl-4">
+                <li>
+                  <span className="text-ink">Local (preferred)</span> — NVIDIA CUDA + one download of the official
+                  {" "}
+                  <span className="text-ink">rumik-ai/rumik-oss-1</span>
+                  {" "}
+                  weights. Unlimited on your machine after that.
+                </li>
+                <li>
+                  <span className="text-ink">Remote fallback</span> — no install; public rumik-ai Space over HTTPS so
+                  evaluators without a GPU can still hear voice. Best-effort (Space quota may apply). Not local Mac/CPU inference.
+                </li>
+              </ol>
+              <p className="text-[11.5px] opacity-90">
+                No separately quantized Hugging Face repo. On ≤6 GB GPUs the app applies <span className="text-ink">4-bit NF4</span> automatically at load from the official snapshot.
+              </p>
+            </div>
+
             <div className="mt-3 grid gap-2 text-[12.5px] text-ink-secondary sm:grid-cols-2">
               <div className={cn("rounded-xl border px-3 py-2", setup?.rumik?.cudaAvailable ? "border-success/25 bg-success/5" : "border-hairline/35 bg-inset/40")}>
                 CUDA · {setup?.rumik?.cudaAvailable ? "detected" : "not available"}
@@ -1239,7 +1268,7 @@ function SettingsPage({
 
             {setup?.rumik?.mode === "remote" ? (
               <div className="mt-4 space-y-2 rounded-xl border border-accent/25 bg-accent/5 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
-                <div className="text-[13px] font-medium text-ink">Remote voice fallback</div>
+                <div className="text-[13px] font-medium text-ink">Currently on remote fallback</div>
                 <p>
                   This machine is not using local Rumik inference. Expressive voice is produced by calling the
                   public <span className="text-ink">rumik-ai</span> ZeroGPU Space over HTTPS. That is a reachability
@@ -1271,7 +1300,7 @@ function SettingsPage({
                   {" "}
                   <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">bitsandbytes</code>
                   {" "}
-                  (4 GB cards need 4-bit; see the model card’s
+                  (see the model card’s
                   {" "}
                   <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">requirements.txt</code>
                   {" "}
@@ -1282,11 +1311,10 @@ function SettingsPage({
                   {" "}
                   <span className="text-ink">rumik-ai/rumik-oss-1</span>
                   {" "}
-                  from Hugging Face into the bind path below. The app does not auto-download weights.
+                  from Hugging Face into the bind path below. No separate quantized package — the app does not auto-download weights, but it does auto 4-bit at load on ≤6 GB GPUs.
                 </li>
                 <li>
-                  Laptop GPUs ≤6 GB VRAM auto-enable <span className="text-ink">low-VRAM / 4-bit</span> mode
-                  (not Unsloth). Restart opennbLM, then press refresh here.
+                  Restart opennbLM (or press refresh here) after the download finishes. Mode should switch to <span className="text-ink">Local</span>.
                 </li>
               </ol>
 

@@ -2,8 +2,8 @@ import { app, BrowserWindow, clipboard, ipcMain, Menu, shell } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync, writeFileSync } from "node:fs";
-import { arch, freemem, platform } from "node:os";
-import { execFileSync } from "node:child_process";
+import { arch, freemem, homedir, platform } from "node:os";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { createLocalServices } from "@opennblm/local-services";
 import { ProviderManager } from "./provider-manager.js";
@@ -19,6 +19,27 @@ import { installAppMenu, popupApplicationSubmenu } from "./app-menu.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 Menu.setApplicationMenu(null);
+
+/** Prefer RUMIK_PYTHON, then bundled, then a local CUDA-capable interpreter. */
+function resolveRumikPython(bundledPython: string): string | undefined {
+  if (process.env.RUMIK_PYTHON) return process.env.RUMIK_PYTHON;
+  if (existsSync(bundledPython)) return bundledPython;
+  if (process.platform !== "win32") return undefined;
+  const local = process.env.LOCALAPPDATA || join(homedir(), "AppData", "Local");
+  const candidates = ["Python312", "Python311", "Python310", "Python313"].map((name) =>
+    join(local, "Programs", "Python", name, "python.exe"),
+  );
+  for (const candidate of candidates) {
+    if (!existsSync(candidate)) continue;
+    const probe = spawnSync(
+      candidate,
+      ["-c", "import torch; raise SystemExit(0 if torch.cuda.is_available() else 1)"],
+      { stdio: "ignore", timeout: 15_000, windowsHide: true },
+    );
+    if (probe.status === 0) return candidate;
+  }
+  return undefined;
+}
 
 let mainWindow: BrowserWindow | undefined;
 let services: Awaited<ReturnType<typeof createLocalServices>> | undefined;
@@ -127,7 +148,11 @@ app.whenReady().then(async () => {
   mkdirSync(rumikOutput, { recursive: true });
   const bundledPython = process.platform === "win32" ? join(process.resourcesPath, "rumik", "python", "python.exe") : join(process.resourcesPath, "rumik", "python", "bin", "python3");
   const bundledModel = join(process.resourcesPath, "rumik", "model");
-  rumik = createRumikManager({ pythonPath: process.env.RUMIK_PYTHON || (existsSync(bundledPython) ? bundledPython : undefined), modelPath: process.env.RUMIK_MODEL_PATH || (existsSync(bundledModel) ? bundledModel : join(app.getPath("userData"), "models", "rumik-oss-1")), outputDirectory: rumikOutput });
+  rumik = createRumikManager({
+    pythonPath: resolveRumikPython(bundledPython),
+    modelPath: process.env.RUMIK_MODEL_PATH || (existsSync(bundledModel) ? bundledModel : join(app.getPath("userData"), "models", "rumik-oss-1")),
+    outputDirectory: rumikOutput,
+  });
   await rumik.healthCheck().catch(() => false);
   rumik.onSegmentReady((segment) => { mainWindow?.webContents.send("rumik:segment-ready", segment); });
   rumik.onStateChange((status) => { mainWindow?.webContents.send("rumik:state", status); });
@@ -196,11 +221,25 @@ app.whenReady().then(async () => {
     services!.memory.addMessage({ conversationId, role: "assistant", text: result.response, teachingMetadata: { difficulty: result.plan.learner_level } });
     extractLearnerMemory(conversationId, result, options);
     const deliveryDescription = `${result.delivery.overallTone}, ${result.delivery.pace} pace`;
+    // Return the lesson text immediately. Awaiting local Rumik (or remote quota stalls)
+    // would leave the UI stuck on "Preparing how to teach…" until voice finishes.
     const healthy = await rumik!.healthCheck().catch(() => false);
-    if (healthy) {
-      void rumik!.synthesize(result.response, { speaker: result.delivery.speaker, language: result.delivery.language, deliveryDescription }).catch(() => undefined);
+    if (!healthy) {
+      return {
+        text: result.response,
+        deliveryLabel: result.delivery.overallTone,
+        voiceStarted: false,
+        voiceError: rumik!.getStatus().error || "Rumik voice is not available right now.",
+      };
     }
-    return { text: result.response, deliveryLabel: result.delivery.overallTone, voiceStarted: healthy };
+    void rumik!
+      .synthesize(result.response, {
+        speaker: result.delivery.speaker,
+        language: result.delivery.language,
+        deliveryDescription,
+      })
+      .catch(() => undefined);
+    return { text: result.response, deliveryLabel: result.delivery.overallTone, voiceStarted: true };
   });
   installAppMenu();
   createWindow();
