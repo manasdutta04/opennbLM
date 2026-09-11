@@ -95,6 +95,20 @@ export function summarizeRumikFailure(raw: string, fallback = "Rumik voice synth
   const text = String(raw || "")
     .replace(/\x1b\[[0-9;]*m/g, "")
     .replace(/\r/g, "\n");
+  // #region agent log
+  fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
+    body: JSON.stringify({
+      sessionId: "bad68c",
+      hypothesisId: "E",
+      location: "rumik-runtime/src/index.ts:summarizeRumikFailure",
+      message: "sanitize input",
+      data: { rawLen: text.length, rawHead: text.slice(0, 300), fallback },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
   const lower = text.toLowerCase();
   if (/command line is too long|enametoolong/i.test(text)) {
     return "Rumik could not start on Windows (command line too long). Try Audio Overview again — the app now uses a local worker.";
@@ -330,17 +344,66 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
     ];
     if (env.RUMIK_LOW_VRAM !== "0") args.push("--low-vram");
 
+    // #region agent log
+    fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
+      body: JSON.stringify({
+        sessionId: "bad68c",
+        hypothesisId: "A",
+        location: "rumik-runtime/src/index.ts:ensureLocalWorker",
+        message: "spawning worker",
+        data: {
+          python,
+          runner,
+          modelPath: options.modelPath,
+          modelExists: Boolean(options.modelPath && existsSync(options.modelPath)),
+          argsLen: args.join(" ").length,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
     workerReady = new Promise<void>((resolveReady, rejectReady) => {
       let settled = false;
       const fail = (error: Error) => {
         if (settled) return;
         settled = true;
+        // #region agent log
+        fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
+          body: JSON.stringify({
+            sessionId: "bad68c",
+            hypothesisId: "A",
+            location: "rumik-runtime/src/index.ts:ensureLocalWorker.fail",
+            message: "worker failed before ready",
+            data: { error: error.message },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         killWorker();
         rejectReady(error);
       };
       const ok = () => {
         if (settled) return;
         settled = true;
+        // #region agent log
+        fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
+          body: JSON.stringify({
+            sessionId: "bad68c",
+            hypothesisId: "A",
+            location: "rumik-runtime/src/index.ts:ensureLocalWorker.ok",
+            message: "worker ready",
+            data: {},
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         resolveReady();
       };
 
@@ -387,6 +450,20 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
       });
       child.once("exit", (code, signal) => {
         clearTimeout(readyTimer);
+        // #region agent log
+        fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
+          body: JSON.stringify({
+            sessionId: "bad68c",
+            hypothesisId: "B",
+            location: "rumik-runtime/src/index.ts:ensureLocalWorker.exit",
+            message: "worker process exited",
+            data: { code, signal, stderrTail: stderrTail.slice(-800), settled },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         const reason = summarizeRumikFailure(
           stderrTail,
           `Rumik worker exited (${code ?? signal ?? "unknown"})`,
@@ -414,6 +491,28 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
 
       const id = `job-${++jobSeq}`;
       const maxTokens = Math.min(config.maxTokens, process.env.RUMIK_LOW_VRAM === "0" ? config.maxTokens : 1024);
+      // #region agent log
+      fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
+        body: JSON.stringify({
+          sessionId: "bad68c",
+          hypothesisId: "C",
+          location: "rumik-runtime/src/index.ts:runLocalSegment",
+          message: "dispatch synth job",
+          data: {
+            id,
+            index,
+            speaker: config.speaker,
+            textLen: segment.length,
+            textPath,
+            wavPath,
+            maxTokens,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       await new Promise<void>((resolveJob, rejectJob) => {
         const timer = setTimeout(() => {
           pendingJobs.delete(id);
@@ -443,6 +542,20 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
 
       if (cancelRequested) throw new Error("Rumik synthesis cancelled");
       if (!existsSync(wavPath)) throw new Error("Rumik did not write audio output");
+      // #region agent log
+      fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
+        body: JSON.stringify({
+          sessionId: "bad68c",
+          hypothesisId: "C",
+          location: "rumik-runtime/src/index.ts:runLocalSegment.done",
+          message: "synth job ok",
+          data: { id, wavPath, wavExists: existsSync(wavPath) },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       return wavPath;
     } catch (error) {
       rmSync(wavPath, { force: true });
@@ -549,6 +662,27 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
         emitState();
         const config = { ...defaultConfig, ...override };
         const broadcast = config.broadcast !== false;
+        // #region agent log
+        fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
+          body: JSON.stringify({
+            sessionId: "bad68c",
+            hypothesisId: "D",
+            location: "rumik-runtime/src/index.ts:synthesize",
+            message: "synthesize begin",
+            data: {
+              mode,
+              textLen: text.length,
+              speaker: config.speaker,
+              broadcast,
+              cudaAvailable,
+              modelPath: options.modelPath,
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         const results: RumikAudioSegment[] = [];
         const segments = segmentForRumik(text);
         for (let index = 0; index < segments.length; index += 1) {

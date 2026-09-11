@@ -281,12 +281,47 @@ export function registerNotebookHandlers(
       });
       const rumik = getRumik();
       const healthy = await rumik.healthCheck().catch(() => false);
+      // #region agent log
+      fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
+        body: JSON.stringify({
+          sessionId: "bad68c",
+          hypothesisId: "D",
+          location: "notebook-ipc.ts:create-podcast",
+          message: "pre-voice state",
+          data: {
+            healthy,
+            rumikStatus: rumik.getStatus(),
+            format,
+            length,
+            language,
+            scriptLen: script.length,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       if (!healthy) throw new Error(rumik.getStatus().error || "Rumik voice is not available");
       const budget = audioLengthLimits(length);
       const turns = parsePodcastScript(script, speakers, budget.maxLines);
       if (!turns.length) throw new Error("Could not parse a usable Audio Overview script.");
       // One Rumik job per sentence — packing multiple sentences caused mid-utterance cuts / speaker jumps.
       const utterances = utterancesFromPodcastTurns(turns);
+      // #region agent log
+      fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
+        body: JSON.stringify({
+          sessionId: "bad68c",
+          hypothesisId: "D",
+          location: "notebook-ipc.ts:create-podcast.utterances",
+          message: "parsed script for voice",
+          data: { turnCount: turns.length, utteranceCount: utterances.length, firstSpeaker: utterances[0]?.speaker },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       const segmentPaths: string[] = [];
       for (let i = 0; i < utterances.length; i += 1) {
         const utterance = utterances[i]!;
@@ -328,6 +363,20 @@ export function registerNotebookHandlers(
       return { ...ready, format, length, language };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Audio Overview failed";
+      // #region agent log
+      fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
+        body: JSON.stringify({
+          sessionId: "bad68c",
+          hypothesisId: "E",
+          location: "notebook-ipc.ts:create-podcast.catch",
+          message: "audio overview failed",
+          data: { rawMessage: message },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       const clean = summarizeRumikFailure(message, "Audio Overview failed");
       store().updateArtifact(artifact.id, { status: "error", error: clean });
       return store().updatePodcast(episode.id, { status: "error", error: clean });
