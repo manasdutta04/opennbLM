@@ -3,7 +3,7 @@ import test from "node:test";
 import { writeFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { buildPodcastScriptPrompt, buildStudioArtifactPrompt, chunkText, extractPlainText, parseGuideResponse, parsePodcastScript, utterancesFromPodcastTurns } from "../dist/index.js";
+import { buildPodcastScriptPrompt, buildStudioArtifactPrompt, chunkText, extractPlainText, parseGuideResponse, parsePodcastScript, sanitizeSpokenText, utterancesFromPodcastTurns } from "../dist/index.js";
 import JSZip from "jszip";
 
 test("chunkText splits long material into word windows", () => {
@@ -49,7 +49,7 @@ test("extractPlainText reads markdown, docx, and pptx", async () => {
   assert.match(pptx.text, /PPTX mitosis/);
 });
 
-test("podcast prompt encodes word budgets and quality rules", () => {
+test("podcast prompt encodes word budgets and per-line tone rules", () => {
   const prompt = buildPodcastScriptPrompt("AES encrypts blocks", ["Ira", "Aisha"], {
     format: "brief",
     length: "shorter",
@@ -60,6 +60,9 @@ test("podcast prompt encodes word budgets and quality rules", () => {
   assert.match(prompt, /WORD LIMIT/);
   assert.match(prompt, /COMPLETE sentences/);
   assert.match(prompt, /exam revision/);
+  assert.match(prompt, /SpeakerName \[tone\]: dialogue/);
+  assert.match(prompt, /vary emotional tone line by line/i);
+  assert.match(prompt, /happy, sad, angry, excited, professional/);
 });
 
 test("parseGuideResponse extracts TITLE and body", () => {
@@ -68,10 +71,10 @@ test("parseGuideResponse extracts TITLE and body", () => {
   assert.match(parsed.text, /symmetric cipher/);
 });
 
-test("parsePodcastScript merges continuations and completes punctuation", () => {
+test("parsePodcastScript reads per-line tones and merges continuations", () => {
   const turns = parsePodcastScript(
-    `Ira: Do you know how AES protects data in transit
-Aisha: It encrypts fixed-size blocks with a shared key.
+    `Ira [excited]: Do you know how AES protects data in transit
+Aisha [professional]: It encrypts fixed-size blocks with a shared key.
 and that key must stay secret.
 Siya: unrelated`,
     ["Ira", "Aisha"],
@@ -79,19 +82,30 @@ Siya: unrelated`,
   );
   assert.equal(turns.length, 2);
   assert.equal(turns[0].speaker, "Ira");
+  assert.equal(turns[0].tone, "excited");
   assert.match(turns[0].text, /\.$/);
   assert.equal(turns[1].speaker, "Aisha");
+  assert.equal(turns[1].tone, "professional");
   assert.match(turns[1].text, /shared key/);
   assert.match(turns[1].text, /stay secret/);
 });
 
-test("utterancesFromPodcastTurns splits turns into one sentence each", () => {
+test("sanitizeSpokenText strips markdown and keeps laugh tags", () => {
+  const text = sanitizeSpokenText("**AES** protects data <laugh> in transit.");
+  assert.match(text, /AES protects/);
+  assert.match(text, /<laugh>/);
+  assert.ok(!text.includes("**"));
+});
+
+test("utterancesFromPodcastTurns preserves tone per sentence", () => {
   const utterances = utterancesFromPodcastTurns([
-    { speaker: "Ira", text: "AES protects data in transit. It uses a shared secret key." },
-    { speaker: "Aisha", text: "That key must stay private." },
+    { speaker: "Ira", tone: "excited", text: "AES protects data in transit. It uses a shared secret key." },
+    { speaker: "Aisha", tone: "happy", text: "That key must stay private." },
   ]);
   assert.equal(utterances.length, 3);
   assert.equal(utterances[0].speaker, "Ira");
-  assert.equal(utterances[1].speaker, "Ira");
+  assert.equal(utterances[0].tone, "excited");
+  assert.equal(utterances[1].tone, "excited");
   assert.equal(utterances[2].speaker, "Aisha");
+  assert.equal(utterances[2].tone, "happy");
 });

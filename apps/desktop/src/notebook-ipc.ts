@@ -23,7 +23,7 @@ import {
   ingestUrlSource,
 } from "@opennblm/notebook-runtime";
 import type { createRumikManager } from "@opennblm/rumik-runtime";
-import { concatWavFiles, RUMIK_SPEAKERS, summarizeRumikFailure } from "@opennblm/rumik-runtime";
+import { concatWavFiles, RUMIK_SPEAKERS, summarizeRumikFailure, buildRumikDescription } from "@opennblm/rumik-runtime";
 import { join } from "node:path";
 
 type Rumik = ReturnType<typeof createRumikManager>;
@@ -221,6 +221,7 @@ export function registerNotebookHandlers(
     const format = options?.format ?? "deep_dive";
     const length = options?.length ?? "default";
     const language = options?.language ?? "English";
+    const pace = "steady pace" as const;
     const speakers = speakersForFormat(format, options?.speakers);
     const episode = store().createPodcast({
       notebookId,
@@ -237,6 +238,7 @@ export function registerNotebookHandlers(
         format,
         length,
         language,
+        pace,
         podcastId: episode.id,
         sourceCount: options?.sourceIds?.length ?? store().listSources(notebookId).filter((s) => s.status === "ready").length,
         phase: "script",
@@ -252,7 +254,7 @@ export function registerNotebookHandlers(
           {
             role: "system",
             content:
-              "You write polished educational podcast scripts meant to be spoken aloud. Every line must be a complete thought ending with punctuation. Never cut a sentence mid-way or jump topics abruptly. Plain text only as SpeakerName: dialogue.",
+              "You write educational podcast scripts meant to be spoken aloud by TTS. Every line must be SpeakerName [tone]: dialogue with a complete sentence. Vary tone like a human teacher. Plain text only. No markdown.",
           },
           {
             role: "user",
@@ -267,6 +269,15 @@ export function registerNotebookHandlers(
       });
       const script = scriptResponse.content.trim();
       store().updatePodcast(episode.id, { script });
+      const budget = audioLengthLimits(length);
+      const turns = parsePodcastScript(script, speakers, budget.maxLines);
+      if (!turns.length) throw new Error("Could not parse a usable Audio Overview script.");
+      const utterances = utterancesFromPodcastTurns(turns);
+      if (!utterances.length) throw new Error("Could not prepare speakable sentences for Rumik.");
+      const cleanedScript = utterances
+        .map((u) => `${u.speaker} [${u.tone || "professional"}]: ${u.text}`)
+        .join("\n");
+      store().updatePodcast(episode.id, { script: cleanedScript });
       store().updateArtifact(artifact.id, {
         body: "",
         status: "processing",
@@ -274,64 +285,33 @@ export function registerNotebookHandlers(
           format,
           length,
           language,
+          pace,
           podcastId: episode.id,
           sourceCount: options?.sourceIds?.length,
           phase: "voice",
+          script: cleanedScript,
+          turnCount: turns.length,
+          utteranceCount: utterances.length,
         },
       });
       const rumik = getRumik();
       const healthy = await rumik.healthCheck().catch(() => false);
-      // #region agent log
-      fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
-        body: JSON.stringify({
-          sessionId: "bad68c",
-          hypothesisId: "D",
-          location: "notebook-ipc.ts:create-podcast",
-          message: "pre-voice state",
-          data: {
-            healthy,
-            rumikStatus: rumik.getStatus(),
-            format,
-            length,
-            language,
-            scriptLen: script.length,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       if (!healthy) throw new Error(rumik.getStatus().error || "Rumik voice is not available");
-      const budget = audioLengthLimits(length);
-      const turns = parsePodcastScript(script, speakers, budget.maxLines);
-      if (!turns.length) throw new Error("Could not parse a usable Audio Overview script.");
-      // One Rumik job per sentence — packing multiple sentences caused mid-utterance cuts / speaker jumps.
-      const utterances = utterancesFromPodcastTurns(turns);
-      // #region agent log
-      fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
-        body: JSON.stringify({
-          sessionId: "bad68c",
-          hypothesisId: "D",
-          location: "notebook-ipc.ts:create-podcast.utterances",
-          message: "parsed script for voice",
-          data: { turnCount: turns.length, utteranceCount: utterances.length, firstSpeaker: utterances[0]?.speaker },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       const segmentPaths: string[] = [];
       for (let i = 0; i < utterances.length; i += 1) {
         const utterance = utterances[i]!;
         const speaker = (
           (speakers as string[]).includes(utterance.speaker) ? utterance.speaker : speakers[0]
         ) as "Ira" | "Aisha" | "Siya" | "Zoya";
+        const deliveryDescription = buildRumikDescription({
+          tone: utterance.tone || "professional",
+          language,
+          pace,
+        });
         const result = await rumik.synthesize(utterance.text, {
           speaker,
           language,
-          deliveryDescription: "warm, clear, conversational; speak the full sentence to the end at a steady pace",
+          deliveryDescription,
           maxTokens: 2048,
           broadcast: false,
         });
@@ -339,13 +319,11 @@ export function registerNotebookHandlers(
       }
       if (!segmentPaths.length) throw new Error("Rumik produced no audio for this overview.");
       const mergedPath = join(audioDir, `overview-${episode.id}.wav`);
-      // Pause between sentences so the next speaker never feels overlapped.
       concatWavFiles(segmentPaths, mergedPath, { gapMs: 450 });
       const audioPaths = [mergedPath];
       const ready = store().updatePodcast(episode.id, { status: "ready", audioPaths, error: null });
       store().updateArtifact(artifact.id, {
         status: "ready",
-        // Keep script in meta only — not shown as body in the list
         body: "",
         audioPaths,
         error: null,
@@ -353,9 +331,11 @@ export function registerNotebookHandlers(
           format,
           length,
           language,
+          pace,
           podcastId: episode.id,
           sourceCount: options?.sourceIds?.length,
           phase: "ready",
+          script: cleanedScript,
           turnCount: turns.length,
           utteranceCount: utterances.length,
         },
@@ -363,20 +343,6 @@ export function registerNotebookHandlers(
       return { ...ready, format, length, language };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Audio Overview failed";
-      // #region agent log
-      fetch("http://127.0.0.1:7828/ingest/86b77374-7de2-41b3-bed2-3efa404b33e6", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "bad68c" },
-        body: JSON.stringify({
-          sessionId: "bad68c",
-          hypothesisId: "E",
-          location: "notebook-ipc.ts:create-podcast.catch",
-          message: "audio overview failed",
-          data: { rawMessage: message },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       const clean = summarizeRumikFailure(message, "Audio Overview failed");
       store().updateArtifact(artifact.id, { status: "error", error: clean });
       return store().updatePodcast(episode.id, { status: "error", error: clean });

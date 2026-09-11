@@ -3,39 +3,14 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { Client } from "@gradio/client";
 import type { RumikConfig, RumikSpeaker } from "./index.js";
+import { parseDeliveryControls } from "./delivery.js";
 
+export { parseDeliveryControls } from "./delivery.js";
 export const DEFAULT_REMOTE_ENDPOINT =
   process.env.RUMIK_REMOTE_URL?.replace(/\/$/, "") ||
   "https://rumik-ai-rumik-oss-1.hf.space";
 
 const DEFAULT_SPACE_ID = "rumik-ai/rumik-oss-1";
-
-const TONES = ["happy", "sad", "angry", "excited", "professional"] as const;
-const ACCENTS = [
-  "Hindi accent",
-  "Telugu accent",
-  "Tamil accent",
-  "Kannada accent",
-  "Bengali accent",
-  "Punjabi accent",
-  "Indian English accent",
-] as const;
-const PACES = ["slow pace", "fast pace", "steady pace"] as const;
-
-export function parseDeliveryControls(description: string): {
-  tone: (typeof TONES)[number];
-  accent: (typeof ACCENTS)[number];
-  pace: (typeof PACES)[number];
-} {
-  const lower = description.toLowerCase();
-  const tone = TONES.find((item) => lower.includes(item)) ?? "professional";
-  const accent =
-    ACCENTS.find((item) => lower.includes(item.toLowerCase().replace(" accent", ""))) ??
-    (/\benglish\b/i.test(description) ? "Indian English accent" : "Hindi accent");
-  const pace =
-    PACES.find((item) => lower.includes(item.replace(" pace", ""))) ?? "steady pace";
-  return { tone, accent, pace };
-}
 
 function resolveSpaceId(endpoint: string): string {
   const custom = process.env.RUMIK_REMOTE_SPACE?.trim();

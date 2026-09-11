@@ -706,3 +706,28 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Verification
 
 - Package tests + build + desktop start.
+
+## Rumik-first Audio Overview quality — 2026-09-11
+
+### Completed
+
+- `buildRumikDescription` emits canonical `<description="tone, accent, pace">` only (no instructional prose, no `language=`).
+- Speakable script prompt + `sanitizeSpokenText`; sparse `<laugh>`/`<chuckle>`/`<sigh>` on happy/excited lines.
+- Overview synth uses 2048 tokens on the persistent worker; cleaned script stored in artifact meta.
+
+### Verification
+
+- Package tests + `pnpm build` + `pnpm desktop:start`.
+
+## Audio Overview delivery UX — 2026-09-11
+
+### Completed
+
+- Removed Studio Tone / Accent / Pace dropdowns. Users only choose format, length, language, and focus.
+- Pace is always `steady pace`. Accent is derived from Studio language via `accentFromLanguage`.
+- Script lines use `Speaker [tone]: dialogue`; the model varies tone per line for a human-teacher feel.
+- Each Rumik utterance gets its own description from that line’s tone + language accent + steady pace.
+
+### Verification
+
+- Package tests + `pnpm build` + `pnpm desktop:start`.

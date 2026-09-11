@@ -200,31 +200,66 @@ export function audioLengthLimits(length: AudioOverviewLength = "default") {
   return LENGTH_WORDS[length];
 }
 
-export type PodcastTurn = { speaker: string; text: string };
+export type PodcastTurn = { speaker: string; text: string; tone: string };
+
+const RUMIK_LINE_TONES = ["happy", "sad", "angry", "excited", "professional"] as const;
+const VOCAL_TAGS = /<(laugh|chuckle|sigh)>/gi;
+
+function normalizeLineTone(raw?: string): string {
+  const tone = (raw || "").trim().toLowerCase();
+  return (RUMIK_LINE_TONES as readonly string[]).includes(tone) ? tone : "professional";
+}
+
+/** Clean dialogue for Rumik: strip markdown, keep official vocalization tags. */
+export function sanitizeSpokenText(raw: string): string {
+  let text = String(raw || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  // Preserve vocal tags, strip other markup.
+  const tags: string[] = [];
+  text = text.replace(VOCAL_TAGS, (m) => {
+    tags.push(m.toLowerCase());
+    return ` §TAG${tags.length - 1}§ `;
+  });
+  text = text
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/#{1,6}\s*/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[_~|>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  text = text.replace(/§TAG(\d+)§/g, (_, i) => tags[Number(i)] || "");
+  text = text.replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  // Drop telegraphic junk under 3 words (unless it is just a vocal tag + words).
+  const words = text.replace(VOCAL_TAGS, " ").trim().split(/\s+/).filter(Boolean);
+  if (words.length < 3) return "";
+  if (!/[.!?。！？]$/.test(text.replace(/\s*<(laugh|chuckle|sigh)>\s*$/i, "").trim())) {
+    text = `${text.replace(/[.!?。！？]*$/, "")}.`;
+  }
+  return text;
+}
 
 /** Split turns into one complete sentence per utterance so Rumik never cuts mid-thought. */
 export function utterancesFromPodcastTurns(turns: PodcastTurn[]): PodcastTurn[] {
   const out: PodcastTurn[] = [];
   for (const turn of turns) {
-    const sentences = turn.text
-      .replace(/\s+/g, " ")
-      .trim()
-      .split(/(?<=[.!?。！？])\s+/u)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    for (const sentence of sentences.length ? sentences : [turn.text.trim()]) {
-      let text = sentence.trim();
-      if (!text) continue;
-      if (!/[.!?。！？]$/.test(text)) text = `${text}.`;
-      out.push({ speaker: turn.speaker, text });
+    const cleaned = sanitizeSpokenText(turn.text);
+    if (!cleaned) continue;
+    const parts = cleaned.split(/(?<=[.!?。！？])\s+/u).map((s) => s.trim()).filter(Boolean);
+    for (const sentence of parts.length ? parts : [cleaned]) {
+      const text = sanitizeSpokenText(sentence);
+      if (text) out.push({ speaker: turn.speaker, text, tone: normalizeLineTone(turn.tone) });
     }
   }
   return out;
 }
 
 /**
- * Parse "Speaker: dialogue" scripts into clean turns.
- * Merges continuation lines, drops junk, and keeps only complete spoken text.
+ * Parse "Speaker [tone]: dialogue" scripts into clean turns.
+ * Tone is chosen by the script model for human-like delivery.
  */
 export function parsePodcastScript(
   raw: string,
@@ -247,25 +282,26 @@ export function parsePodcastScript(
     line = line.replace(/^[-*•]\s+/, "").replace(/^\d+[.)]\s+/, "");
     if (/^\[.*\]$/.test(line) || /^\(.*\)$/.test(line)) continue;
 
-    const match = line.match(/^([A-Za-z][A-Za-z0-9_-]{0,24})\s*[:：]\s*(.+)$/);
+    const match = line.match(
+      /^([A-Za-z][A-Za-z0-9_-]{0,24})(?:\s*[\[(]\s*(happy|sad|angry|excited|professional)\s*[\])])?\s*[:：]\s*(.+)$/i,
+    );
     if (match) {
       const name = match[1]!;
-      const text = match[2]!.trim();
+      const tone = normalizeLineTone(match[2]);
+      const text = match[3]!.trim();
       if (!text) continue;
       if (speakerSet.has(name.toLowerCase())) {
         const speaker = speakers.find((s) => s.toLowerCase() === name.toLowerCase()) || defaultSpeaker;
-        turns.push({ speaker, text });
+        turns.push({ speaker, text, tone });
       } else if (turns.length) {
-        // Unknown "Name: …" — fold into previous turn so we don't invent cracked speaker jumps.
         const prev = turns[turns.length - 1]!;
         prev.text = `${prev.text} ${text}`.replace(/\s+/g, " ").trim();
       } else {
-        turns.push({ speaker: defaultSpeaker, text });
+        turns.push({ speaker: defaultSpeaker, text, tone });
       }
       continue;
     }
 
-    // Continuation of previous turn (wrapped dialogue without a speaker prefix).
     if (turns.length) {
       const prev = turns[turns.length - 1]!;
       prev.text = `${prev.text} ${line}`.replace(/\s+/g, " ").trim();
@@ -274,13 +310,11 @@ export function parsePodcastScript(
 
   const normalized = turns
     .map((turn) => {
-      let text = turn.text.replace(/\s+/g, " ").trim();
-      text = text.replace(/^["“]|["”]$/g, "").trim();
+      const text = sanitizeSpokenText(turn.text);
       if (!text) return null;
-      if (!/[.!?。！？]$/.test(text)) text = `${text}.`;
-      return { speaker: turn.speaker, text };
+      return { speaker: turn.speaker, text, tone: normalizeLineTone(turn.tone) } satisfies PodcastTurn;
     })
-    .filter((t): t is PodcastTurn => Boolean(t));
+    .filter((t): t is PodcastTurn => t != null);
 
   if (maxLines != null && maxLines > 0) return normalized.slice(0, maxLines);
   return normalized;
@@ -313,29 +347,36 @@ export function buildPodcastScriptPrompt(
 
   const structure =
     length === "shorter"
-      ? "Structure: quick hook → 2–3 core ideas with brief examples → crisp close."
+      ? "Structure: open with a clear topic sentence → 2–3 core ideas with brief examples → crisp close."
       : length === "longer"
-        ? "Structure: hook → several core ideas with examples/contrasts → how pieces connect → memorable close."
-        : "Structure: hook → core ideas with concrete examples → how they connect → practical close.";
+        ? "Structure: open → several core ideas with examples/contrasts → how pieces connect → memorable close."
+        : "Structure: open → core ideas with concrete examples → how they connect → practical close.";
 
-  return `Write a polished educational Audio Overview script in ${language}.
-A voice model will read EVERY word you write, one sentence at a time. Incomplete sentences cause broken audio.
+  return `Write an educational Audio Overview script in ${language} meant to be read aloud by a TTS voice model (Rumik).
+Each sentence is synthesized alone, so every sentence must be a complete, self-contained thought.
+Sound like a warm human teacher: vary emotional tone line by line so the learner stays engaged — not monotone-serious the whole time.
 
 Format: ${formatGuide[format]}
 ${structure}
 
-WORD LIMIT (hard requirement — count the spoken words only):
+LINE FORMAT (exact):
+SpeakerName [tone]: dialogue
+- tone MUST be one of: happy, sad, angry, excited, professional
+- Choose tone from the meaning of THAT line (examples: excited for a discovery, professional for a crisp definition, happy for encouragement, sad for a cautionary pitfall, angry sparingly for a strong warning).
+- Vary tones across the script; do not use the same tone on every line.
+- You may place at most TWO inline tags in the ENTIRE script: <laugh> <chuckle> <sigh>, only on happy/excited lines, after a complete clause.
+
+WORD LIMIT (hard requirement — count spoken words only):
 - Write between ${budget.min} and ${budget.max} words total (${budget.label}).
-- Hit at least ${budget.min} words; stay under ${budget.max}.
 - Use ${Math.max(6, Math.round(budget.maxLines * 0.55))}–${budget.maxLines} dialogue turns.
-- Each turn: 1–2 COMPLETE sentences. Each sentence under 35 words.
+- Each turn: 1–2 COMPLETE sentences. Each sentence under 30 words.
 - Every line MUST end with . ! or ?
 
-QUALITY RULES (non-negotiable):
-- Format EXACTLY: SpeakerName: dialogue
+SPEAKABILITY RULES (non-negotiable):
 - Speakers allowed: ${speakerNames.join(", ")} only.
-- Alternate speakers naturally (except The Brief). One speaker finishes their full turn before the next speaks.
-- Never cut a sentence mid-way. Never start the next speaker until the current idea is finished.
+- Alternate speakers naturally (except The Brief).
+- Use plain, clear vocabulary. Prefer full statements like "Machine learning finds patterns in data." Never telegraphic fragments like "math, math introduction, math law."
+- Do NOT write cliffhanger hooks ("Do you know this") or dangling continuations ("And that…", "This again…") that need the previous line to make sense.
 - Do NOT use stage directions, markdown, bullets, numbering, or quotes around the whole line.
 - Cover the CORE story of the sources; do not read documents page by page.
 ${focus}

@@ -50,7 +50,20 @@ Quantization happens **automatically at load time** on this machine when VRAM is
 
 ## Configuration
 
-Supported config: speaker, temperature, top-k, max tokens, delivery description, language. Defaults follow the official example (`0.8`, `30`, and `2048` max new tokens). Delivery descriptions are placed in the model's `<description="...">` prompt format (local) or mapped to Space tone/accent/pace controls (remote).
+Supported config: speaker, temperature, top-k, max tokens, delivery description, language. Defaults follow the official example (`0.8`, `30`, and `2048` max new tokens).
+
+**Delivery (automatic):** Audio Overview does not expose Tone / Accent / Pace pickers.
+- **Tone** is chosen by the script model per line (`Speaker [tone]: …`) from `happy` / `sad` / `angry` / `excited` / `professional`, so delivery feels like a human teacher, not one fixed mood.
+- **Accent** is derived from Studio language (e.g. Hindi → Hindi accent, English → Indian English accent).
+- **Pace** is always `steady pace`.
+
+Each utterance is synthesized with a canonical HF description:
+
+```text
+<description="excited, Hindi accent, steady pace">
+```
+
+Never put instructional prose or `language=` into `<description>`. Optional inline `<laugh>` / `<chuckle>` / `<sigh>` may appear sparsely in spoken text on happy/excited lines.
 
 ### Install and bind local CUDA (Windows)
 
@@ -71,7 +84,7 @@ Prefer a CUDA-capable Python (e.g. 3.12 with `torch` cu124). opennbLM auto-picks
 
 ## Segmentation and playback
 
-Rumik's documented long-form limitation is approximately 30–35 seconds per generation. `segmentForRumik` emits **one sentence per chunk**. Local mode keeps a **persistent `--serve` worker** (model loaded once; jobs via stdin + text files) so Audio Overview does not relaunch Python / reload weights per sentence — that path previously caused Windows “command line is too long”, 3-minute load timeouts, and tqdm dumps in the Studio error UI.
+Rumik's documented long-form limitation is approximately 30–35 seconds per generation. `segmentForRumik` emits **one sentence per chunk**. Local mode keeps a **persistent `--serve` worker** (model loaded once; jobs via stdin + text files) so Audio Overview does not relaunch Python / reload weights per sentence.
 
 `synthesize()` runs jobs sequentially and emits completed segments through the main-process event boundary when broadcast is enabled.
 

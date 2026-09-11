@@ -96,8 +96,8 @@ def load_stack(args: argparse.Namespace):
     want_4bit = args.load_in_4bit or env_4bit or low_vram
 
     max_new_tokens = args.max_new_tokens
-    if low_vram and max_new_tokens > 1024:
-        max_new_tokens = 1024
+    if low_vram and max_new_tokens > 2048:
+        max_new_tokens = 2048
 
     repo = args.model_path
     revision = args.revision
@@ -212,13 +212,11 @@ def synthesize(
     mimi_device = stack["mimi_device"]
     low_vram = stack["low_vram"]
     token_cap = int(max_new_tokens) if max_new_tokens else stack["default_max_new_tokens"]
-    if low_vram and token_cap > 1024:
-        token_cap = 1024
+    # Keep HF demo budget available even on 4-bit loads (do not starve generation).
+    token_cap = max(8, min(int(token_cap), 2048))
 
-    # Language is part of delivery context for the description field.
-    desc = description.strip() or "professional, steady pace"
-    if language and language.strip() and language.strip().lower() not in desc.lower():
-        desc = f"{desc}; language={language.strip()}"
+    # Canonical HF delivery string only — never inject language= into description.
+    desc = (description or "").strip() or "professional, Indian English accent, steady pace"
 
     prompt = f'<text>{speaker}: <description="{desc}"> {text.strip()}<audio>'
     model_device = next(model.parameters()).device
@@ -250,68 +248,8 @@ def synthesize(
 
 
 def serve(args: argparse.Namespace) -> int:
-    # #region agent log
-    try:
-        with open(r"C:\Coding Workspace\OSS-CONTRIBS\opennbLM\debug-bad68c.log", "a", encoding="utf-8") as _dbg:
-            _dbg.write(
-                json.dumps(
-                    {
-                        "sessionId": "bad68c",
-                        "hypothesisId": "A",
-                        "location": "rumik_runner.py:serve",
-                        "message": "serve starting load_stack",
-                        "data": {"model_path": args.model_path},
-                        "timestamp": int(__import__("time").time() * 1000),
-                    }
-                )
-                + "\n"
-            )
-    except Exception:
-        pass
-    # #endregion
-    try:
-        stack = load_stack(args)
-    except Exception as err:  # noqa: BLE001
-        # #region agent log
-        try:
-            with open(r"C:\Coding Workspace\OSS-CONTRIBS\opennbLM\debug-bad68c.log", "a", encoding="utf-8") as _dbg:
-                _dbg.write(
-                    json.dumps(
-                        {
-                            "sessionId": "bad68c",
-                            "hypothesisId": "A",
-                            "location": "rumik_runner.py:serve.load_fail",
-                            "message": "load_stack failed",
-                            "data": {"error": str(err)},
-                            "timestamp": int(__import__("time").time() * 1000),
-                        }
-                    )
-                    + "\n"
-                )
-        except Exception:
-            pass
-        # #endregion
-        raise
+    stack = load_stack(args)
     emit({"event": "ready", "low_vram": bool(stack["low_vram"])})
-    # #region agent log
-    try:
-        with open(r"C:\Coding Workspace\OSS-CONTRIBS\opennbLM\debug-bad68c.log", "a", encoding="utf-8") as _dbg:
-            _dbg.write(
-                json.dumps(
-                    {
-                        "sessionId": "bad68c",
-                        "hypothesisId": "A",
-                        "location": "rumik_runner.py:serve.ready",
-                        "message": "emitted ready",
-                        "data": {"low_vram": bool(stack["low_vram"])},
-                        "timestamp": int(__import__("time").time() * 1000),
-                    }
-                )
-                + "\n"
-            )
-    except Exception:
-        pass
-    # #endregion
     for line in sys.stdin:
         raw = line.strip()
         if not raw:
@@ -351,25 +289,6 @@ def serve(args: argparse.Namespace) -> int:
             emit({"id": job_id, "ok": True, "output": str(job.get("output") or ""), "tokens": tokens})
         except Exception as err:  # noqa: BLE001
             log(traceback.format_exc())
-            # #region agent log
-            try:
-                with open(r"C:\Coding Workspace\OSS-CONTRIBS\opennbLM\debug-bad68c.log", "a", encoding="utf-8") as _dbg:
-                    _dbg.write(
-                        json.dumps(
-                            {
-                                "sessionId": "bad68c",
-                                "hypothesisId": "C",
-                                "location": "rumik_runner.py:serve.job_fail",
-                                "message": "synth job failed",
-                                "data": {"id": job_id, "error": str(err)},
-                                "timestamp": int(__import__("time").time() * 1000),
-                            }
-                        )
-                        + "\n"
-                    )
-            except Exception:
-                pass
-            # #endregion
             emit({"id": job_id, "ok": False, "error": str(err)})
     return 0
 

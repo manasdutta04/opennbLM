@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createRumikManager, segmentForRumik, parseDeliveryControls, summarizeRumikFailure } from "../dist/index.js";
+import { createRumikManager, segmentForRumik, parseDeliveryControls, summarizeRumikFailure, buildRumikDescription, accentFromLanguage } from "../dist/index.js";
 
 test("segmentation preserves short text without terminal punctuation", () => {
   assert.deepEqual(segmentForRumik("Explain recursion"), ["Explain recursion"]);
@@ -53,6 +53,19 @@ test("delivery description maps to Space tone/accent/pace controls", () => {
   assert.equal(parsed.tone, "excited");
   assert.equal(parsed.accent, "Hindi accent");
   assert.equal(parsed.pace, "fast pace");
+});
+
+test("buildRumikDescription emits HF-canonical strings", () => {
+  assert.equal(
+    buildRumikDescription({ tone: "excited", accent: "Hindi accent", pace: "fast pace" }),
+    "excited, Hindi accent, fast pace",
+  );
+  assert.equal(accentFromLanguage("English"), "Indian English accent");
+  assert.equal(
+    buildRumikDescription({ language: "English" }),
+    "professional, Indian English accent, steady pace",
+  );
+  assert.ok(!buildRumikDescription({ language: "Hindi" }).includes("language="));
 });
 
 test("summarizeRumikFailure strips tqdm dumps and command-line errors", () => {

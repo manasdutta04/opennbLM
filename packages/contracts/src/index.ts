@@ -171,6 +171,17 @@ export type StudioArtifactKind =
   | "note";
 export type AudioOverviewFormat = "deep_dive" | "brief" | "critique" | "debate";
 export type AudioOverviewLength = "shorter" | "default" | "longer";
+/** Official Rumik Space delivery controls. */
+export type RumikTone = "happy" | "sad" | "angry" | "excited" | "professional";
+export type RumikAccent =
+  | "Hindi accent"
+  | "Telugu accent"
+  | "Tamil accent"
+  | "Kannada accent"
+  | "Bengali accent"
+  | "Punjabi accent"
+  | "Indian English accent";
+export type RumikPace = "slow pace" | "fast pace" | "steady pace";
 
 export interface Notebook {
   id: string;
