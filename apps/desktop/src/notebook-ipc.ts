@@ -19,7 +19,8 @@ import {
   ingestUrlSource,
 } from "@opennblm/notebook-runtime";
 import type { createRumikManager } from "@opennblm/rumik-runtime";
-import { RUMIK_SPEAKERS } from "@opennblm/rumik-runtime";
+import { concatWavFiles, RUMIK_SPEAKERS } from "@opennblm/rumik-runtime";
+import { join } from "node:path";
 
 type Rumik = ReturnType<typeof createRumikManager>;
 
@@ -134,15 +135,8 @@ export function registerNotebookHandlers(
         ],
       });
       const text = response.content.trim();
-      const rumik = getRumik();
-      const healthy = await rumik.healthCheck().catch(() => false);
-      if (healthy) {
-        void rumik
-          .synthesize(text, { deliveryDescription: "professional, steady pace", language })
-          .catch(() => undefined);
-      }
-      return { text, citations };
-    },
+    return { text, citations };
+  },
   );
 
   ipcMain.handle(
@@ -220,7 +214,14 @@ export function registerNotebookHandlers(
       kind: "audio_overview",
       title: episode.title,
       status: "processing",
-      meta: { format, length, language, podcastId: episode.id },
+      meta: {
+        format,
+        length,
+        language,
+        podcastId: episode.id,
+        sourceCount: options?.sourceIds?.length ?? store().listSources(notebookId).filter((s) => s.status === "ready").length,
+        phase: "script",
+      },
     });
     try {
       const material = collectMaterial(store(), notebookId, options?.sourceIds);
@@ -243,7 +244,18 @@ export function registerNotebookHandlers(
       });
       const script = scriptResponse.content.trim();
       store().updatePodcast(episode.id, { script });
-      store().updateArtifact(artifact.id, { body: script });
+      store().updateArtifact(artifact.id, {
+        body: "",
+        status: "processing",
+        meta: {
+          format,
+          length,
+          language,
+          podcastId: episode.id,
+          sourceCount: options?.sourceIds?.length,
+          phase: "voice",
+        },
+      });
       const rumik = getRumik();
       const healthy = await rumik.healthCheck().catch(() => false);
       if (!healthy) throw new Error(rumik.getStatus().error || "Rumik voice is not available");
@@ -251,7 +263,7 @@ export function registerNotebookHandlers(
         .split(/\n+/)
         .map((line) => line.trim())
         .filter(Boolean);
-      const audioPaths: string[] = [];
+      const segmentPaths: string[] = [];
       for (const line of lines.slice(0, maxSynthLines(length))) {
         const match = line.match(/^([A-Za-z]+)\s*:\s*(.+)$/);
         const speakerName = match?.[1];
@@ -259,21 +271,35 @@ export function registerNotebookHandlers(
           speakerName && (speakers as string[]).includes(speakerName) ? speakerName : speakers[0]
         ) as "Ira" | "Aisha" | "Siya" | "Zoya";
         const text = match?.[2] || line;
+        // Silent batch: do not broadcast to the global autoplay queue (fixes stuttering mid-generation).
         const result = await rumik.synthesize(text, {
           speaker,
           language,
           deliveryDescription: "warm, conversational, steady pace",
           maxTokens: 512,
+          broadcast: false,
         });
-        for (const segment of result.segments) audioPaths.push(segment.wavPath);
+        for (const segment of result.segments) segmentPaths.push(segment.wavPath);
       }
-      void audioDir;
+      if (!segmentPaths.length) throw new Error("Rumik produced no audio for this overview.");
+      const mergedPath = join(audioDir, `overview-${episode.id}.wav`);
+      concatWavFiles(segmentPaths, mergedPath);
+      const audioPaths = [mergedPath];
       const ready = store().updatePodcast(episode.id, { status: "ready", audioPaths, error: null });
       store().updateArtifact(artifact.id, {
         status: "ready",
+        // Keep script in meta only — not shown as body in the list
+        body: "",
         audioPaths,
         error: null,
-        meta: { format, length, language, podcastId: episode.id },
+        meta: {
+          format,
+          length,
+          language,
+          podcastId: episode.id,
+          sourceCount: options?.sourceIds?.length,
+          phase: "ready",
+        },
       });
       return { ...ready, format, length, language };
     } catch (error) {

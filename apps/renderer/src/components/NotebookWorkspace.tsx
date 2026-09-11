@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ChevronRight,
   FileText,
   FileUp,
   Link2,
@@ -11,11 +12,14 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
+  Pause,
+  Play,
   Plus,
+  RefreshCw,
   Search,
   Table2,
   Trash2,
-  Volume2,
+  X,
 } from "lucide-react";
 import type {
   AudioOverviewFormat,
@@ -23,9 +27,7 @@ import type {
   InstanceInfo,
   ModelSelection,
   Notebook,
-  NotebookNote,
   NotebookSource,
-  PodcastEpisode,
   SourceContextLevel,
   StudioArtifact,
   StudioArtifactKind,
@@ -41,6 +43,8 @@ type ChatLine = {
   usedFallback?: boolean;
   citations?: Array<{ sourceId: string; title: string; excerpt: string }>;
 };
+
+type PendingGen = { id: string; label: string; sourceCount: number };
 
 const STUDIO_LANGUAGES = [
   "English",
@@ -58,17 +62,16 @@ const STUDIO_LANGUAGES = [
 const STUDIO_TILES: Array<{
   kind: Exclude<StudioArtifactKind, "audio_overview" | "note"> | "audio_overview";
   label: string;
-  detail: string;
   accent: string;
 }> = [
-  { kind: "audio_overview", label: "Audio Overview", detail: "Rumik study podcast", accent: "text-[#b8a0ff]" },
-  { kind: "slide_deck", label: "Slide deck", detail: "Teaching slides", accent: "text-[#e6c35c]" },
-  { kind: "mind_map", label: "Mind Map", detail: "Concept tree", accent: "text-[#f0a0c0]" },
-  { kind: "report", label: "Reports", detail: "Briefing note", accent: "text-[#d4b87a]" },
-  { kind: "flashcards", label: "Flashcards", detail: "Recall cards", accent: "text-[#e8a06a]" },
-  { kind: "quiz", label: "Quiz", detail: "Check understanding", accent: "text-[#7ab0e8]" },
-  { kind: "infographic", label: "Infographic", detail: "Visual gist", accent: "text-[#e87a7a]" },
-  { kind: "data_table", label: "Data table", detail: "Compare facts", accent: "text-[#7ad0c8]" },
+  { kind: "audio_overview", label: "Audio Overview", accent: "text-[#b8a0ff]" },
+  { kind: "slide_deck", label: "Slide deck", accent: "text-[#e6c35c]" },
+  { kind: "mind_map", label: "Mind Map", accent: "text-[#f0a0c0]" },
+  { kind: "report", label: "Reports", accent: "text-[#d4b87a]" },
+  { kind: "flashcards", label: "Flashcards", accent: "text-[#e8a06a]" },
+  { kind: "quiz", label: "Quiz", accent: "text-[#7ab0e8]" },
+  { kind: "infographic", label: "Infographic", accent: "text-[#e87a7a]" },
+  { kind: "data_table", label: "Data table", accent: "text-[#7ad0c8]" },
 ];
 
 function parseMaybeJson(body: string): unknown {
@@ -81,6 +84,134 @@ function parseMaybeJson(body: string): unknown {
     /* plain text */
   }
   return null;
+}
+
+function fileUrl(path: string) {
+  return `file:///${path.replace(/\\/g, "/")}`;
+}
+
+function formatTime(sec: number) {
+  if (!Number.isFinite(sec) || sec < 0) return "0:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function relativeAge(iso: string) {
+  const ms = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(ms / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "1d ago";
+  return `${days}d ago`;
+}
+
+function OverviewPlayer({
+  title,
+  wavPath,
+  onClose,
+}: {
+  title: string;
+  wavPath: string;
+  onClose: () => void;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [speed, setSpeed] = useState(1);
+
+  useEffect(() => {
+    const audio = new Audio(fileUrl(wavPath));
+    audioRef.current = audio;
+    audio.playbackRate = speed;
+    const onTime = () => setCurrent(audio.currentTime);
+    const onMeta = () => setDuration(audio.duration || 0);
+    const onEnded = () => setPlaying(false);
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("loadedmetadata", onMeta);
+    audio.addEventListener("ended", onEnded);
+    return () => {
+      audio.pause();
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("loadedmetadata", onMeta);
+      audio.removeEventListener("ended", onEnded);
+      audioRef.current = null;
+    };
+  }, [wavPath]);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = speed;
+  }, [speed]);
+
+  const toggle = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) {
+      audio.pause();
+      setPlaying(false);
+    } else {
+      void audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    }
+  };
+
+  const seekBy = (delta: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = Math.max(0, Math.min(duration || audio.duration || 0, audio.currentTime + delta));
+  };
+
+  return (
+    <div className="rounded-2xl border border-hairline/40 bg-[#1a1b1e] p-3 shadow-xl">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{title}</div>
+        <button type="button" className="rounded-full p-1.5 text-ink-secondary hover:bg-raised" onClick={onClose} aria-label="Close player">
+          <X size={14} />
+        </button>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={duration || 0}
+        step={0.1}
+        value={current}
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          setCurrent(v);
+          if (audioRef.current) audioRef.current.currentTime = v;
+        }}
+        className="mt-3 w-full accent-[#4c8bf5]"
+      />
+      <div className="mt-1 text-[11px] text-ink-secondary">
+        {formatTime(current)} / {formatTime(duration)}
+      </div>
+      <div className="mt-2 flex items-center justify-between">
+        <button
+          type="button"
+          className="text-[12px] font-medium text-[#4c8bf5]"
+          onClick={() => setSpeed((s) => (s >= 1.5 ? 1 : s === 1.25 ? 1.5 : s === 1 ? 1.25 : 1))}
+        >
+          {speed.toFixed(1)}x
+        </button>
+        <div className="flex items-center gap-3">
+          <button type="button" className="text-[12px] text-ink-secondary" onClick={() => seekBy(-10)}>
+            −10
+          </button>
+          <button
+            type="button"
+            onClick={toggle}
+            className="flex size-10 items-center justify-center rounded-full bg-[#4c8bf5] text-white"
+            aria-label={playing ? "Pause" : "Play"}
+          >
+            {playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+          </button>
+          <button type="button" className="text-[12px] text-ink-secondary" onClick={() => seekBy(10)}>
+            +10
+          </button>
+        </div>
+        <span className="w-8" />
+      </div>
+    </div>
+  );
 }
 
 export function NotebookWorkspace({
@@ -104,18 +235,14 @@ export function NotebookWorkspace({
 }) {
   const [notebook, setNotebook] = useState<Notebook | null>(null);
   const [sources, setSources] = useState<NotebookSource[]>([]);
-  const [notes, setNotes] = useState<NotebookNote[]>([]);
   const [artifacts, setArtifacts] = useState<StudioArtifact[]>([]);
-  const [podcasts, setPodcasts] = useState<PodcastEpisode[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sourcesOpen, setSourcesOpen] = useState(true);
   const [studioOpen, setStudioOpen] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
-  const [pasteTitle, setPasteTitle] = useState("Pasted notes");
-  const [pasteBody, setPasteBody] = useState("");
+  const [showAdd, setShowAdd] = useState<"file" | "link" | null>(null);
   const [urlValue, setUrlValue] = useState("");
   const [guide, setGuide] = useState("");
   const [guideLoading, setGuideLoading] = useState(false);
@@ -128,26 +255,23 @@ export function NotebookWorkspace({
   const [audioLength, setAudioLength] = useState<AudioOverviewLength>("default");
   const [focusPrompt, setFocusPrompt] = useState("");
   const [activeArtifact, setActiveArtifact] = useState<StudioArtifact | null>(null);
-  const [noteDraft, setNoteDraft] = useState("");
+  const [playerPath, setPlayerPath] = useState<string | null>(null);
+  const [playerTitle, setPlayerTitle] = useState("");
+  const [pending, setPending] = useState<PendingGen[]>([]);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const guideTimer = useRef<number | undefined>(undefined);
   const selectedKey = useMemo(() => [...selectedIds].sort().join(","), [selectedIds]);
 
   const refresh = async () => {
-    const [nbList, nextSources, nextNotes, nextArtifacts, nextPodcasts] = await Promise.all([
+    const [nbList, nextSources, nextArtifacts] = await Promise.all([
       window.opennbLM.notebooks.list(),
       window.opennbLM.notebooks.listSources(notebookId),
-      window.opennbLM.notebooks.listNotes(notebookId),
       window.opennbLM.notebooks.listArtifacts(notebookId),
-      window.opennbLM.notebooks.listPodcasts(notebookId),
     ]);
-    const nb = nbList.find((n) => n.id === notebookId) ?? null;
-    setNotebook(nb);
+    setNotebook(nbList.find((n) => n.id === notebookId) ?? null);
     setSources(nextSources);
-    setNotes(nextNotes);
     setArtifacts(nextArtifacts);
-    setPodcasts(nextPodcasts);
     setSelectedIds((prev) => {
       const existing = new Set(nextSources.map((s) => s.id));
       const ready = nextSources.filter((s) => s.status === "ready").map((s) => s.id);
@@ -248,27 +372,59 @@ export function NotebookWorkspace({
     });
   };
 
-  const generateAudio = () =>
-    void run(async () => {
-      await window.opennbLM.notebooks.createPodcast(notebookId, {
-        format: audioFormat,
-        length: audioLength,
-        language: studioLanguage,
-        sourceIds: [...selectedIds],
-        focusPrompt: focusPrompt || undefined,
-      });
-      setAudioOpen(false);
-    });
+  const startPending = (label: string) => {
+    const id = `pending-${Date.now()}`;
+    setPending((rows) => [{ id, label, sourceCount: selectedReadyCount }, ...rows]);
+    return id;
+  };
 
-  const generateTile = (kind: Exclude<StudioArtifactKind, "audio_overview" | "note">) =>
+  const clearPending = (id: string) => setPending((rows) => rows.filter((r) => r.id !== id));
+
+  const generateAudio = () => {
+    const pendingId = startPending("Generating audio overview…");
+    setAudioOpen(false);
     void run(async () => {
-      const art = await window.opennbLM.notebooks.generateArtifact(notebookId, kind, {
-        sourceIds: [...selectedIds],
-        language: studioLanguage,
-        focusPrompt: focusPrompt || undefined,
-      });
-      setActiveArtifact(art);
+      try {
+        await window.opennbLM.notebooks.createPodcast(notebookId, {
+          format: audioFormat,
+          length: audioLength,
+          language: studioLanguage,
+          sourceIds: [...selectedIds],
+          focusPrompt: focusPrompt || undefined,
+        });
+      } finally {
+        clearPending(pendingId);
+      }
     });
+  };
+
+  const generateTile = (kind: Exclude<StudioArtifactKind, "audio_overview" | "note">) => {
+    const label = STUDIO_TILES.find((t) => t.kind === kind)?.label || kind;
+    const pendingId = startPending(`Generating ${label.toLowerCase()}…`);
+    void run(async () => {
+      try {
+        await window.opennbLM.notebooks.generateArtifact(notebookId, kind, {
+          sourceIds: [...selectedIds],
+          language: studioLanguage,
+          focusPrompt: focusPrompt || undefined,
+        });
+      } finally {
+        clearPending(pendingId);
+      }
+    });
+  };
+
+  const openArtifact = (art: StudioArtifact) => {
+    if (art.kind === "audio_overview") {
+      const path = art.audioPaths?.[0];
+      if (path) {
+        setPlayerTitle(art.title);
+        setPlayerPath(path);
+      }
+      return;
+    }
+    setActiveArtifact(art);
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -319,113 +475,83 @@ export function NotebookWorkspace({
         )}
         <span className="text-[12px] text-ink-secondary">{selectedReadyCount} sources selected</span>
         <div className="flex-1" />
-        <button
-          type="button"
-          className="rounded-md p-1.5 text-ink-secondary hover:bg-raised"
-          onClick={() => setSourcesOpen((v) => !v)}
-          title={sourcesOpen ? "Hide sources" : "Show sources"}
-        >
+        <button type="button" className="rounded-md p-1.5 text-ink-secondary hover:bg-raised" onClick={() => setSourcesOpen((v) => !v)}>
           {sourcesOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
         </button>
-        <button
-          type="button"
-          className="rounded-md p-1.5 text-ink-secondary hover:bg-raised"
-          onClick={() => setStudioOpen((v) => !v)}
-          title={studioOpen ? "Hide studio" : "Show studio"}
-        >
+        <button type="button" className="rounded-md p-1.5 text-ink-secondary hover:bg-raised" onClick={() => setStudioOpen((v) => !v)}>
           {studioOpen ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
         </button>
-        <ModelPicker
-          instances={engineInstances}
-          selection={modelSelection}
-          onSelect={onSelectModel}
-          onRefresh={onRefreshEngines}
-        />
+        <ModelPicker instances={engineInstances} selection={modelSelection} onSelect={onSelectModel} onRefresh={onRefreshEngines} />
       </div>
 
       {error ? (
-        <div className="mx-4 mt-2 rounded-xl border border-warning/30 bg-warning/5 px-3 py-2 text-[12.5px] text-warning">
-          {error}
-        </div>
+        <div className="mx-4 mt-2 rounded-xl border border-warning/30 bg-warning/5 px-3 py-2 text-[12.5px] text-warning">{error}</div>
       ) : null}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Sources */}
         {sourcesOpen ? (
           <aside className="flex w-[280px] shrink-0 flex-col border-r border-hairline/25 bg-panel/40">
             <div className="border-b border-hairline/25 p-3">
-              <button
-                type="button"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-[13px] font-medium text-black"
-                onClick={() => setShowAdd((v) => !v)}
-              >
-                <Plus size={15} /> Add sources
-              </button>
-              {showAdd ? (
-                <div className="mt-3 space-y-2 rounded-xl border border-hairline/35 bg-card p-3">
-                  <input
-                    value={pasteTitle}
-                    onChange={(e) => setPasteTitle(e.target.value)}
-                    className="w-full rounded-lg border border-hairline/40 bg-inset px-2 py-1.5 text-[12px] text-ink"
-                    placeholder="Paste title"
-                  />
-                  <textarea
-                    value={pasteBody}
-                    onChange={(e) => setPasteBody(e.target.value)}
-                    rows={3}
-                    className="w-full rounded-lg border border-hairline/40 bg-inset px-2 py-1.5 text-[12px] text-ink"
-                    placeholder="Paste text…"
-                  />
-                  <button
-                    type="button"
-                    disabled={busy || !pasteBody.trim()}
-                    className="w-full rounded-full border border-hairline/40 py-1.5 text-[12px] text-ink disabled:opacity-40"
-                    onClick={() =>
-                      void run(async () => {
-                        await window.opennbLM.notebooks.addTextSource(notebookId, pasteTitle, pasteBody);
-                        setPasteBody("");
-                        setShowAdd(false);
-                      })
-                    }
-                  >
-                    Add text
-                  </button>
-                  <div className="flex gap-1">
-                    <input
-                      value={urlValue}
-                      onChange={(e) => setUrlValue(e.target.value)}
-                      className="min-w-0 flex-1 rounded-lg border border-hairline/40 bg-inset px-2 py-1.5 text-[12px] text-ink"
-                      placeholder="URL / YouTube"
-                    />
-                    <button
-                      type="button"
-                      disabled={busy || !urlValue.trim()}
-                      className="rounded-lg border border-hairline/40 px-2 text-[12px] disabled:opacity-40"
-                      onClick={() =>
-                        void run(async () => {
-                          await window.opennbLM.notebooks.addUrlSource(notebookId, urlValue.trim());
-                          setUrlValue("");
-                          setShowAdd(false);
-                        })
-                      }
-                    >
-                      <Link2 size={14} />
-                    </button>
-                  </div>
+              <div className="text-[13px] font-medium text-ink">Sources</div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-hairline/40 bg-card px-2 py-3 text-[12px] text-ink hover:bg-raised/50"
+                  onClick={() => setShowAdd((v) => (v === "file" ? null : "file"))}
+                >
+                  <FileUp size={16} className="text-accent-text" />
+                  Upload file
+                </button>
+                <button
+                  type="button"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-hairline/40 bg-card px-2 py-3 text-[12px] text-ink hover:bg-raised/50"
+                  onClick={() => setShowAdd((v) => (v === "link" ? null : "link"))}
+                >
+                  <Link2 size={16} className="text-accent-text" />
+                  Website / YouTube
+                </button>
+              </div>
+              {showAdd === "file" ? (
+                <div className="mt-2 rounded-xl border border-hairline/35 bg-card p-3 text-[11.5px] text-ink-secondary">
+                  PDF, DOCX, PPTX, TXT, Markdown
                   <button
                     type="button"
                     disabled={busy}
-                    className="flex w-full items-center justify-center gap-2 rounded-full border border-hairline/40 py-1.5 text-[12px]"
+                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-white py-1.5 text-[12px] font-medium text-black disabled:opacity-40"
                     onClick={() =>
                       void run(async () => {
                         const path = await window.opennbLM.notebooks.pickSourceFile();
                         if (!path) return;
                         await window.opennbLM.notebooks.addFileSource(notebookId, path);
-                        setShowAdd(false);
+                        setShowAdd(null);
                       })
                     }
                   >
-                    <FileUp size={14} /> Upload file
+                    Choose file
+                  </button>
+                </div>
+              ) : null}
+              {showAdd === "link" ? (
+                <div className="mt-2 space-y-2 rounded-xl border border-hairline/35 bg-card p-3">
+                  <input
+                    value={urlValue}
+                    onChange={(e) => setUrlValue(e.target.value)}
+                    className="w-full rounded-lg border border-hairline/40 bg-inset px-2 py-1.5 text-[12px] text-ink"
+                    placeholder="https://… or YouTube URL"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy || !urlValue.trim()}
+                    className="w-full rounded-full bg-white py-1.5 text-[12px] font-medium text-black disabled:opacity-40"
+                    onClick={() =>
+                      void run(async () => {
+                        await window.opennbLM.notebooks.addUrlSource(notebookId, urlValue.trim());
+                        setUrlValue("");
+                        setShowAdd(null);
+                      })
+                    }
+                  >
+                    Import link
                   </button>
                 </div>
               ) : null}
@@ -472,15 +598,7 @@ export function NotebookWorkspace({
                       <div className="truncate text-[12.5px] font-medium text-ink">{source.title}</div>
                       <div className="mt-1 flex flex-wrap gap-1 text-[10.5px] uppercase text-ink-secondary">
                         <span>{source.kind}</span>
-                        <span
-                          className={cn(
-                            source.status === "ready"
-                              ? "text-success"
-                              : source.status === "error"
-                                ? "text-warning"
-                                : "",
-                          )}
-                        >
+                        <span className={cn(source.status === "ready" ? "text-success" : source.status === "error" ? "text-warning" : "")}>
                           {source.status}
                         </span>
                       </div>
@@ -497,9 +615,7 @@ export function NotebookWorkspace({
                             }
                             className={cn(
                               "rounded-full px-1.5 py-0.5 text-[10px]",
-                              source.contextLevel === level
-                                ? "bg-white text-black"
-                                : "border border-hairline/40 text-ink-secondary",
+                              source.contextLevel === level ? "bg-white text-black" : "border border-hairline/40 text-ink-secondary",
                             )}
                           >
                             {level}
@@ -518,13 +634,12 @@ export function NotebookWorkspace({
                 </div>
               ))}
               {filteredSources.length === 0 ? (
-                <p className="p-3 text-[12.5px] text-ink-secondary">No sources yet. Add PDFs, links, or pasted text.</p>
+                <p className="p-3 text-[12.5px] text-ink-secondary">No sources yet. Upload a file or import a link.</p>
               ) : null}
             </div>
           </aside>
         ) : null}
 
-        {/* Chat + guide */}
         <section className="relative flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             <div className="mx-auto max-w-3xl">
@@ -542,7 +657,6 @@ export function NotebookWorkspace({
                   {guideLoading ? "Building notebook guide…" : guide || "Add and select sources to see a guide here."}
                 </div>
               </div>
-
               <div className="mt-6 space-y-3 pb-28">
                 {chatLines.map((line) => (
                   <div key={line.id} className={cn("flex", line.role === "user" ? "justify-end" : "justify-start")}>
@@ -553,9 +667,7 @@ export function NotebookWorkspace({
                       )}
                     >
                       {line.text}
-                      {line.usedFallback ? (
-                        <div className="mt-2 text-[11px] text-warning">Offline teaching fallback</div>
-                      ) : null}
+                      {line.usedFallback ? <div className="mt-2 text-[11px] text-warning">Offline teaching fallback</div> : null}
                       {line.citations?.length ? (
                         <div className="mt-2 space-y-1 border-t border-hairline/30 pt-2 text-[11px] text-ink-secondary">
                           {line.citations.map((c, i) => (
@@ -596,201 +708,176 @@ export function NotebookWorkspace({
           </form>
         </section>
 
-        {/* Studio */}
         {studioOpen ? (
           <aside className="flex w-[300px] shrink-0 flex-col border-l border-hairline/25 bg-panel/40">
-            <div className="border-b border-hairline/25 p-3">
-              <div className="text-[12px] font-medium text-ink">Studio output language</div>
-              <div className="mt-2 flex flex-wrap gap-1">
-                {STUDIO_LANGUAGES.map((lang) => (
-                  <button
-                    key={lang}
-                    type="button"
-                    onClick={() => setStudioLanguage(lang)}
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[11px]",
-                      studioLanguage === lang ? "bg-white text-black" : "border border-hairline/40 text-ink-secondary",
-                    )}
-                  >
-                    {lang}
-                  </button>
-                ))}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="sticky top-0 z-10 border-b border-hairline/25 bg-panel/95 px-3 py-2.5 backdrop-blur">
+                <div className="text-[13px] font-medium text-ink">Studio</div>
               </div>
-              <input
-                value={focusPrompt}
-                onChange={(e) => setFocusPrompt(e.target.value)}
-                placeholder="Optional focus (e.g. exam topics)"
-                className="mt-2 w-full rounded-lg border border-hairline/40 bg-inset px-2 py-1.5 text-[12px] text-ink"
-              />
-            </div>
 
-            {audioOpen ? (
-              <div className="border-b border-hairline/25 p-3">
-                <div className="text-[13px] font-medium text-ink">Audio Overview</div>
-                <p className="mt-1 text-[11px] text-ink-secondary">
-                  Gist-first story from selected sources. Longer takes more Rumik time.
-                </p>
-                <label className="mt-2 block text-[11px] text-ink-secondary">
-                  Format
+              <div className="border-b border-hairline/25 px-3 py-2">
+                <div className="text-[11px] text-ink-secondary">Create Audio Overview in</div>
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {STUDIO_LANGUAGES.map((lang) => (
+                    <button
+                      key={lang}
+                      type="button"
+                      onClick={() => setStudioLanguage(lang)}
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10.5px]",
+                        studioLanguage === lang ? "bg-white text-black" : "border border-hairline/40 text-ink-secondary",
+                      )}
+                    >
+                      {lang}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  value={focusPrompt}
+                  onChange={(e) => setFocusPrompt(e.target.value)}
+                  placeholder="Optional focus (e.g. exam topics)"
+                  className="mt-2 w-full rounded-lg border border-hairline/40 bg-inset px-2 py-1.5 text-[12px] text-ink"
+                />
+              </div>
+
+              {audioOpen ? (
+                <div className="border-b border-hairline/25 px-3 py-2">
+                  <div className="text-[12.5px] font-medium text-ink">Audio Overview</div>
+                  <p className="mt-1 text-[11px] text-ink-secondary">Script first, then Rumik voice. Won’t autoplay.</p>
                   <select
                     value={audioFormat}
                     onChange={(e) => setAudioFormat(e.target.value as AudioOverviewFormat)}
-                    className="mt-1 w-full rounded-lg border border-hairline/40 bg-inset px-2 py-1.5 text-[12px] text-ink"
+                    className="mt-2 w-full rounded-lg border border-hairline/40 bg-inset px-2 py-1.5 text-[12px] text-ink"
                   >
                     <option value="deep_dive">Deep Dive</option>
                     <option value="brief">The Brief</option>
                     <option value="critique">The Critique</option>
                     <option value="debate">The Debate</option>
                   </select>
-                </label>
-                <label className="mt-2 block text-[11px] text-ink-secondary">
-                  Length
                   <select
                     value={audioLength}
                     onChange={(e) => setAudioLength(e.target.value as AudioOverviewLength)}
-                    className="mt-1 w-full rounded-lg border border-hairline/40 bg-inset px-2 py-1.5 text-[12px] text-ink"
+                    className="mt-2 w-full rounded-lg border border-hairline/40 bg-inset px-2 py-1.5 text-[12px] text-ink"
                   >
-                    <option value="shorter">Shorter (~1–2 min)</option>
-                    <option value="default">Default (medium)</option>
-                    <option value="longer">Longer (deep overview)</option>
+                    <option value="shorter">Shorter</option>
+                    <option value="default">Default</option>
+                    <option value="longer">Longer</option>
                   </select>
-                </label>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    disabled={busy || !brainReady || selectedReadyCount === 0}
-                    className="flex-1 rounded-full bg-white py-1.5 text-[12px] font-medium text-black disabled:opacity-40"
-                    onClick={generateAudio}
-                  >
-                    Generate
-                  </button>
-                  <button type="button" className="rounded-full border border-hairline/40 px-3 text-[12px]" onClick={() => setAudioOpen(false)}>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="grid grid-cols-2 gap-2 p-3">
-              {STUDIO_TILES.map((tile) => (
-                <button
-                  key={tile.kind}
-                  type="button"
-                  disabled={busy || !brainReady}
-                  className="rounded-xl border border-hairline/35 bg-card p-3 text-left hover:bg-raised/50 disabled:opacity-40"
-                  onClick={() => {
-                    if (tile.kind === "audio_overview") setAudioOpen(true);
-                    else generateTile(tile.kind);
-                  }}
-                >
-                  <div className={cn("mb-2", tile.accent)}>
-                    {tile.kind === "audio_overview" ? (
-                      <Mic size={18} />
-                    ) : tile.kind === "mind_map" ? (
-                      <Network size={18} />
-                    ) : tile.kind === "data_table" ? (
-                      <Table2 size={18} />
-                    ) : (
-                      <FileText size={18} />
-                    )}
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={busy || !brainReady || selectedReadyCount === 0}
+                      className="flex-1 rounded-full bg-white py-1.5 text-[12px] font-medium text-black disabled:opacity-40"
+                      onClick={generateAudio}
+                    >
+                      Generate
+                    </button>
+                    <button type="button" className="rounded-full border border-hairline/40 px-3 text-[12px]" onClick={() => setAudioOpen(false)}>
+                      Cancel
+                    </button>
                   </div>
-                  <div className="text-[12.5px] font-medium text-ink">{tile.label}</div>
-                  <div className="text-[10.5px] text-ink-secondary">{tile.detail}</div>
-                </button>
-              ))}
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto border-t border-hairline/25 p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-[12px] font-medium text-ink">Generated</span>
-                <button
-                  type="button"
-                  className="text-[11px] text-accent-text"
-                  onClick={() =>
-                    void run(async () => {
-                      if (!noteDraft.trim()) {
-                        setNoteDraft("New note");
-                        return;
-                      }
-                      await window.opennbLM.notebooks.createNote(notebookId, {
-                        title: "Note",
-                        body: noteDraft,
-                        kind: "manual",
-                      });
-                      setNoteDraft("");
-                    })
-                  }
-                >
-                  + Add note
-                </button>
-              </div>
-              {noteDraft ? (
-                <textarea
-                  value={noteDraft}
-                  onChange={(e) => setNoteDraft(e.target.value)}
-                  rows={3}
-                  className="mb-2 w-full rounded-lg border border-hairline/40 bg-inset px-2 py-1.5 text-[12px] text-ink"
-                  placeholder="Write a note…"
-                />
+                </div>
               ) : null}
 
-              {[...artifacts].map((art) => (
-                <button
-                  key={art.id}
-                  type="button"
-                  className="mb-2 w-full rounded-xl border border-hairline/30 bg-card p-2.5 text-left hover:bg-raised/40"
-                  onClick={() => setActiveArtifact(art)}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-[12.5px] font-medium text-ink">{art.title}</div>
-                      <div className="text-[10.5px] uppercase text-ink-secondary">
-                        {art.kind.replace(/_/g, " ")} · {art.status}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="rounded p-1 text-ink-secondary hover:bg-raised"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void run(() => window.opennbLM.notebooks.removeArtifact(art.id));
-                      }}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                  {art.error ? <p className="mt-1 text-[11px] text-warning">{art.error}</p> : null}
-                </button>
-              ))}
+              <div className="grid grid-cols-2 gap-1.5 border-b border-hairline/25 p-2">
+                {STUDIO_TILES.map((tile) => (
+                  <button
+                    key={tile.kind}
+                    type="button"
+                    disabled={busy || !brainReady}
+                    className="flex items-center gap-1.5 rounded-lg border border-hairline/30 bg-card px-2 py-1.5 text-left hover:bg-raised/40 disabled:opacity-40"
+                    onClick={() => {
+                      if (tile.kind === "audio_overview") setAudioOpen(true);
+                      else generateTile(tile.kind);
+                    }}
+                  >
+                    <span className={cn("shrink-0", tile.accent)}>
+                      {tile.kind === "audio_overview" ? (
+                        <Mic size={13} />
+                      ) : tile.kind === "mind_map" ? (
+                        <Network size={13} />
+                      ) : tile.kind === "data_table" ? (
+                        <Table2 size={13} />
+                      ) : (
+                        <FileText size={13} />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink">{tile.label}</span>
+                    <ChevronRight size={12} className="shrink-0 text-ink-secondary" />
+                  </button>
+                ))}
+              </div>
 
-              {notes.map((note) => (
-                <div key={note.id} className="mb-2 rounded-xl border border-hairline/30 bg-card p-2.5">
-                  <div className="flex justify-between gap-2">
-                    <div className="text-[12.5px] font-medium text-ink">{note.title}</div>
-                    <button
-                      type="button"
-                      className="text-ink-secondary"
-                      onClick={() => void window.opennbLM.rumik.synthesize(note.body).catch(() => undefined)}
-                    >
-                      <Volume2 size={13} />
-                    </button>
-                  </div>
-                  <p className="mt-1 line-clamp-3 text-[11.5px] text-ink-secondary">{note.body}</p>
+              {playerPath ? (
+                <div className="border-b border-hairline/25 p-2">
+                  <OverviewPlayer title={playerTitle} wavPath={playerPath} onClose={() => setPlayerPath(null)} />
                 </div>
-              ))}
+              ) : null}
 
-              {podcasts
-                .filter((p) => p.status === "ready" && p.audioPaths.length)
-                .map((ep) => (
-                  <div key={ep.id} className="mb-2 rounded-xl border border-hairline/30 bg-card p-2.5">
-                    <div className="text-[12.5px] font-medium text-ink">{ep.title}</div>
-                    <div className="mt-2 space-y-1">
-                      {ep.audioPaths.slice(0, 8).map((path, idx) => (
-                        <audio key={`${path}-${idx}`} controls className="w-full" src={`file:///${path.replace(/\\/g, "/")}`} />
-                      ))}
+              <div className="p-2">
+                <div className="mb-2 px-1 text-[12px] font-medium text-ink">Generated</div>
+
+                {pending.map((row) => (
+                  <div key={row.id} className="mb-1.5 flex items-start gap-2.5 rounded-xl px-2 py-2.5">
+                    <RefreshCw size={16} className="mt-0.5 shrink-0 animate-spin text-[#c9a8e8]" />
+                    <div className="min-w-0">
+                      <div className="text-[13px] text-ink">{row.label}</div>
+                      <div className="text-[11px] text-ink-secondary">based on {row.sourceCount} sources</div>
                     </div>
                   </div>
                 ))}
+
+                {artifacts.map((art) => {
+                  const isAudio = art.kind === "audio_overview";
+                  const path = art.audioPaths?.[0];
+                  const meta = art.meta || {};
+                  const srcCount = typeof meta.sourceCount === "number" ? meta.sourceCount : selectedReadyCount;
+                  return (
+                    <div
+                      key={art.id}
+                      className="group mb-1 flex items-center gap-2 rounded-xl px-2 py-2 hover:bg-raised/40"
+                    >
+                      <button type="button" className="flex min-w-0 flex-1 items-start gap-2.5 text-left" onClick={() => openArtifact(art)}>
+                        <span className="mt-0.5 text-[#c9a8e8]">
+                          {isAudio ? <Mic size={16} /> : art.kind === "mind_map" ? <Network size={16} /> : <FileText size={16} />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-[13px] text-ink">{art.title}</span>
+                          <span className="block text-[11px] text-ink-secondary">
+                            {art.status === "processing" ? "Generating…" : `${srcCount} source${srcCount === 1 ? "" : "s"} · ${relativeAge(art.createdAt)}`}
+                            {typeof meta.format === "string" ? ` · ${String(meta.format).replace(/_/g, " ")}` : ""}
+                          </span>
+                          {art.error ? <span className="mt-0.5 block text-[11px] text-warning">{art.error}</span> : null}
+                        </span>
+                      </button>
+                      {isAudio && art.status === "ready" && path ? (
+                        <button
+                          type="button"
+                          className="flex size-7 shrink-0 items-center justify-center rounded-full border border-hairline/40 text-ink hover:bg-raised"
+                          title="Play overview"
+                          onClick={() => {
+                            setPlayerTitle(art.title);
+                            setPlayerPath(path);
+                          }}
+                        >
+                          <Play size={12} fill="currentColor" className="ml-0.5" />
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="rounded p-1 text-ink-secondary opacity-0 hover:bg-raised group-hover:opacity-100"
+                        onClick={() => void run(() => window.opennbLM.notebooks.removeArtifact(art.id))}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
+
+                {pending.length === 0 && artifacts.length === 0 ? (
+                  <p className="px-2 py-4 text-[12px] text-ink-secondary">Generated Studio items will appear here.</p>
+                ) : null}
+              </div>
             </div>
           </aside>
         ) : null}
@@ -853,7 +940,8 @@ function ArtifactBody({ artifact }: { artifact: StudioArtifact }) {
     );
   }
   if (artifact.kind === "quiz" && parsed && typeof parsed === "object" && parsed && "questions" in parsed) {
-    const questions = (parsed as { questions: Array<{ prompt: string; choices: string[]; answerIndex: number; explanation?: string }> }).questions || [];
+    const questions =
+      (parsed as { questions: Array<{ prompt: string; choices: string[]; answerIndex: number; explanation?: string }> }).questions || [];
     return (
       <div className="mt-4 space-y-3">
         {questions.map((q, i) => (

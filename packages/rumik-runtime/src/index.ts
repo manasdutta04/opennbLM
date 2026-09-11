@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { spawn, spawnSync, ChildProcess } from "node:child_process";
 import { detectCudaAvailable } from "./cuda.js";
 import { DEFAULT_REMOTE_ENDPOINT, synthesizeRemoteSegment } from "./remote.js";
+export { concatWavFiles } from "./wav.js";
 
 export const RUMIK_MODEL_ID = "rumik-ai/rumik-oss-1";
 export const RUMIK_MODEL_REVISION = process.env.RUMIK_MODEL_REVISION || "main";
@@ -22,6 +23,8 @@ export interface RumikConfig {
   language: string;
   modelPath?: string;
   pythonPath?: string;
+  /** When false, do not emit onSegmentReady (batch jobs / no autoplay). Default true. */
+  broadcast?: boolean;
 }
 
 export interface RumikStatus {
@@ -344,6 +347,7 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
         status = { ...status, state: "preparing", error: undefined, mode };
         emitState();
         const config = { ...defaultConfig, ...override };
+        const broadcast = config.broadcast !== false;
         const results: RumikAudioSegment[] = [];
         const segments = segmentForRumik(text);
         for (let index = 0; index < segments.length; index += 1) {
@@ -354,10 +358,12 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
               : await runLocalSegment(segment, index, config);
           const ready = { id: `${Date.now()}-${index}`, text: segment, wavPath };
           results.push(ready);
-          status = { ...status, state: "speaking", mode };
+          status = { ...status, state: broadcast ? "speaking" : "preparing", mode };
           emitState();
-          segmentListeners.forEach((listener) => listener(ready));
+          if (broadcast) segmentListeners.forEach((listener) => listener(ready));
         }
+        status = { ...status, state: "idle", mode };
+        emitState();
         return { segments: results };
       } catch (error) {
         if (cancelRequested) {

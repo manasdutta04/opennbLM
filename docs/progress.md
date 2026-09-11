@@ -611,6 +611,19 @@ Not run: interactive Electron startup smoke test and completed native installer/
 
 - YouTube depends on public timedtext availability; empty captions fall back to a placeholder note urging paste transcript.
 - Podcast generation synthesizes lines sequentially (slow on local Rumik).
+
+## Studio UX polish — 2026-09-11
+
+### Completed
+
+- Compact Studio tiles; entire Studio column scrolls; “Generating…” spinner rows (no Add note).
+- Sources: Upload file + Website/YouTube only (paste text removed).
+- Audio Overview: script then silent Rumik batch (`broadcast: false`), WAV concat to one file, **no autoplay** — circular play + seek/speed player.
+- Notebook Ask no longer auto-speaks (avoids fighting the overview player).
+
+### Root cause of stutter
+
+Global `rumik.onSegmentReady` autoplay was receiving each dialogue segment while the next segment was still synthesizing — short bursts then long silence. Fixed by silent batch + single merged WAV.
 - No STT path for raw audio/video yet — UI states this clearly.
 - Embeddings / true SQLite FTS5 not enabled yet.
 
