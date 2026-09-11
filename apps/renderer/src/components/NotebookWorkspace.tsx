@@ -35,6 +35,7 @@ import type {
 import { cn } from "../lib/cn";
 import { ModelPicker } from "./ModelPicker";
 import { OverflowMenu } from "./OverflowMenu";
+import { MarkdownView } from "./MarkdownView";
 
 type ChatLine = {
   id: string;
@@ -306,10 +307,23 @@ export function NotebookWorkspace({
       setGuideLoading(true);
       void window.opennbLM.notebooks
         .generateGuide(notebookId, { sourceIds: [...selectedIds], language: studioLanguage })
-        .then((res) => setGuide(res.text))
+        .then((res) => {
+          setGuide(res.text);
+          if (res.title) {
+            setNotebook((nb) => (nb ? { ...nb, title: res.title! } : nb));
+            onRenamed?.({
+              id: notebookId,
+              title: res.title,
+              createdAt: notebook?.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              sourceCount: notebook?.sourceCount,
+            });
+          }
+          if (res.cached) setGuideLoading(false);
+        })
         .catch(() => setGuide("Could not generate a guide yet. Connect a brain and try again."))
         .finally(() => setGuideLoading(false));
-    }, 500);
+    }, 200);
     return () => window.clearTimeout(guideTimer.current);
   }, [notebookId, selectedKey, brainReady, studioLanguage]);
 
@@ -653,8 +667,14 @@ export function NotebookWorkspace({
                   </div>
                   <NotebookPen size={20} className="text-accent-text opacity-80" />
                 </div>
-                <div className="mt-4 text-[14px] leading-relaxed whitespace-pre-wrap text-ink-secondary">
-                  {guideLoading ? "Building notebook guide…" : guide || "Add and select sources to see a guide here."}
+                <div className="mt-4 text-[14px] leading-relaxed text-ink-secondary">
+                  {guideLoading ? (
+                    "Building notebook guide…"
+                  ) : guide ? (
+                    <MarkdownView text={guide} className="text-ink-secondary" />
+                  ) : (
+                    "Add and select sources to see a guide here."
+                  )}
                 </div>
               </div>
               <div className="mt-6 space-y-3 pb-28">
@@ -716,7 +736,7 @@ export function NotebookWorkspace({
               </div>
 
               <div className="border-b border-hairline/25 px-3 py-2">
-                <div className="text-[11px] text-ink-secondary">Create Audio Overview in</div>
+                <div className="text-[11px] text-ink-secondary">Studio output language</div>
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {STUDIO_LANGUAGES.map((lang) => (
                     <button
@@ -1024,6 +1044,13 @@ function ArtifactBody({ artifact }: { artifact: StudioArtifact }) {
             </ul>
           </div>
         ))}
+      </div>
+    );
+  }
+  if (!parsed && artifact.body.trim()) {
+    return (
+      <div className="mt-4">
+        <MarkdownView text={artifact.body} />
       </div>
     );
   }

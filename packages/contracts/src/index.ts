@@ -282,7 +282,7 @@ export interface NotebooksApi {
   generateGuide(
     notebookId: string,
     options?: { sourceIds?: string[]; language?: string },
-  ): Promise<{ text: string }>;
+  ): Promise<{ text: string; cached?: boolean; title?: string }>;
   listPodcasts(notebookId: string): Promise<PodcastEpisode[]>;
   createPodcast(notebookId: string, options?: AudioOverviewOptions): Promise<PodcastEpisode>;
   listArtifacts(notebookId: string): Promise<StudioArtifact[]>;

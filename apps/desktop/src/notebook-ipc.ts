@@ -8,7 +8,9 @@ import type {
   StudioArtifactKind,
 } from "@opennblm/contracts";
 import {
+  audioLengthLimits,
   buildGuidePrompt,
+  parseGuideResponse,
   buildPodcastScriptPrompt,
   buildSourceContext,
   buildStudioArtifactPrompt,
@@ -30,10 +32,8 @@ function speakersForFormat(format: AudioOverviewOptions["format"], count?: numbe
   return [...RUMIK_SPEAKERS].slice(0, n);
 }
 
-function maxSynthLines(length: AudioOverviewOptions["length"]): number {
-  if (length === "shorter") return 12;
-  if (length === "longer") return 36;
-  return 24;
+function sourceKey(ids?: string[]): string {
+  return [...(ids ?? [])].sort().join(",");
 }
 
 export function registerNotebookHandlers(
@@ -142,17 +142,34 @@ export function registerNotebookHandlers(
   ipcMain.handle(
     "notebooks:generate-guide",
     async (_e, notebookId: string, options?: { sourceIds?: string[]; language?: string }) => {
+      const language = options?.language ?? "English";
+      const key = sourceKey(options?.sourceIds);
+      const cached = store().getGuide(notebookId, language, key);
+      if (cached) return { text: cached, cached: true as const };
       const material = collectMaterial(store(), notebookId, options?.sourceIds);
-      if (!material.trim()) return { text: "Add sources on the left to generate a notebook guide." };
+      if (!material.trim()) return { text: "Add sources on the left to generate a notebook guide.", cached: false as const };
       const { provider, model } = await getProvider();
       const response = await provider.chat({
         model,
         messages: [
-          { role: "system", content: "You write concise notebook guides. Plain text with light markdown." },
-          { role: "user", content: buildGuidePrompt(material, options?.language ?? "English") },
+          { role: "system", content: "You write concise notebook guides. Follow the TITLE + body format exactly." },
+          { role: "user", content: buildGuidePrompt(material, language) },
         ],
       });
-      return { text: response.content.trim() };
+      const parsed = parseGuideResponse(response.content.trim());
+      store().setGuide(notebookId, language, key, parsed.text);
+      let title: string | undefined;
+      const current = store().listNotebooks().find((n) => n.id === notebookId);
+      const isDefaultTitle = !current?.title?.trim() || /^untitled notebook$/i.test(current.title.trim());
+      if (parsed.title && isDefaultTitle) {
+        try {
+          const renamed = store().renameNotebook(notebookId, parsed.title);
+          title = renamed.title;
+        } catch {
+          /* keep existing title */
+        }
+      }
+      return { text: parsed.text, cached: false as const, title };
     },
   );
 
@@ -263,20 +280,21 @@ export function registerNotebookHandlers(
         .split(/\n+/)
         .map((line) => line.trim())
         .filter(Boolean);
+      const maxLines = audioLengthLimits(length).maxLines;
       const segmentPaths: string[] = [];
-      for (const line of lines.slice(0, maxSynthLines(length))) {
+      for (const line of lines.slice(0, maxLines)) {
         const match = line.match(/^([A-Za-z]+)\s*:\s*(.+)$/);
         const speakerName = match?.[1];
         const speaker = (
           speakerName && (speakers as string[]).includes(speakerName) ? speakerName : speakers[0]
         ) as "Ira" | "Aisha" | "Siya" | "Zoya";
-        const text = match?.[2] || line;
+        const text = (match?.[2] || line).slice(0, 420);
         // Silent batch: do not broadcast to the global autoplay queue (fixes stuttering mid-generation).
         const result = await rumik.synthesize(text, {
           speaker,
           language,
           deliveryDescription: "warm, conversational, steady pace",
-          maxTokens: 512,
+          maxTokens: 768,
           broadcast: false,
         });
         for (const segment of result.segments) segmentPaths.push(segment.wavPath);

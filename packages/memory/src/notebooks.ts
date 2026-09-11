@@ -130,6 +130,8 @@ export interface NotebookStore {
     }>,
   ): StudioArtifact;
   removeArtifact(id: string): void;
+  getGuide(notebookId: string, language: string, sourceKey: string): string | null;
+  setGuide(notebookId: string, language: string, sourceKey: string, text: string): void;
   searchAll(query: string, notebookId?: string): NotebookSearchHit[];
 }
 
@@ -257,6 +259,14 @@ export function createNotebookStore(db: SqlDatabase, persist: () => void): Noteb
           error TEXT,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS notebook_guides (
+          notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
+          language TEXT NOT NULL,
+          source_key TEXT NOT NULL,
+          text TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (notebook_id, language, source_key)
         );
         CREATE INDEX IF NOT EXISTS idx_notebooks_updated ON notebooks(updated_at DESC);
         CREATE INDEX IF NOT EXISTS idx_notebook_sources_nb ON notebook_sources(notebook_id);
@@ -575,6 +585,25 @@ export function createNotebookStore(db: SqlDatabase, persist: () => void): Noteb
 
     removeArtifact(id) {
       run(db, "DELETE FROM notebook_artifacts WHERE id = ?", [id]);
+      persist();
+    },
+
+    getGuide(notebookId, language, sourceKey) {
+      const row = rows(
+        db,
+        "SELECT text FROM notebook_guides WHERE notebook_id = ? AND language = ? AND source_key = ?",
+        [notebookId, language, sourceKey],
+      )[0];
+      return row ? String(row.text) : null;
+    },
+
+    setGuide(notebookId, language, sourceKey, text) {
+      const timestamp = now();
+      run(
+        db,
+        `INSERT OR REPLACE INTO notebook_guides (notebook_id, language, source_key, text, updated_at) VALUES (?,?,?,?,?)`,
+        [notebookId, language, sourceKey, text, timestamp],
+      );
       persist();
     },
 

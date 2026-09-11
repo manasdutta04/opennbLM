@@ -67,5 +67,9 @@ test("notebooks store sources, chunks, notes, and search", async () => {
   assert.equal(db.notebooks.listArtifacts(notebook.id).length, 0);
   const filtered = db.notebooks.listChunks(notebook.id, { excludeExcluded: false, sourceIds: [source.id] });
   assert.equal(filtered.length, 1);
+  db.notebooks.setGuide(notebook.id, "English", source.id, "Cached English guide");
+  db.notebooks.setGuide(notebook.id, "Bengali", source.id, "Cached Bengali guide");
+  assert.equal(db.notebooks.getGuide(notebook.id, "English", source.id), "Cached English guide");
+  assert.equal(db.notebooks.getGuide(notebook.id, "Hindi", source.id), null);
   db.close();
 });

@@ -168,17 +168,37 @@ export function defaultTransformPrompt(
 export function buildGuidePrompt(material: string, language = "English"): string {
   return `You are writing the notebook guide card for a private research notebook.
 Language: ${language}.
-Write 2–4 short paragraphs that give a learner the gist of the selected sources: what the notebook is about, the core themes, and why they matter.
+
+Return exactly this shape:
+Line 1: TITLE: <short notebook name, 2–6 words, no quotes, no trailing punctuation>
+Then a blank line.
+Then 2–4 short paragraphs that give a learner the gist of the selected sources: what the notebook is about, the core themes, and why they matter.
 Do NOT list every section or retell documents page by page. Bold key terms with **markdown** sparingly.
+The TITLE must be a concise subject label (examples: "AES Encryption", "Photosynthesis Basics", "Cyber Law Ethics").
+
 Sources material:
 ${material.slice(0, 12000)}`;
 }
 
-const LENGTH_WORDS: Record<AudioOverviewLength, { min: number; max: number; label: string }> = {
-  shorter: { min: 600, max: 900, label: "about 1–2 minutes spoken" },
-  default: { min: 1800, max: 2500, label: "a medium overview (gist-focused)" },
-  longer: { min: 4000, max: 5500, label: "a deep overview; still a story arc, not a full transcript of every page" },
+export function parseGuideResponse(raw: string): { title?: string; text: string } {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^TITLE:\s*(.+)\s*(?:\n+|$)/i);
+  if (!match) return { text: trimmed };
+  const title = match[1]!.replace(/^["']|["']$/g, "").trim().slice(0, 80);
+  const text = trimmed.slice(match[0].length).trim();
+  return { title: title || undefined, text: text || trimmed };
+}
+
+const LENGTH_WORDS: Record<AudioOverviewLength, { min: number; max: number; label: string; maxLines: number }> = {
+  // Keep shorter truly short — each Rumik line is a full model pass and dominates wall time.
+  shorter: { min: 120, max: 180, label: "about 45–75 seconds spoken", maxLines: 4 },
+  default: { min: 350, max: 500, label: "a medium overview (a few minutes)", maxLines: 8 },
+  longer: { min: 700, max: 950, label: "a deeper overview; still a gist, not a page-by-page read", maxLines: 12 },
 };
+
+export function audioLengthLimits(length: AudioOverviewLength = "default") {
+  return LENGTH_WORDS[length];
+}
 
 export function buildPodcastScriptPrompt(
   material: string,
@@ -207,13 +227,16 @@ export function buildPodcastScriptPrompt(
 
   return `Create an educational Audio Overview script in ${language}.
 Format: ${formatGuide[format]}
-Length target: ${budget.min}–${budget.max} words (${budget.label}).
-Style: story-like gist of the sources — help the listener understand the CORE ideas. Do NOT read documents line by line.
+HARD LIMITS (must obey):
+- At most ${budget.max} words total (aim ${budget.min}–${budget.max}). ${budget.label}.
+- At most ${budget.maxLines} dialogue lines total.
+- Each line under 220 characters.
+Style: story-like gist of the sources — CORE ideas only. Do NOT retell long documents.
 Format each line as "SpeakerName: dialogue" using only these speakers: ${speakerNames.join(", ")}.
 ${focus}
 
-SOURCES:
-${material.slice(0, 14000)}`;
+SOURCES (excerpt):
+${material.slice(0, length === "shorter" ? 5000 : length === "longer" ? 10000 : 8000)}`;
 }
 
 export function buildStudioArtifactPrompt(
@@ -229,7 +252,7 @@ export function buildStudioArtifactPrompt(
     case "report":
       return {
         title: "Report",
-        instruction: `${base}\n\nWrite a structured briefing report with short sections: Overview, Key ideas, Important details, Open questions. Plain text with markdown headings.`,
+        instruction: `${base}\n\nWrite a structured briefing report using Markdown headings (## Overview, ## Key ideas, ## Important details, ## Open questions), bullet lists, and **bold** for key terms. Do not wrap the whole answer in a code fence.`,
       };
     case "mind_map":
       return {

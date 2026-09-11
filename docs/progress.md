@@ -624,6 +624,15 @@ Not run: interactive Electron startup smoke test and completed native installer/
 ### Root cause of stutter
 
 Global `rumik.onSegmentReady` autoplay was receiving each dialogue segment while the next segment was still synthesizing — short bursts then long silence. Fixed by silent batch + single merged WAV.
+
+## Guide cache, faster audio, Markdown reports — 2026-09-11
+
+### Completed
+
+- Notebook guides cached per `(notebook, language, selected sources)` in SQLite — switching languages reuses prior generations.
+- Studio label: **Studio output language** (applies to guide + all Studio tiles, not audio-only).
+- Audio Overview word/line caps cut sharply (Shorter ≤4 lines / ~180 words) to reduce Rumik passes.
+- Reports/guides render with Markdown headings, lists, and bold instead of raw `#` / `**`.
 - No STT path for raw audio/video yet — UI states this clearly.
 - Embeddings / true SQLite FTS5 not enabled yet.
 
@@ -647,3 +656,12 @@ Global `rumik.onSegmentReady` autoplay was receiving each dialogue segment while
 - Longer Audio Overview synthesizes a capped number of lines for local Rumik feasibility (not a guaranteed multi-dozen-minute podcast).
 - Studio visuals are local structured viewers (JSON → UI), not Google Slides / pixel-perfect infographics.
 - Interactive Audio “join the hosts” mode is not implemented.
+
+## Auto-rename from guide — 2026-09-11
+
+### Completed
+
+- Fresh guide generation asks the model for `TITLE: …` then body; `parseGuideResponse` strips the title line from cached guide text.
+- If the notebook is still `Untitled notebook`, main renames it to a short subject label (2–6 words) and returns `title` to the renderer for header/Home refresh.
+- Cached guide loads do not rename again.
+- Verified: `pnpm typecheck`, notebook-runtime tests (incl. parseGuideResponse), `pnpm build`, `pnpm desktop:start`.
