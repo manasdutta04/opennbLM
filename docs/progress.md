@@ -731,3 +731,15 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Verification
 
 - Package tests + `pnpm build` + `pnpm desktop:start`.
+
+## Audio Overview teaching tone refine — 2026-09-11
+
+### Completed
+
+- Restricted script tones to `excited` (default) and `professional` only; remap sad/angry/happy away from melodrama.
+- Format-specific delivery: Deep Dive/Brief lean excited; Debate = calm host + excited host; Critique mixes clear + lively.
+- Stripped `<laugh>` / `<chuckle>` / `<sigh>` from spoken text — teaching focus, no theatre.
+
+### Verification
+
+- Package tests + `pnpm build` + `pnpm desktop:start`.

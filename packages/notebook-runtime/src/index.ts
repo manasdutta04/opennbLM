@@ -202,25 +202,23 @@ export function audioLengthLimits(length: AudioOverviewLength = "default") {
 
 export type PodcastTurn = { speaker: string; text: string; tone: string };
 
-const RUMIK_LINE_TONES = ["happy", "sad", "angry", "excited", "professional"] as const;
-const VOCAL_TAGS = /<(laugh|chuckle|sigh)>/gi;
+/** Teaching-safe tones only — never sad/angry/happy melodrama. */
+const VOCAL_TAGS = /<\/?(?:laugh|chuckle|sigh)>/gi;
 
 function normalizeLineTone(raw?: string): string {
   const tone = (raw || "").trim().toLowerCase();
-  return (RUMIK_LINE_TONES as readonly string[]).includes(tone) ? tone : "professional";
+  if (tone === "professional") return "professional";
+  if (tone === "excited" || tone === "happy") return "excited";
+  // sad / angry / unknown → default teaching energy
+  return "excited";
 }
 
-/** Clean dialogue for Rumik: strip markdown, keep official vocalization tags. */
+/** Clean dialogue for Rumik: strip markdown and remove laugh/sigh tags (teaching, not theatre). */
 export function sanitizeSpokenText(raw: string): string {
   let text = String(raw || "").replace(/\s+/g, " ").trim();
   if (!text) return "";
-  // Preserve vocal tags, strip other markup.
-  const tags: string[] = [];
-  text = text.replace(VOCAL_TAGS, (m) => {
-    tags.push(m.toLowerCase());
-    return ` §TAG${tags.length - 1}§ `;
-  });
   text = text
+    .replace(VOCAL_TAGS, " ")
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/`([^`]+)`/g, "$1")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
@@ -230,13 +228,10 @@ export function sanitizeSpokenText(raw: string): string {
     .replace(/[_~|>]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  text = text.replace(/§TAG(\d+)§/g, (_, i) => tags[Number(i)] || "");
-  text = text.replace(/\s+/g, " ").trim();
   if (!text) return "";
-  // Drop telegraphic junk under 3 words (unless it is just a vocal tag + words).
-  const words = text.replace(VOCAL_TAGS, " ").trim().split(/\s+/).filter(Boolean);
+  const words = text.split(/\s+/).filter(Boolean);
   if (words.length < 3) return "";
-  if (!/[.!?。！？]$/.test(text.replace(/\s*<(laugh|chuckle|sigh)>\s*$/i, "").trim())) {
+  if (!/[.!?。！？]$/.test(text)) {
     text = `${text.replace(/[.!?。！？]*$/, "")}.`;
   }
   return text;
@@ -259,7 +254,7 @@ export function utterancesFromPodcastTurns(turns: PodcastTurn[]): PodcastTurn[] 
 
 /**
  * Parse "Speaker [tone]: dialogue" scripts into clean turns.
- * Tone is chosen by the script model for human-like delivery.
+ * Tone is excited or professional only (teaching energy, not melodrama).
  */
 export function parsePodcastScript(
   raw: string,
@@ -320,6 +315,22 @@ export function parsePodcastScript(
   return normalized;
 }
 
+function toneGuideForFormat(format: AudioOverviewFormat, speakerNames: string[]): string {
+  const a = speakerNames[0] || "Ira";
+  const b = speakerNames[1] || "Aisha";
+  switch (format) {
+    case "brief":
+      return `Tone for The Brief: keep ${a} mostly [excited] — an eager teacher who wants the learner to get it. Use [professional] only for crisp definitions or takeaways.`;
+    case "critique":
+      return `Tone for The Critique: ${a} stays mostly [professional] and clear; ${b} stays mostly [excited] when highlighting insights. Never sad or angry.`;
+    case "debate":
+      return `Tone for The Debate: ${a} speaks [professional] (calm, plain, grounded). ${b} speaks [excited] (energetic advocate). Keep both teaching-focused — no mockery, sadness, or anger.`;
+    case "deep_dive":
+    default:
+      return `Tone for Deep Dive: default to [excited] for both hosts so teaching feels lively. Use [professional] sparingly for precise definitions. Never sad, angry, or theatrical.`;
+  }
+}
+
 export function buildPodcastScriptPrompt(
   material: string,
   speakerNames: string[],
@@ -342,7 +353,7 @@ export function buildPodcastScriptPrompt(
     deep_dive: `Deep Dive: a natural two-host conversation between ${speakerNames.join(" and ")} that unpacks core ideas, explains why they matter, and connects them.`,
     brief: `The Brief: a single host (${speakerNames[0]}) delivers a clear spoken briefing with takeaways — still full sentences, not bullet fragments.`,
     critique: `The Critique: ${speakerNames.slice(0, 2).join(" and ")} evaluate strengths, gaps, and implications of the material constructively.`,
-    debate: `The Debate: ${speakerNames.slice(0, 2).join(" and ")} take opposing but fair perspectives, then land on a clear wrap-up.`,
+    debate: `The Debate: ${speakerNames.slice(0, 2).join(" and ")} take opposing but fair perspectives, then land on a clear wrap-up that helps the learner understand both sides.`,
   };
 
   const structure =
@@ -354,17 +365,18 @@ export function buildPodcastScriptPrompt(
 
   return `Write an educational Audio Overview script in ${language} meant to be read aloud by a TTS voice model (Rumik).
 Each sentence is synthesized alone, so every sentence must be a complete, self-contained thought.
-Sound like a warm human teacher: vary emotional tone line by line so the learner stays engaged — not monotone-serious the whole time.
+Goal: help the learner understand the whole topic. Sound like an eager, clear teacher — energetic and helpful, not theatrical.
 
 Format: ${formatGuide[format]}
 ${structure}
+${toneGuideForFormat(format, speakerNames)}
 
 LINE FORMAT (exact):
 SpeakerName [tone]: dialogue
-- tone MUST be one of: happy, sad, angry, excited, professional
-- Choose tone from the meaning of THAT line (examples: excited for a discovery, professional for a crisp definition, happy for encouragement, sad for a cautionary pitfall, angry sparingly for a strong warning).
-- Vary tones across the script; do not use the same tone on every line.
-- You may place at most TWO inline tags in the ENTIRE script: <laugh> <chuckle> <sigh>, only on happy/excited lines, after a complete clause.
+- tone MUST be exactly one of: excited, professional
+- Default to excited. Use professional only when a calm, plain explanation helps understanding.
+- NEVER use sad, angry, happy, or any other tone label.
+- NEVER include <laugh>, <chuckle>, <sigh>, jokes-as-filler, or stage emotion. No laughter.
 
 WORD LIMIT (hard requirement — count spoken words only):
 - Write between ${budget.min} and ${budget.max} words total (${budget.label}).

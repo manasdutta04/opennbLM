@@ -49,7 +49,7 @@ test("extractPlainText reads markdown, docx, and pptx", async () => {
   assert.match(pptx.text, /PPTX mitosis/);
 });
 
-test("podcast prompt encodes word budgets and per-line tone rules", () => {
+test("podcast prompt encodes word budgets and teaching tone rules", () => {
   const prompt = buildPodcastScriptPrompt("AES encrypts blocks", ["Ira", "Aisha"], {
     format: "brief",
     length: "shorter",
@@ -61,8 +61,18 @@ test("podcast prompt encodes word budgets and per-line tone rules", () => {
   assert.match(prompt, /COMPLETE sentences/);
   assert.match(prompt, /exam revision/);
   assert.match(prompt, /SpeakerName \[tone\]: dialogue/);
-  assert.match(prompt, /vary emotional tone line by line/i);
-  assert.match(prompt, /happy, sad, angry, excited, professional/);
+  assert.match(prompt, /excited, professional/);
+  assert.match(prompt, /NEVER include <laugh>/);
+  assert.match(prompt, /Default to excited/);
+});
+
+test("debate prompt assigns calm vs excited host tones", () => {
+  const prompt = buildPodcastScriptPrompt("AES encrypts blocks", ["Ira", "Aisha"], {
+    format: "debate",
+    length: "default",
+  });
+  assert.match(prompt, /Ira speaks \[professional\]/);
+  assert.match(prompt, /Aisha speaks \[excited\]/);
 });
 
 test("parseGuideResponse extracts TITLE and body", () => {
@@ -90,10 +100,21 @@ Siya: unrelated`,
   assert.match(turns[1].text, /stay secret/);
 });
 
-test("sanitizeSpokenText strips markdown and keeps laugh tags", () => {
+test("parsePodcastScript remaps sad/angry to teaching tones", () => {
+  const turns = parsePodcastScript(
+    `Ira [sad]: AES protects data in transit carefully.
+Aisha [angry]: The shared key must stay private always.`,
+    ["Ira", "Aisha"],
+    10,
+  );
+  assert.equal(turns[0].tone, "excited");
+  assert.equal(turns[1].tone, "excited");
+});
+
+test("sanitizeSpokenText strips markdown and removes laugh tags", () => {
   const text = sanitizeSpokenText("**AES** protects data <laugh> in transit.");
   assert.match(text, /AES protects/);
-  assert.match(text, /<laugh>/);
+  assert.ok(!text.includes("<laugh>"));
   assert.ok(!text.includes("**"));
 });
 
@@ -107,5 +128,5 @@ test("utterancesFromPodcastTurns preserves tone per sentence", () => {
   assert.equal(utterances[0].tone, "excited");
   assert.equal(utterances[1].tone, "excited");
   assert.equal(utterances[2].speaker, "Aisha");
-  assert.equal(utterances[2].tone, "happy");
+  assert.equal(utterances[2].tone, "excited");
 });

@@ -254,7 +254,7 @@ export function registerNotebookHandlers(
           {
             role: "system",
             content:
-              "You write educational podcast scripts meant to be spoken aloud by TTS. Every line must be SpeakerName [tone]: dialogue with a complete sentence. Vary tone like a human teacher. Plain text only. No markdown.",
+              "You write educational podcast scripts meant to be spoken aloud by TTS. Every line must be SpeakerName [tone]: dialogue. Tone is only excited or professional — default excited. No laughter, sadness, or anger. Plain text only. No markdown.",
           },
           {
             role: "user",
@@ -275,7 +275,7 @@ export function registerNotebookHandlers(
       const utterances = utterancesFromPodcastTurns(turns);
       if (!utterances.length) throw new Error("Could not prepare speakable sentences for Rumik.");
       const cleanedScript = utterances
-        .map((u) => `${u.speaker} [${u.tone || "professional"}]: ${u.text}`)
+        .map((u) => `${u.speaker} [${u.tone || "excited"}]: ${u.text}`)
         .join("\n");
       store().updatePodcast(episode.id, { script: cleanedScript });
       store().updateArtifact(artifact.id, {
@@ -304,7 +304,7 @@ export function registerNotebookHandlers(
           (speakers as string[]).includes(utterance.speaker) ? utterance.speaker : speakers[0]
         ) as "Ira" | "Aisha" | "Siya" | "Zoya";
         const deliveryDescription = buildRumikDescription({
-          tone: utterance.tone || "professional",
+          tone: utterance.tone || "excited",
           language,
           pace,
         });
