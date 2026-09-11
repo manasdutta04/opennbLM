@@ -5,16 +5,39 @@ import type { EngineDefinition } from "./fleet.js";
 import type { EngineRegistry } from "./registry.js";
 
 function extractJson(text: string): unknown {
-  const trimmed = text.trim();
+  let trimmed = text.trim();
   if (!trimmed) throw new Error("Empty engine response");
+  // Strip markdown fences and common CLI JSON wrappers.
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) trimmed = fenced[1].trim();
   try {
-    return JSON.parse(trimmed);
+    return unwrapJson(JSON.parse(trimmed));
   } catch {
     const start = trimmed.indexOf("{");
     const end = trimmed.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(trimmed.slice(start, end + 1));
+    if (start >= 0 && end > start) return unwrapJson(JSON.parse(trimmed.slice(start, end + 1)));
     throw new Error("Engine response was not JSON");
   }
+}
+
+function unwrapJson(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  for (const key of ["result", "response", "data", "output", "message", "content"]) {
+    const nested = record[key];
+    if (typeof nested === "string") {
+      const inner = nested.trim();
+      if (inner.startsWith("{") || inner.startsWith("[")) {
+        try {
+          return unwrapJson(JSON.parse(inner));
+        } catch {
+          /* keep looking */
+        }
+      }
+    }
+    if (nested && typeof nested === "object") return unwrapJson(nested);
+  }
+  return value;
 }
 
 function promptFromRequest(request: LLMRequest): string {
@@ -46,9 +69,17 @@ async function localChat(baseUrl: string, request: LLMRequest, ollama: boolean):
   return json.message?.content ?? json.choices?.[0]?.message?.content ?? "";
 }
 
-async function cliChat(def: EngineDefinition, model: string, prompt: string): Promise<string> {
+async function cliChat(
+  def: EngineDefinition,
+  model: string,
+  prompt: string,
+  responseSchema?: unknown,
+): Promise<string> {
   const cli = await whichCli(def.cliNames);
   if (!cli) throw new Error(`${def.displayName} CLI is not installed`);
+
+  const schemaJson =
+    responseSchema && typeof responseSchema === "object" ? JSON.stringify(responseSchema) : undefined;
 
   const attempts: Array<{ args: string[] }> = [];
   switch (def.driverKind) {
@@ -71,10 +102,18 @@ async function cliChat(def: EngineDefinition, model: string, prompt: string): Pr
       attempts.push({ args: ["ask", "-m", model, prompt] });
       attempts.push({ args: ["ask", prompt] });
       break;
-    case "antigravityAgent":
-      attempts.push({ args: ["-p", prompt, "-m", model] });
-      attempts.push({ args: ["-p", prompt] });
+    case "antigravityAgent": {
+      // Current `agy` rejects `-m`; use `--model`. Prefer schema-enforced JSON for teaching plans.
+      const withModel = ["-p", prompt, "--model", model, "--output-format", schemaJson ? "json" : "text"];
+      const withoutModel = ["-p", prompt, "--output-format", schemaJson ? "json" : "text"];
+      if (schemaJson) {
+        withModel.push("--json-schema", schemaJson);
+        withoutModel.push("--json-schema", schemaJson);
+      }
+      attempts.push({ args: withModel });
+      attempts.push({ args: withoutModel });
       break;
+    }
     case "hermesAgent":
       attempts.push({ args: ["chat", prompt] });
       attempts.push({ args: ["-p", prompt] });
@@ -110,7 +149,7 @@ export function createEngineLLMProvider(registry: EngineRegistry, selection: Mod
     async chat(request: LLMRequest): Promise<LLMResponse> {
       const content = def.localBaseUrl
         ? await localChat(def.localBaseUrl, { ...request, model: selection.model || request.model }, def.driverKind === "ollama")
-        : await cliChat(def, selection.model || request.model, promptFromRequest(request));
+        : await cliChat(def, selection.model || request.model, promptFromRequest(request), request.responseSchema);
       return { content, model: selection.model || request.model };
     },
     async *stream(request: LLMRequest): AsyncIterable<string> {

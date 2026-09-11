@@ -582,3 +582,4 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - Local smoke: `preferredMode: local` synthesize → ~100 KB WAV (`Hello from local Rumik.`).
 - Build: renderer + desktop `tsc`/`vite` passed after Settings dual-path + honest teach voice.
 - Fix (same day): do **not** await Rumik inside `teaching:teach` — that blocked the lesson answer on “Preparing how to teach…” until voice finished. Text returns immediately; voice runs in background.
+- Fix (same day): Antigravity teaching used invalid `agy -m`; switched to `--model` + `--json-schema` / `--output-format json`. Silent `fallbackPlan` was why Gemini answers looked like “Build a clear working understanding…”. Teaching engine now retries after parse errors instead of aborting the correction pass.
