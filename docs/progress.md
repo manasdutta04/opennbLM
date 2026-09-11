@@ -674,12 +674,12 @@ Prior speed caps made “Shorter” ~30s and cracked playback: ≤4 lines / 180 
 
 ### Completed
 
-- Duration targets: Shorter **1–2 min** (160–280 words), Default **3–4 min** (450–650), Longer **5–7 min** (750–1050).
-- Prompt rewritten for complete sentences, natural handoffs, and no mid-thought cuts.
-- `parsePodcastScript` merges wrapped lines, folds unknown speakers, ensures terminal punctuation.
-- Synthesis uses full turn text + Rumik sentence segmentation (oversized sentences split safely); `maxTokens: 2048`.
-- `concatWavFiles` inserts ~350ms silence between segments and rejects format mismatches.
-- Studio UI shows duration hints on length options.
+- Duration targets moved to **word budgets**: Shorter 300–400, Default 550–700, Longer 900–1200 (no minute labels in UI).
+- Prompt requires complete short sentences; one speaker finishes before the next.
+- `parsePodcastScript` + `utterancesFromPodcastTurns`: Rumik synthesizes **one sentence per job** (packing sentences caused mid-utterance cuts / apparent overlaps).
+- `segmentForRumik` also emits one sentence per chunk.
+- `concatWavFiles` inserts ~450ms silence between segments.
+- Studio Audio Overview helper copy / minute hints removed.
 
 ### Verification
 
@@ -687,5 +687,5 @@ Prior speed caps made “Shorter” ~30s and cracked playback: ≤4 lines / 180 
 
 ### Known limitations
 
-- Generation wall time scales with turn count (each Rumik pass is still a full local/remote model run).
-- Exact spoken duration depends on model pacing; budgets target the ranges above, not a stopwatch guarantee.
+- Generation wall time scales with sentence count (each Rumik pass is still a full model run).
+- Exact spoken length follows the word budget and model pacing.

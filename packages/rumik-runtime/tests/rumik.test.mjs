@@ -6,6 +6,11 @@ test("segmentation preserves short text without terminal punctuation", () => {
   assert.deepEqual(segmentForRumik("Explain recursion"), ["Explain recursion"]);
 });
 
+test("segmentation keeps one sentence per chunk", () => {
+  const chunks = segmentForRumik("First idea ends here. Second idea follows next.");
+  assert.deepEqual(chunks, ["First idea ends here.", "Second idea follows next."]);
+});
+
 test("segmentation splits oversized sentences on word boundaries", () => {
   const long = Array.from({ length: 80 }, (_, i) => `word${i}`).join(" ");
   const chunks = segmentForRumik(long, 120);

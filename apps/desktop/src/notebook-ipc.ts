@@ -12,6 +12,7 @@ import {
   buildGuidePrompt,
   parseGuideResponse,
   parsePodcastScript,
+  utterancesFromPodcastTurns,
   buildPodcastScriptPrompt,
   buildSourceContext,
   buildStudioArtifactPrompt,
@@ -284,16 +285,18 @@ export function registerNotebookHandlers(
       const budget = audioLengthLimits(length);
       const turns = parsePodcastScript(script, speakers, budget.maxLines);
       if (!turns.length) throw new Error("Could not parse a usable Audio Overview script.");
+      // One Rumik job per sentence — packing multiple sentences caused mid-utterance cuts / speaker jumps.
+      const utterances = utterancesFromPodcastTurns(turns);
       const segmentPaths: string[] = [];
-      for (const turn of turns) {
+      for (let i = 0; i < utterances.length; i += 1) {
+        const utterance = utterances[i]!;
         const speaker = (
-          (speakers as string[]).includes(turn.speaker) ? turn.speaker : speakers[0]
+          (speakers as string[]).includes(utterance.speaker) ? utterance.speaker : speakers[0]
         ) as "Ira" | "Aisha" | "Siya" | "Zoya";
-        // Full turn text — Rumik segments by sentence; do not hard-truncate mid-thought.
-        const result = await rumik.synthesize(turn.text, {
+        const result = await rumik.synthesize(utterance.text, {
           speaker,
           language,
-          deliveryDescription: "warm, clear, conversational; finish every sentence fully at a steady pace",
+          deliveryDescription: "warm, clear, conversational; speak the full sentence to the end at a steady pace",
           maxTokens: 2048,
           broadcast: false,
         });
@@ -301,8 +304,8 @@ export function registerNotebookHandlers(
       }
       if (!segmentPaths.length) throw new Error("Rumik produced no audio for this overview.");
       const mergedPath = join(audioDir, `overview-${episode.id}.wav`);
-      // Short gap between segments softens cracked speaker handoffs.
-      concatWavFiles(segmentPaths, mergedPath, { gapMs: 350 });
+      // Pause between sentences so the next speaker never feels overlapped.
+      concatWavFiles(segmentPaths, mergedPath, { gapMs: 450 });
       const audioPaths = [mergedPath];
       const ready = store().updatePodcast(episode.id, { status: "ready", audioPaths, error: null });
       store().updateArtifact(artifact.id, {
@@ -319,6 +322,7 @@ export function registerNotebookHandlers(
           sourceCount: options?.sourceIds?.length,
           phase: "ready",
           turnCount: turns.length,
+          utteranceCount: utterances.length,
         },
       });
       return { ...ready, format, length, language };

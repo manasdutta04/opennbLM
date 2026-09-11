@@ -3,7 +3,7 @@ import test from "node:test";
 import { writeFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { buildPodcastScriptPrompt, buildStudioArtifactPrompt, chunkText, extractPlainText, parseGuideResponse, parsePodcastScript } from "../dist/index.js";
+import { buildPodcastScriptPrompt, buildStudioArtifactPrompt, chunkText, extractPlainText, parseGuideResponse, parsePodcastScript, utterancesFromPodcastTurns } from "../dist/index.js";
 import JSZip from "jszip";
 
 test("chunkText splits long material into word windows", () => {
@@ -49,15 +49,15 @@ test("extractPlainText reads markdown, docx, and pptx", async () => {
   assert.match(pptx.text, /PPTX mitosis/);
 });
 
-test("podcast prompt encodes duration targets and quality rules", () => {
+test("podcast prompt encodes word budgets and quality rules", () => {
   const prompt = buildPodcastScriptPrompt("AES encrypts blocks", ["Ira", "Aisha"], {
     format: "brief",
     length: "shorter",
     language: "Hindi",
     focusPrompt: "exam revision",
   });
-  assert.match(prompt, /1–2 minutes spoken/);
-  assert.match(prompt, /160–280/);
+  assert.match(prompt, /300–400 words/);
+  assert.match(prompt, /WORD LIMIT/);
   assert.match(prompt, /COMPLETE sentences/);
   assert.match(prompt, /exam revision/);
 });
@@ -83,4 +83,15 @@ Siya: unrelated`,
   assert.equal(turns[1].speaker, "Aisha");
   assert.match(turns[1].text, /shared key/);
   assert.match(turns[1].text, /stay secret/);
+});
+
+test("utterancesFromPodcastTurns splits turns into one sentence each", () => {
+  const utterances = utterancesFromPodcastTurns([
+    { speaker: "Ira", text: "AES protects data in transit. It uses a shared secret key." },
+    { speaker: "Aisha", text: "That key must stay private." },
+  ]);
+  assert.equal(utterances.length, 3);
+  assert.equal(utterances[0].speaker, "Ira");
+  assert.equal(utterances[1].speaker, "Ira");
+  assert.equal(utterances[2].speaker, "Aisha");
 });

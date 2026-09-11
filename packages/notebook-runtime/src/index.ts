@@ -189,11 +189,11 @@ export function parseGuideResponse(raw: string): { title?: string; text: string 
   return { title: title || undefined, text: text || trimmed };
 }
 
-/** Spoken-length targets at ~150 wpm. maxLines is a safety ceiling, not a quality goal. */
+/** Word budgets for Audio Overview scripts (spoken by Rumik end-to-end). */
 const LENGTH_WORDS: Record<AudioOverviewLength, { min: number; max: number; label: string; maxLines: number }> = {
-  shorter: { min: 160, max: 280, label: "about 1–2 minutes spoken", maxLines: 12 },
-  default: { min: 450, max: 650, label: "about 3–4 minutes spoken", maxLines: 20 },
-  longer: { min: 750, max: 1050, label: "about 5–7 minutes spoken", maxLines: 28 },
+  shorter: { min: 300, max: 400, label: "300–400 words", maxLines: 14 },
+  default: { min: 550, max: 700, label: "550–700 words", maxLines: 22 },
+  longer: { min: 900, max: 1200, label: "900–1200 words", maxLines: 32 },
 };
 
 export function audioLengthLimits(length: AudioOverviewLength = "default") {
@@ -201,6 +201,26 @@ export function audioLengthLimits(length: AudioOverviewLength = "default") {
 }
 
 export type PodcastTurn = { speaker: string; text: string };
+
+/** Split turns into one complete sentence per utterance so Rumik never cuts mid-thought. */
+export function utterancesFromPodcastTurns(turns: PodcastTurn[]): PodcastTurn[] {
+  const out: PodcastTurn[] = [];
+  for (const turn of turns) {
+    const sentences = turn.text
+      .replace(/\s+/g, " ")
+      .trim()
+      .split(/(?<=[.!?。！？])\s+/u)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const sentence of sentences.length ? sentences : [turn.text.trim()]) {
+      let text = sentence.trim();
+      if (!text) continue;
+      if (!/[.!?。！？]$/.test(text)) text = `${text}.`;
+      out.push({ speaker: turn.speaker, text });
+    }
+  }
+  return out;
+}
 
 /**
  * Parse "Speaker: dialogue" scripts into clean turns.
@@ -299,24 +319,24 @@ export function buildPodcastScriptPrompt(
         : "Structure: hook → core ideas with concrete examples → how they connect → practical close.";
 
   return `Write a polished educational Audio Overview script in ${language}.
-This will be spoken aloud by a voice model — quality and completeness matter more than brevity tricks.
+A voice model will read EVERY word you write, one sentence at a time. Incomplete sentences cause broken audio.
 
 Format: ${formatGuide[format]}
 ${structure}
 
-DURATION (must hit — do not undershoot):
-- Total spoken words: ${budget.min}–${budget.max} (${budget.label}).
-- Use about ${Math.max(6, Math.round(budget.maxLines * 0.65))}–${budget.maxLines} dialogue turns.
-- Each turn is 1–3 COMPLETE sentences (roughly 35–90 words). Never leave a sentence unfinished.
+WORD LIMIT (hard requirement — count the spoken words only):
+- Write between ${budget.min} and ${budget.max} words total (${budget.label}).
+- Hit at least ${budget.min} words; stay under ${budget.max}.
+- Use ${Math.max(6, Math.round(budget.maxLines * 0.55))}–${budget.maxLines} dialogue turns.
+- Each turn: 1–2 COMPLETE sentences. Each sentence under 35 words.
 - Every line MUST end with . ! or ?
 
 QUALITY RULES (non-negotiable):
 - Format EXACTLY: SpeakerName: dialogue
 - Speakers allowed: ${speakerNames.join(", ")} only.
-- Alternate speakers naturally (except The Brief).
-- Each turn is a finished thought that the next turn can build on — no mid-sentence cuts, no abrupt topic teleporting.
+- Alternate speakers naturally (except The Brief). One speaker finishes their full turn before the next speaks.
+- Never cut a sentence mid-way. Never start the next speaker until the current idea is finished.
 - Do NOT use stage directions, markdown, bullets, numbering, or quotes around the whole line.
-- Do NOT write hooks like "Do you know this" without finishing the idea in the SAME turn.
 - Cover the CORE story of the sources; do not read documents page by page.
 ${focus}
 

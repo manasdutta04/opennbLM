@@ -128,19 +128,14 @@ function splitOversizedSentence(sentence: string, maxCharacters: number): string
 export function segmentForRumik(text: string, maxCharacters = 420): string[] {
   const normalized = text.replace(/\s+/g, " ").trim();
   if (!normalized) return [];
+  // One Rumik generation per sentence — packing sentences caused unfinished speech then abrupt jumps.
   const sentences = normalized.split(/(?<=[.!?。！？])\s+/u).filter(Boolean);
   const chunks: string[] = [];
-  let current = "";
-  for (const sentence of sentences) {
+  for (const sentence of sentences.length ? sentences : [normalized]) {
     for (const piece of splitOversizedSentence(sentence, maxCharacters)) {
-      if (current && current.length + piece.length + 1 > maxCharacters) {
-        chunks.push(current);
-        current = "";
-      }
-      current = current ? `${current} ${piece}` : piece;
+      chunks.push(piece);
     }
   }
-  if (current) chunks.push(current);
   return chunks;
 }
 
