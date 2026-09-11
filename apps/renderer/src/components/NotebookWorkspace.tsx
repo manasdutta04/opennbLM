@@ -866,7 +866,11 @@ export function NotebookWorkspace({
                             {art.status === "processing" ? "Generating…" : `${srcCount} source${srcCount === 1 ? "" : "s"} · ${relativeAge(art.createdAt)}`}
                             {typeof meta.format === "string" ? ` · ${String(meta.format).replace(/_/g, " ")}` : ""}
                           </span>
-                          {art.error ? <span className="mt-0.5 block text-[11px] text-warning">{art.error}</span> : null}
+                          {art.error ? (
+                            <span className="mt-0.5 block line-clamp-2 text-[11px] text-warning" title={art.error}>
+                              {art.error.length > 180 ? `${art.error.slice(0, 180)}…` : art.error}
+                            </span>
+                          ) : null}
                         </span>
                       </button>
                       {isAudio && art.status === "ready" && path ? (

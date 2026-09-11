@@ -689,3 +689,20 @@ Prior speed caps made “Shorter” ~30s and cracked playback: ≤4 lines / 180 
 
 - Generation wall time scales with sentence count (each Rumik pass is still a full model run).
 - Exact spoken length follows the word budget and model pacing.
+
+## Rumik worker + Studio error hygiene — 2026-09-11
+
+### Problem
+
+Audio Overview failed with “The command line is too long” and Studio showed raw Rumik/tqdm weight-loading logs. Root cause: each sentence spawned a new Python process (reloading the LM), Windows argv limits, and a 3-minute spawn timeout that killed mid-load and stuffed stderr into `artifact.error`.
+
+### Completed
+
+- Persistent local Rumik `--serve` worker: load once, JSONL jobs on stdin, spoken text via temp file (not CLI args).
+- Longer first-load timeout (15 min); per-sentence timeout stays separate.
+- `summarizeRumikFailure` + UI clamp so progress bars never fill Studio.
+- Progress bars disabled in the runner (`TQDM_DISABLE` / HF hub flags).
+
+### Verification
+
+- Package tests + build + desktop start.

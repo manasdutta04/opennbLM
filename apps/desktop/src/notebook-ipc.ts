@@ -23,7 +23,7 @@ import {
   ingestUrlSource,
 } from "@opennblm/notebook-runtime";
 import type { createRumikManager } from "@opennblm/rumik-runtime";
-import { concatWavFiles, RUMIK_SPEAKERS } from "@opennblm/rumik-runtime";
+import { concatWavFiles, RUMIK_SPEAKERS, summarizeRumikFailure } from "@opennblm/rumik-runtime";
 import { join } from "node:path";
 
 type Rumik = ReturnType<typeof createRumikManager>;
@@ -328,8 +328,9 @@ export function registerNotebookHandlers(
       return { ...ready, format, length, language };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Audio Overview failed";
-      store().updateArtifact(artifact.id, { status: "error", error: message });
-      return store().updatePodcast(episode.id, { status: "error", error: message });
+      const clean = summarizeRumikFailure(message, "Audio Overview failed");
+      store().updateArtifact(artifact.id, { status: "error", error: clean });
+      return store().updatePodcast(episode.id, { status: "error", error: clean });
     }
   });
 }

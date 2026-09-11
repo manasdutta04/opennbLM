@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn, spawnSync, ChildProcess } from "node:child_process";
@@ -85,7 +85,36 @@ const defaultConfig: RumikConfig = {
   deliveryDescription: "professional, steady pace",
   language: "English",
 };
+/** Per-sentence synthesis after the model is warm. */
 const SYNTHESIS_TIMEOUT_MS = 180000;
+/** First local load (LM + Mimi) can take several minutes on 4 GB laptop GPUs. */
+const WORKER_READY_TIMEOUT_MS = 900000;
+
+/** Strip tqdm / stack noise so Studio never shows a raw process dump. */
+export function summarizeRumikFailure(raw: string, fallback = "Rumik voice synthesis failed"): string {
+  const text = String(raw || "")
+    .replace(/\x1b\[[0-9;]*m/g, "")
+    .replace(/\r/g, "\n");
+  const lower = text.toLowerCase();
+  if (/command line is too long|enametoolong/i.test(text)) {
+    return "Rumik could not start on Windows (command line too long). Try Audio Overview again — the app now uses a local worker.";
+  }
+  if (/out of memory|cuda out of memory|cudnn_status/i.test(lower)) {
+    return "Rumik ran out of GPU memory. Close other GPU apps and try again.";
+  }
+  if (/cancelled/i.test(lower)) return "Rumik synthesis cancelled";
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .filter((l) => !/%\|/.test(l) && !/it\/s/.test(l) && !/^loading checkpoint/i.test(l) && !/^\d+%/.test(l));
+  const useful = lines.filter((l) =>
+    /error|exception|failed|traceback|runtimeerror|\[rumik\]/i.test(l),
+  );
+  const pick = useful.at(-1) || lines.find((l) => l.startsWith("[rumik]")) || "";
+  if (pick) return pick.replace(/^\[rumik\]\s*/i, "").slice(0, 240);
+  return fallback.slice(0, 240);
+}
 
 /** Split an oversized sentence on clause/word boundaries so Rumik stays under ~30s/segment. */
 function splitOversizedSentence(sentence: string, maxCharacters: number): string[] {
@@ -179,8 +208,15 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
     remoteEndpoint: mode === "remote" ? remoteEndpoint : undefined,
   };
 
-  let currentProcess: ChildProcess | undefined;
+  let worker: ChildProcess | undefined;
+  let workerReady: Promise<void> | undefined;
+  let workerStdout = "";
   let cancelRequested = false;
+  let jobSeq = 0;
+  const pendingJobs = new Map<
+    string,
+    { resolve: (value: void) => void; reject: (error: Error) => void; timer: NodeJS.Timeout }
+  >();
   const segmentListeners = new Set<(segment: RumikAudioSegment) => void>();
   const stateListeners = new Set<(next: RumikStatus) => void>();
   const emitState = () => {
@@ -230,60 +266,190 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
     return status.modelAvailable;
   }
 
-  async function runLocalSegment(segment: string, index: number, config: RumikConfig): Promise<string> {
-    const wavPath = join(options.outputDirectory, `rumik-${Date.now()}-${index}.wav`);
+  function rejectAllJobs(reason: string) {
+    for (const [id, job] of pendingJobs) {
+      clearTimeout(job.timer);
+      job.reject(new Error(reason));
+      pendingJobs.delete(id);
+    }
+  }
+
+  function killWorker() {
+    rejectAllJobs(cancelRequested ? "Rumik synthesis cancelled" : "Rumik worker stopped");
+    workerReady = undefined;
+    workerStdout = "";
+    if (worker) {
+      try {
+        worker.stdin?.end();
+      } catch {
+        /* ignore */
+      }
+      worker.kill();
+      worker = undefined;
+    }
+  }
+
+  function handleWorkerLine(line: string) {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    let msg: Record<string, unknown>;
     try {
-      await new Promise<void>((resolvePromise, reject) => {
-        const env = { ...process.env };
-        if (!env.RUMIK_LOW_VRAM) env.RUMIK_LOW_VRAM = "1";
-        const args = [
-          runner,
-          "--model-path",
-          options.modelPath!,
-          "--revision",
-          RUMIK_MODEL_REVISION,
-          "--text",
-          segment,
-          "--speaker",
-          config.speaker,
-          "--temperature",
-          String(config.temperature),
-          "--top-k",
-          String(config.topK),
-          "--max-new-tokens",
-          String(Math.min(config.maxTokens, env.RUMIK_LOW_VRAM === "0" ? config.maxTokens : 1024)),
-          "--description",
-          config.deliveryDescription,
-          "--language",
-          config.language,
-          "--output",
-          wavPath,
-        ];
-        if (env.RUMIK_LOW_VRAM !== "0") args.push("--low-vram");
-        currentProcess = spawn(python, args, {
-          stdio: ["ignore", "pipe", "pipe"],
-          timeout: SYNTHESIS_TIMEOUT_MS,
-          env,
-        });
-        let error = "";
-        currentProcess.stderr?.on("data", (data) => {
-          error += String(data);
-        });
-        currentProcess.stdout?.on("data", (data) => {
-          error += String(data);
-        });
-        currentProcess.once("error", reject);
-        currentProcess.once("exit", (code, signal) => {
-          currentProcess = undefined;
-          if (code === 0) resolvePromise();
-          else reject(new Error(error || `Rumik exited with code ${code ?? signal ?? "unknown"}`));
-        });
+      msg = JSON.parse(trimmed) as Record<string, unknown>;
+    } catch {
+      return;
+    }
+    if (msg.event === "ready") return;
+    const id = String(msg.id || "");
+    const job = pendingJobs.get(id);
+    if (!job) return;
+    clearTimeout(job.timer);
+    pendingJobs.delete(id);
+    if (msg.ok) job.resolve();
+    else job.reject(new Error(summarizeRumikFailure(String(msg.error || "Rumik job failed"))));
+  }
+
+  async function ensureLocalWorker(): Promise<void> {
+    if (worker && !worker.killed && workerReady) {
+      await workerReady;
+      return;
+    }
+    mkdirSync(options.outputDirectory, { recursive: true });
+    const env = { ...process.env };
+    if (!env.RUMIK_LOW_VRAM) env.RUMIK_LOW_VRAM = "1";
+    env.TQDM_DISABLE = "1";
+    env.HF_HUB_DISABLE_PROGRESS_BARS = "1";
+    env.TRANSFORMERS_VERBOSITY = "error";
+
+    const args = [
+      runner,
+      "--serve",
+      "--model-path",
+      options.modelPath!,
+      "--revision",
+      RUMIK_MODEL_REVISION,
+    ];
+    if (env.RUMIK_LOW_VRAM !== "0") args.push("--low-vram");
+
+    workerReady = new Promise<void>((resolveReady, rejectReady) => {
+      let settled = false;
+      const fail = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        killWorker();
+        rejectReady(error);
+      };
+      const ok = () => {
+        if (settled) return;
+        settled = true;
+        resolveReady();
+      };
+
+      const child = spawn(python, args, {
+        stdio: ["pipe", "pipe", "pipe"],
+        env,
+        windowsHide: true,
       });
+      worker = child;
+
+      const readyTimer = setTimeout(() => {
+        fail(new Error("Rumik model load timed out. Keep the app open and try again."));
+      }, WORKER_READY_TIMEOUT_MS);
+
+      child.stdout?.on("data", (data) => {
+        workerStdout += String(data);
+        const parts = workerStdout.split(/\r?\n/);
+        workerStdout = parts.pop() || "";
+        for (const line of parts) {
+          if (!settled) {
+            try {
+              const msg = JSON.parse(line.trim()) as { event?: string };
+              if (msg.event === "ready") {
+                clearTimeout(readyTimer);
+                ok();
+                continue;
+              }
+            } catch {
+              /* not ready yet */
+            }
+          }
+          handleWorkerLine(line);
+        }
+      });
+
+      let stderrTail = "";
+      child.stderr?.on("data", (data) => {
+        stderrTail = (stderrTail + String(data)).slice(-4000);
+      });
+
+      child.once("error", (err) => {
+        clearTimeout(readyTimer);
+        fail(new Error(summarizeRumikFailure(err.message, "Failed to start Rumik worker")));
+      });
+      child.once("exit", (code, signal) => {
+        clearTimeout(readyTimer);
+        const reason = summarizeRumikFailure(
+          stderrTail,
+          `Rumik worker exited (${code ?? signal ?? "unknown"})`,
+        );
+        rejectAllJobs(reason);
+        worker = undefined;
+        workerReady = undefined;
+        if (!settled) fail(new Error(reason));
+      });
+    });
+
+    await workerReady;
+  }
+
+  async function runLocalSegment(segment: string, index: number, config: RumikConfig): Promise<string> {
+    mkdirSync(options.outputDirectory, { recursive: true });
+    const stamp = `${Date.now()}-${index}`;
+    const wavPath = join(options.outputDirectory, `rumik-${stamp}.wav`);
+    const textPath = join(options.outputDirectory, `rumik-${stamp}.txt`);
+    writeFileSync(textPath, segment, "utf8");
+    try {
+      await ensureLocalWorker();
+      if (!worker?.stdin) throw new Error("Rumik worker is not available");
       if (cancelRequested) throw new Error("Rumik synthesis cancelled");
+
+      const id = `job-${++jobSeq}`;
+      const maxTokens = Math.min(config.maxTokens, process.env.RUMIK_LOW_VRAM === "0" ? config.maxTokens : 1024);
+      await new Promise<void>((resolveJob, rejectJob) => {
+        const timer = setTimeout(() => {
+          pendingJobs.delete(id);
+          rejectJob(new Error("Rumik sentence synthesis timed out"));
+        }, SYNTHESIS_TIMEOUT_MS);
+        pendingJobs.set(id, { resolve: resolveJob, reject: rejectJob, timer });
+        const payload = JSON.stringify({
+          id,
+          cmd: "synth",
+          text_file: textPath,
+          speaker: config.speaker,
+          description: config.deliveryDescription,
+          language: config.language,
+          temperature: config.temperature,
+          top_k: config.topK,
+          max_new_tokens: maxTokens,
+          output: wavPath,
+        });
+        try {
+          worker!.stdin!.write(`${payload}\n`);
+        } catch (error) {
+          clearTimeout(timer);
+          pendingJobs.delete(id);
+          rejectJob(error instanceof Error ? error : new Error("Failed to write Rumik job"));
+        }
+      });
+
+      if (cancelRequested) throw new Error("Rumik synthesis cancelled");
+      if (!existsSync(wavPath)) throw new Error("Rumik did not write audio output");
       return wavPath;
     } catch (error) {
       rmSync(wavPath, { force: true });
-      throw error;
+      const message = error instanceof Error ? error.message : "Rumik synthesis failed";
+      throw new Error(summarizeRumikFailure(message));
+    } finally {
+      rmSync(textPath, { force: true });
     }
   }
 
@@ -386,6 +552,7 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
         const results: RumikAudioSegment[] = [];
         const segments = segmentForRumik(text);
         for (let index = 0; index < segments.length; index += 1) {
+          if (cancelRequested) throw new Error("Rumik synthesis cancelled");
           const segment = segments[index]!;
           const wavPath =
             mode === "remote"
@@ -404,25 +571,23 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
         if (cancelRequested) {
           status = { ...status, state: "paused", error: undefined };
           emitState();
-        } else {
-          status = {
-            ...status,
-            state: "error",
-            error: error instanceof Error ? error.message : "Rumik synthesis failed",
-          };
-          emitState();
+          throw new Error("Rumik synthesis cancelled");
         }
-        throw error;
-      } finally {
-        currentProcess = undefined;
+        const message = summarizeRumikFailure(
+          error instanceof Error ? error.message : "Rumik synthesis failed",
+        );
+        status = {
+          ...status,
+          state: "error",
+          error: message,
+        };
+        emitState();
+        throw new Error(message);
       }
     },
     async cancel() {
       cancelRequested = true;
-      if (currentProcess) {
-        currentProcess.kill();
-        currentProcess = undefined;
-      }
+      killWorker();
       status = { ...status, state: "paused", error: undefined };
       emitState();
     },

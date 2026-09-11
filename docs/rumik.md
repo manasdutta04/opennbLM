@@ -71,7 +71,9 @@ Prefer a CUDA-capable Python (e.g. 3.12 with `torch` cu124). opennbLM auto-picks
 
 ## Segmentation and playback
 
-Rumik's documented long-form limitation is approximately 30–35 seconds. `segmentForRumik` preserves sentence boundaries and groups sentences under a bounded character budget. `synthesize()` creates one sequential WAV job per segment and emits each completed segment through the main-process event boundary.
+Rumik's documented long-form limitation is approximately 30–35 seconds per generation. `segmentForRumik` emits **one sentence per chunk**. Local mode keeps a **persistent `--serve` worker** (model loaded once; jobs via stdin + text files) so Audio Overview does not relaunch Python / reload weights per sentence — that path previously caused Windows “command line is too long”, 3-minute load timeouts, and tqdm dumps in the Studio error UI.
+
+`synthesize()` runs jobs sequentially and emits completed segments through the main-process event boundary when broadcast is enabled.
 
 ## License and attribution
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createRumikManager, segmentForRumik, parseDeliveryControls } from "../dist/index.js";
+import { createRumikManager, segmentForRumik, parseDeliveryControls, summarizeRumikFailure } from "../dist/index.js";
 
 test("segmentation preserves short text without terminal punctuation", () => {
   assert.deepEqual(segmentForRumik("Explain recursion"), ["Explain recursion"]);
@@ -53,4 +53,16 @@ test("delivery description maps to Space tone/accent/pace controls", () => {
   assert.equal(parsed.tone, "excited");
   assert.equal(parsed.accent, "Hindi accent");
   assert.equal(parsed.pace, "fast pace");
+});
+
+test("summarizeRumikFailure strips tqdm dumps and command-line errors", () => {
+  assert.match(
+    summarizeRumikFailure("Error: spawn UNKNOWN\nThe command line is too long."),
+    /command line too long/i,
+  );
+  const dumped = summarizeRumikFailure(
+    "Loading weights: 65%|████| 65/296 [00:01<00:01, 30.02it/s]\n[rumik] wrote out.wav\nRuntimeError: CUDA out of memory",
+  );
+  assert.match(dumped, /GPU memory|out of memory/i);
+  assert.ok(!dumped.includes("it/s"));
 });
