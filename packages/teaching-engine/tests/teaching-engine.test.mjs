@@ -2,10 +2,32 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createTeachingEngine, validateTeachingPlan } from "../dist/index.js";
 
-const validPlan = { topic: "fractions", learner_level: "beginner", objective: "Understand what a fraction represents.", key_concepts: ["part", "whole"], explanation_steps: ["A fraction names a part of a whole.", "The denominator names the whole.", "The numerator names the selected parts."], examples: ["One slice of a four-slice pizza is 1/4."], analogy: "A fraction is a map of how a whole was shared.", misconception_risks: ["The larger denominator does not always mean a larger fraction."], comprehension_check: "Which part of 3/5 names the whole?", summary: "Fractions describe selected parts in relation to a whole." };
+const validPlan = {
+  topic: "fractions",
+  learner_level: "beginner",
+  objective: "Understand what a fraction represents.",
+  key_concepts: ["part", "whole"],
+  explanation_steps: ["A fraction names a part of a whole.", "The denominator names the whole.", "The numerator names the selected parts."],
+  examples: ["One slice of a four-slice pizza is 1/4."],
+  analogy: "A fraction is a map of how a whole was shared.",
+  misconception_risks: ["The larger denominator does not always mean a larger fraction."],
+  comprehension_check: "Which part of 3/5 names the whole?",
+  summary: "Fractions describe selected parts in relation to a whole.",
+  learner_facing:
+    "A fraction is a way of naming how much of something you have taken from a whole. Imagine a pizza cut into four equal slices: one slice is one out of four, written 1/4. The bottom number tells you how many equal pieces make the whole. The top number tells you how many of those pieces you are talking about. People sometimes think a bigger bottom number always means a bigger amount, but that is not true — more pieces means each piece is smaller. Ask yourself: in 3/5, which number names the whole?",
+};
 function providerWith(results) { let calls = 0; let lastRequest; return { get id() { return "mock"; }, async chat() {}, async *stream() {}, async listModels() { return []; }, async healthCheck() {}, async structured(request) { lastRequest = request; return results[calls++] ?? results.at(-1); }, get calls() { return calls; }, get lastRequest() { return lastRequest; } }; }
 
-test("accepts a valid teaching plan and renders a natural response", async () => { const provider = providerWith([validPlan]); const engine = createTeachingEngine(provider); const result = await engine.teach({ question: "fractions", model: "selected-model", learnerLevel: "beginner" }); assert.equal(result.usedFallback, false); assert.equal(result.attempts, 1); assert.match(result.response, /Understand what a fraction/); assert.equal(result.delivery.speaker, "Ira"); assert.equal(provider.lastRequest.model, "selected-model"); });
+test("accepts a valid teaching plan and renders a natural response", async () => {
+  const provider = providerWith([validPlan]);
+  const engine = createTeachingEngine(provider);
+  const result = await engine.teach({ question: "fractions", model: "selected-model", learnerLevel: "beginner" });
+  assert.equal(result.usedFallback, false);
+  assert.equal(result.attempts, 1);
+  assert.match(result.response, /pizza cut into four/);
+  assert.equal(result.delivery.speaker, "Ira");
+  assert.equal(provider.lastRequest.model, "selected-model");
+});
 test("rejects malformed and missing-field plans", () => { assert.equal(validateTeachingPlan(null), false); assert.equal(validateTeachingPlan({ ...validPlan, examples: "not an array" }), false); assert.equal(validateTeachingPlan({ ...validPlan, summary: undefined }), false); });
 test("retries once with correction after invalid structure", async () => { const engine = createTeachingEngine(providerWith([{ topic: "bad" }, validPlan])); const result = await engine.teach({ question: "fractions" }); assert.equal(result.usedFallback, false); assert.equal(result.attempts, 2); });
-test("falls back gracefully after two invalid responses", async () => { const engine = createTeachingEngine(providerWith([{ topic: "bad" }, { topic: "still bad" }])); const result = await engine.teach({ question: "photosynthesis", learnerLevel: "intermediate" }); assert.equal(result.usedFallback, true); assert.equal(result.attempts, 2); assert.equal(result.plan.learner_level, "intermediate"); assert.match(result.response, /photosynthesis/); });
+test("falls back gracefully after two invalid responses", async () => { const engine = createTeachingEngine(providerWith([{ topic: "bad" }, { topic: "still bad" }])); const result = await engine.teach({ question: "photosynthesis", learnerLevel: "intermediate" }); assert.equal(result.usedFallback, true); assert.equal(result.attempts, 2); assert.equal(result.plan.learner_level, "intermediate"); assert.match(result.response, /photosynthesis/); assert.ok(!result.response.includes("Objective:")); });

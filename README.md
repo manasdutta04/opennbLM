@@ -18,7 +18,8 @@ pnpm build
 pnpm desktop:start
 ```
 
-Teaching brains: open a lesson → **Connect brain** (live CLI/local catalogs).  
+Teaching brains: open a lesson or notebook → **Connect brain** (live CLI/local catalogs).  
+Notebooks: Home → create a notebook → add sources (paste / PDF / URL / office) → Chat, Notes, Search, or Rumik study audio.  
 Voice: **Settings → Voice engine** — **Local** when NVIDIA CUDA + weights are present; otherwise **Remote fallback** (hosted rumik-ai Space) so voice still plays without claiming local Mac/CPU inference.
 
 ## Docs

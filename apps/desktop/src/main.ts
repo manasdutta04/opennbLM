@@ -12,9 +12,11 @@ import { createTeachingEngine } from "@opennblm/teaching-engine";
 import type { TeachingStyle } from "@opennblm/teaching-engine";
 import type { LearnerMemory, ModelSelection } from "@opennblm/contracts";
 import { createEngineLLMProvider, EngineRegistry } from "@opennblm/engine-runtime";
+import { buildSourceContext } from "@opennblm/notebook-runtime";
 import { openBlankTerminal } from "./terminal-launch.js";
 import { windowChromeOptions } from "./window-chrome.js";
 import { installAppMenu, popupApplicationSubmenu } from "./app-menu.js";
+import { registerNotebookHandlers } from "./notebook-ipc.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -201,7 +203,7 @@ app.whenReady().then(async () => {
   ipcMain.handle("rumik:synthesize", (_event, text, config) => rumik!.synthesize(text, config));
   ipcMain.handle("rumik:cancel", () => rumik!.cancel());
   ipcMain.handle("rumik:voices", () => rumik!.getVoices());
-  ipcMain.handle("teaching:teach", async (_event, conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string; style?: TeachingStyle; referenceExplanation?: string }) => {
+  ipcMain.handle("teaching:teach", async (_event, conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string; style?: TeachingStyle; referenceExplanation?: string; notebookId?: string }) => {
     const selection = engines!.getSelection();
     if (!selection?.instanceId || !selection.model) {
       throw new Error("Connect a teaching brain in the lesson picker first.");
@@ -209,6 +211,9 @@ app.whenReady().then(async () => {
     await engines!.refresh();
     const provider = createEngineLLMProvider(engines!, selection);
     const teaching = createTeachingEngine(provider);
+    const grounded = options?.notebookId
+      ? buildSourceContext(services!.memory.notebooks, options.notebookId, question)
+      : { context: "", citations: [] as Array<{ sourceId: string; title: string; excerpt: string }> };
     const result = await teaching.teach({
       question,
       model: selection.model,
@@ -217,12 +222,11 @@ app.whenReady().then(async () => {
       style: options?.style,
       referenceExplanation: options?.referenceExplanation,
       learnerContext: learnerContext(services!.memory.listLearnerMemory()),
+      sourceContext: grounded.context || undefined,
     });
     services!.memory.addMessage({ conversationId, role: "assistant", text: result.response, teachingMetadata: { difficulty: result.plan.learner_level } });
     extractLearnerMemory(conversationId, result, options);
     const deliveryDescription = `${result.delivery.overallTone}, ${result.delivery.pace} pace`;
-    // Return the lesson text immediately. Awaiting local Rumik (or remote quota stalls)
-    // would leave the UI stuck on "Preparing how to teach…" until voice finishes.
     const healthy = await rumik!.healthCheck().catch(() => false);
     if (!healthy) {
       return {
@@ -230,6 +234,8 @@ app.whenReady().then(async () => {
         deliveryLabel: result.delivery.overallTone,
         voiceStarted: false,
         voiceError: rumik!.getStatus().error || "Rumik voice is not available right now.",
+        usedFallback: result.usedFallback,
+        citations: grounded.citations,
       };
     }
     void rumik!
@@ -239,8 +245,29 @@ app.whenReady().then(async () => {
         deliveryDescription,
       })
       .catch(() => undefined);
-    return { text: result.response, deliveryLabel: result.delivery.overallTone, voiceStarted: true };
+    return {
+      text: result.response,
+      deliveryLabel: result.delivery.overallTone,
+      voiceStarted: true,
+      usedFallback: result.usedFallback,
+      citations: grounded.citations,
+    };
   });
+
+  registerNotebookHandlers(
+    ipcMain,
+    () => services!.memory.notebooks,
+    () => mainWindow,
+    async () => {
+      const selection = engines!.getSelection();
+      if (!selection?.instanceId || !selection.model) throw new Error("Connect a teaching brain first.");
+      await engines!.refresh();
+      return { provider: createEngineLLMProvider(engines!, selection), model: selection.model };
+    },
+    () => rumik!,
+    rumikOutput,
+  );
+
   installAppMenu();
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

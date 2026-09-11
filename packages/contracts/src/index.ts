@@ -132,7 +132,90 @@ export interface RumikConfig { speaker: "Ira" | "Aisha" | "Siya" | "Zoya"; tempe
 export interface RumikSegment { id: string; text: string; wavPath: string; }
 export interface RumikApi { getStatus(): Promise<RumikStatus>; start(): Promise<void>; stop(): Promise<void>; healthCheck(): Promise<boolean>; synthesize(text: string, config?: Partial<RumikConfig>): Promise<{ segments: RumikSegment[] }>; cancel(): Promise<void>; getVoices(): Promise<readonly string[]>; onSegmentReady(listener: (segment: RumikSegment) => void): () => void; onStateChange(listener: (status: RumikStatus) => void): () => void; }
 export type TeachingStyle = "teacher" | "friend" | "10-year-old" | "story" | "simple" | "technical" | "hype";
-export interface TeachingApi { teach(conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string; style?: TeachingStyle; referenceExplanation?: string }): Promise<{ text: string; deliveryLabel: string; voiceStarted: boolean; voiceError?: string }>; }
+export interface TeachingApi { teach(conversationId: string, question: string, options?: { learnerLevel?: "beginner" | "intermediate" | "advanced"; language?: string; style?: TeachingStyle; referenceExplanation?: string; notebookId?: string }): Promise<{ text: string; deliveryLabel: string; voiceStarted: boolean; voiceError?: string; usedFallback?: boolean; citations?: Array<{ sourceId: string; title: string; excerpt: string }> }>; }
+
+/** Notebook research containers (local-first). */
+export type SourceKind = "pdf" | "url" | "text" | "pptx" | "docx" | "youtube";
+export type SourceStatus = "processing" | "ready" | "error";
+export type SourceContextLevel = "full" | "summary" | "excluded";
+export type NoteKind = "manual" | "ai";
+
+export interface Notebook {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotebookSource {
+  id: string;
+  notebookId: string;
+  kind: SourceKind;
+  title: string;
+  status: SourceStatus;
+  contextLevel: SourceContextLevel;
+  localPath?: string;
+  url?: string;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotebookNote {
+  id: string;
+  notebookId: string;
+  kind: NoteKind;
+  title: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotebookSearchHit {
+  kind: "source" | "note" | "chunk";
+  notebookId: string;
+  id: string;
+  title: string;
+  excerpt: string;
+  score?: number;
+}
+
+export interface PodcastEpisode {
+  id: string;
+  notebookId: string;
+  title: string;
+  status: "processing" | "ready" | "error";
+  script?: string;
+  speakers: string[];
+  audioPaths: string[];
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotebooksApi {
+  list(): Promise<Notebook[]>;
+  create(title?: string): Promise<Notebook>;
+  rename(id: string, title: string): Promise<Notebook>;
+  remove(id: string): Promise<void>;
+  listSources(notebookId: string): Promise<NotebookSource[]>;
+  addTextSource(notebookId: string, title: string, text: string): Promise<NotebookSource>;
+  addUrlSource(notebookId: string, url: string): Promise<NotebookSource>;
+  addFileSource(notebookId: string, filePath: string): Promise<NotebookSource>;
+  setSourceContext(sourceId: string, level: SourceContextLevel): Promise<NotebookSource>;
+  removeSource(sourceId: string): Promise<void>;
+  listNotes(notebookId: string): Promise<NotebookNote[]>;
+  createNote(notebookId: string, input: { title: string; body: string; kind?: NoteKind }): Promise<NotebookNote>;
+  updateNote(noteId: string, input: { title?: string; body?: string }): Promise<NotebookNote>;
+  removeNote(noteId: string): Promise<void>;
+  transformNote(notebookId: string, transform: "summarize" | "concepts" | "faq"): Promise<NotebookNote>;
+  search(query: string, notebookId?: string): Promise<NotebookSearchHit[]>;
+  ask(notebookId: string, question: string): Promise<{ text: string; citations: Array<{ sourceId: string; title: string; excerpt: string }> }>;
+  listPodcasts(notebookId: string): Promise<PodcastEpisode[]>;
+  createPodcast(notebookId: string, options?: { title?: string; speakers?: number }): Promise<PodcastEpisode>;
+  pickSourceFile(): Promise<string | null>;
+}
+
 export interface PreloadApi {
   getAppInfo(): Promise<AppInfo>;
   setup: SetupApi;
@@ -144,4 +227,5 @@ export interface PreloadApi {
   shell?: ShellApi;
   rumik: RumikApi;
   teaching: TeachingApi;
+  notebooks: NotebooksApi;
 }

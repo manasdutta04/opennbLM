@@ -583,3 +583,33 @@ Not run: interactive Electron startup smoke test and completed native installer/
 - Build: renderer + desktop `tsc`/`vite` passed after Settings dual-path + honest teach voice.
 - Fix (same day): do **not** await Rumik inside `teaching:teach` — that blocked the lesson answer on “Preparing how to teach…” until voice finished. Text returns immediately; voice runs in background.
 - Fix (same day): Antigravity teaching used invalid `agy -m`; switched to `--model` + `--json-schema` / `--output-format json`. Silent `fallbackPlan` was why Gemini answers looked like “Build a clear working understanding…”. Teaching engine now retries after parse errors instead of aborting the correction pass.
+
+## Notebooks + Rumik parity — 2026-09-11
+
+### Completed
+
+- Phase 0: teaching engine prefers natural `learner_facing` prose; UI surfaces `usedFallback` on lesson/notebook answers.
+- Phase 1: SQLite notebooks/sources/chunks/notes/podcasts (`@opennblm/memory`), ingest package (`@opennblm/notebook-runtime`), desktop IPC + preload `notebooks` API, Home notebooks + Sources/Chat/Notes UI.
+- Ingest: paste text, PDF, URL fetch, Ready/Error status, per-source Full/Summary/Excluded context.
+- Grounded notebook chat + Ask citations; Rumik speaks answers asynchronously.
+- Phase 2: multi-term local search, AI note transforms (summarize/concepts/FAQ), Rumik multi-speaker study audio (1–4 voices) with in-app playlist paths.
+- Phase 3: DOCX/PPTX via JSZip (tested DOCX), YouTube captions best-effort; audio/video without captions explicitly not claimed. Settings Privacy copy: local-first defaults.
+
+### Architecture decisions
+
+- Desktop-native parity only — no Docker/Next/Surreal stack; product copy never attributes third-party notebook apps.
+- Voice for chat/notes/podcast remains Rumik-only.
+- Retrieval is tokenized substring search over chunks; vector embeddings deferred until quality needs them.
+
+### Verification
+
+- Package tests: teaching-engine (4), memory notebooks CRUD/search (3), notebook-runtime chunk + DOCX/PPTX extract (3) — all passed.
+- `pnpm install` + `pnpm typecheck` + `pnpm build` after wiring `@opennblm/notebook-runtime` into desktop — passed.
+- Electron relaunched via `pnpm desktop:start` for UI smoke.
+
+### Known limitations
+
+- YouTube depends on public timedtext availability; empty captions fall back to a placeholder note urging paste transcript.
+- Podcast generation synthesizes lines sequentially (slow on local Rumik).
+- No STT path for raw audio/video yet — UI states this clearly.
+- Embeddings / true SQLite FTS5 not enabled yet.

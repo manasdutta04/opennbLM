@@ -35,6 +35,7 @@ import type {
   InstanceInfo,
   LearnerMemory,
   ModelSelection,
+  Notebook,
   SetupStatus,
   TeachingStyle,
 } from "@opennblm/contracts";
@@ -42,11 +43,19 @@ import { cn } from "./lib/cn";
 import { ModelPicker } from "./components/ModelPicker";
 import { AppTitleBar } from "./components/AppTitleBar";
 import { OverflowMenu } from "./components/OverflowMenu";
+import { NotebookHomeSection, NotebookWorkspace } from "./components/NotebookWorkspace";
 import "./styles.css";
 
-type Screen = "home" | "lesson" | "templates" | "memory" | "settings";
+type Screen = "home" | "lesson" | "notebook" | "templates" | "memory" | "settings";
 type VoiceState = "idle" | "preparing" | "listening" | "thinking" | "speaking" | "paused" | "error";
-type Message = { id: string; role: "user" | "assistant"; text: string; at: number };
+type Message = {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  at: number;
+  usedFallback?: boolean;
+  citations?: Array<{ sourceId: string; title: string; excerpt: string }>;
+};
 type Conversation = {
   id: string;
   title: string;
@@ -193,6 +202,8 @@ function App() {
   const [voiceReady, setVoiceReady] = useState(false);
   const [teaching, setTeaching] = useState(false);
   const [renameValue, setRenameValue] = useState("");
+  const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+  const [activeNotebookId, setActiveNotebookId] = useState("");
   const audioRef = useRef<HTMLAudioElement | undefined>(undefined);
   const queueRef = useRef<Array<{ id: string; text: string; wavPath: string }>>([]);
   const lastAudioRef = useRef<string | undefined>(undefined);
@@ -220,6 +231,15 @@ function App() {
       setSelectedId((cur) => (cur && next.some((i) => i.id === cur) ? cur : cur));
     });
   }, [search]);
+
+  useEffect(() => {
+    void refreshNotebooks();
+  }, []);
+
+  async function refreshNotebooks() {
+    const items = await window.opennbLM.notebooks.list();
+    setNotebooks(items);
+  }
 
   useEffect(() => {
     void refreshEngines();
@@ -322,6 +342,18 @@ function App() {
     setScreen("lesson");
   }
 
+  async function newNotebook() {
+    const created = await window.opennbLM.notebooks.create("Untitled notebook");
+    setNotebooks((items) => [created, ...items]);
+    setActiveNotebookId(created.id);
+    setScreen("notebook");
+  }
+
+  function openNotebook(id: string) {
+    setActiveNotebookId(id);
+    setScreen("notebook");
+  }
+
   async function submit(e?: FormEvent) {
     e?.preventDefault();
     const text = input.trim();
@@ -355,7 +387,17 @@ function App() {
                 ...item,
                 preview: response.text,
                 messageCount: item.messageCount + 1,
-                messages: [...item.messages, { id: `assistant-${Date.now()}`, role: "assistant", text: response.text, at: Date.now() }],
+                messages: [
+                  ...item.messages,
+                  {
+                    id: `assistant-${Date.now()}`,
+                    role: "assistant",
+                    text: response.text,
+                    at: Date.now(),
+                    usedFallback: response.usedFallback,
+                    citations: response.citations,
+                  },
+                ],
               }
             : item,
         ),
@@ -398,7 +440,17 @@ function App() {
           item.id === selectedId
             ? {
                 ...item,
-                messages: [...item.messages, { id: `style-${Date.now()}`, role: "assistant", text: response.text, at: Date.now() }],
+                messages: [
+                  ...item.messages,
+                  {
+                    id: `style-${Date.now()}`,
+                    role: "assistant",
+                    text: response.text,
+                    at: Date.now(),
+                    usedFallback: response.usedFallback,
+                    citations: response.citations,
+                  },
+                ],
               }
             : item,
         ),
@@ -440,17 +492,25 @@ function App() {
         >
           <img src="./icon.png" alt="" width={22} height={22} className="size-[22px] rounded-[5px]" draggable={false} />
           <span className="text-[15px] font-medium tracking-[-0.01em] text-ink">
-            {screen === "lesson" && selected ? selected.title : "opennbLM"}
+            {screen === "lesson" && selected ? selected.title : screen === "notebook" ? "Notebook" : "opennbLM"}
           </span>
         </button>
         <div className="flex-1" />
         {screen === "home" && (
-          <button
-            onClick={() => void newLesson()}
-            className="rounded-full bg-white px-3.5 py-1.5 text-[13px] font-medium text-black hover:brightness-95"
-          >
-            + Create lesson
-          </button>
+          <>
+            <button
+              onClick={() => void newNotebook()}
+              className="rounded-full border border-hairline/40 px-3.5 py-1.5 text-[13px] text-ink-secondary hover:bg-raised hover:text-ink"
+            >
+              + Notebook
+            </button>
+            <button
+              onClick={() => void newLesson()}
+              className="rounded-full bg-white px-3.5 py-1.5 text-[13px] font-medium text-black hover:brightness-95"
+            >
+              + Create lesson
+            </button>
+          </>
         )}
         <button
           onClick={() => setScreen("memory")}
@@ -548,6 +608,19 @@ function App() {
               )}
             </section>
 
+            <NotebookHomeSection
+              notebooks={notebooks}
+              onOpen={openNotebook}
+              onCreate={() => void newNotebook()}
+              onRemove={(id) =>
+                void (async () => {
+                  await window.opennbLM.notebooks.remove(id);
+                  await refreshNotebooks();
+                  if (activeNotebookId === id) setActiveNotebookId("");
+                })()
+              }
+            />
+
             <section className="mt-12">
               <h2 className="mb-4 text-[22px] font-medium tracking-[-0.02em] text-ink">Recent lessons</h2>
               <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -605,6 +678,25 @@ function App() {
             </section>
           </div>
         </div>
+      )}
+
+      {screen === "notebook" && activeNotebookId && (
+        <NotebookWorkspace
+          notebookId={activeNotebookId}
+          onBack={() => {
+            setScreen("home");
+            void refreshNotebooks();
+          }}
+          engineInstances={engineInstances}
+          modelSelection={modelSelection}
+          onSelectModel={async (next) => {
+            setModelSelection(next);
+            await window.opennbLM.engines.setSelection(next);
+            await refreshEngines();
+          }}
+          onRefreshEngines={refreshEngines}
+          brainReady={Boolean(brainReady)}
+        />
       )}
 
       {screen === "lesson" && selected && (
@@ -959,6 +1051,18 @@ function Bubble({
         )}
         <div className={cn("w-fit max-w-[min(42rem,78%)] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap text-ink", user ? "bg-bubble-user" : "bg-card")}>
           {message.text}
+          {!user && message.usedFallback ? (
+            <div className="mt-2 text-[11.5px] text-warning">Offline teaching fallback — connect a brain for fuller answers.</div>
+          ) : null}
+          {!user && message.citations?.length ? (
+            <div className="mt-2 space-y-1 border-t border-hairline/30 pt-2 text-[11.5px] text-ink-secondary">
+              {message.citations.map((c, i) => (
+                <div key={`${c.sourceId}-${i}`}>
+                  [{i + 1}] {c.title}
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
         {!user && (
           <div className="flex flex-col gap-0.5 self-end pb-0.5">
@@ -1386,7 +1490,14 @@ function SettingsPage({
           </div>
 
           <div className="px-5 py-4 text-[12.5px] leading-relaxed text-ink-secondary">
-            Lessons and learner memory stay on this machine. Open a lesson and use Connect brain to install or sign in to a teaching engine.
+            <div className="text-[14px] font-medium text-ink">Privacy</div>
+            <p className="mt-1.5">
+              Notebooks, sources, notes, chats, and learner memory stay in this app’s local data folder on your machine.
+              Cloud is used only when you choose a cloud teaching brain or Rumik remote voice fallback.
+            </p>
+            <p className="mt-2">
+              Lessons and notebooks are private by default. Open a lesson or notebook and use Connect brain to install or sign in to a teaching engine.
+            </p>
           </div>
         </div>
       </div>

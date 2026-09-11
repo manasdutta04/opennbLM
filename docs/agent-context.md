@@ -9,7 +9,7 @@ Short handoff for agents. Product: native, local-first, voice-first learning com
 | `apps/desktop` | Electron lifecycle, IPC, window chrome, service startup |
 | `apps/preload` | Only renderer↔main bridge (typed) |
 | `apps/renderer` | React UI only — no Node/Electron imports |
-| `packages/*` | Contracts + capabilities (engines, teaching, memory, Rumik) |
+| `packages/*` | Contracts + capabilities (engines, teaching, memory, notebooks, Rumik) |
 
 ## Teaching brains (Connect brain)
 
@@ -32,8 +32,16 @@ Short handoff for agents. Product: native, local-first, voice-first learning com
 - Does **not** auto-download weights. Settings shows dual-path copy, mode badge, bind path, download command (`snapshot_download`), HF link, refresh, and last Rumik error when present.
 - Low-VRAM: auto 4-bit NF4 (`bitsandbytes`) at load time on ≤6 GB GPUs. No separately published quantized HF checkpoint — users always pull official weights.
 - No HF-token Settings UI; optional `HF_TOKEN` env for remote quota only.
-- `teaching:teach` returns lesson text immediately, then starts Rumik in the background (`voiceStarted` if health ok; `voiceError` if voice unavailable). Voice failures still surface via `rumik:state`.
+- `teaching:teach` returns lesson text immediately, then starts Rumik in the background (`voiceStarted` if health ok; `voiceError` if voice unavailable). Voice failures still surface via `rumik:state`. Also returns `usedFallback` and optional `citations` when `notebookId` grounds the answer.
 - Demo safety net: `docs/demo/rumik-expressive-sample.wav` + README.
+
+## Notebooks (local research containers)
+
+- Package: `@opennblm/notebook-runtime` (ingest/chunk/context/transforms/podcast prompt) + `memory` notebook store.
+- IPC: `notebooks:*` (CRUD, sources, notes, search, ask, podcast, file pick).
+- UI: Home **Notebooks** grid → Sources | Chat | Notes | Search | Audio. Lessons remain for free exploration.
+- Sources: paste, PDF, URL, DOCX/PPTX, YouTube captions when available. Context levels Full/Summary/Excluded.
+- Privacy: Settings states data stays in Electron `userData`; cloud only if user picks cloud brain / remote Rumik.
 
 ## UI / shell
 
@@ -46,7 +54,8 @@ Short handoff for agents. Product: native, local-first, voice-first learning com
 ## IPC surface (high level)
 
 - `engines:list|refresh|get-selection|set-selection`, `engine:open-terminal` (clipboard + blank terminal).
-- `teaching:teach` → selected engine adapter → teaching-engine.
+- `teaching:teach` → selected engine adapter → teaching-engine (`usedFallback`, optional notebook grounding).
+- `notebooks:*` → memory + notebook-runtime (+ Rumik for ask/podcast).
 - `rumik:*`, `setup:status` (includes `dataPaths.rumikModel`, `rumik.mode`), `shell:open-external` (https only).
 
 ## Docs to trust

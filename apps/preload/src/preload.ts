@@ -20,7 +20,29 @@ const api: PreloadApi = {
     openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),
   },
   rumik: { getStatus: () => ipcRenderer.invoke("rumik:status"), start: () => ipcRenderer.invoke("rumik:start"), stop: () => ipcRenderer.invoke("rumik:stop"), healthCheck: () => ipcRenderer.invoke("rumik:health"), synthesize: (text, config) => ipcRenderer.invoke("rumik:synthesize", text, config), cancel: () => ipcRenderer.invoke("rumik:cancel"), getVoices: () => ipcRenderer.invoke("rumik:voices"), onSegmentReady: (listener) => { const wrapped = (_event: Electron.IpcRendererEvent, segment: RumikSegment) => listener(segment); ipcRenderer.on("rumik:segment-ready", wrapped); return () => ipcRenderer.removeListener("rumik:segment-ready", wrapped); }, onStateChange: (listener) => { const wrapped = (_event: Electron.IpcRendererEvent, status: RumikStatus) => listener(status); ipcRenderer.on("rumik:state", wrapped); return () => ipcRenderer.removeListener("rumik:state", wrapped); } },
-  teaching: { teach: (conversationId, question, options) => ipcRenderer.invoke("teaching:teach", conversationId, question, options) }
+  teaching: { teach: (conversationId, question, options) => ipcRenderer.invoke("teaching:teach", conversationId, question, options) },
+  notebooks: {
+    list: () => ipcRenderer.invoke("notebooks:list"),
+    create: (title) => ipcRenderer.invoke("notebooks:create", title),
+    rename: (id, title) => ipcRenderer.invoke("notebooks:rename", id, title),
+    remove: (id) => ipcRenderer.invoke("notebooks:remove", id),
+    listSources: (notebookId) => ipcRenderer.invoke("notebooks:list-sources", notebookId),
+    addTextSource: (notebookId, title, text) => ipcRenderer.invoke("notebooks:add-text", notebookId, title, text),
+    addUrlSource: (notebookId, url) => ipcRenderer.invoke("notebooks:add-url", notebookId, url),
+    addFileSource: (notebookId, filePath) => ipcRenderer.invoke("notebooks:add-file", notebookId, filePath),
+    setSourceContext: (sourceId, level) => ipcRenderer.invoke("notebooks:set-source-context", sourceId, level),
+    removeSource: (sourceId) => ipcRenderer.invoke("notebooks:remove-source", sourceId),
+    listNotes: (notebookId) => ipcRenderer.invoke("notebooks:list-notes", notebookId),
+    createNote: (notebookId, input) => ipcRenderer.invoke("notebooks:create-note", notebookId, input),
+    updateNote: (noteId, input) => ipcRenderer.invoke("notebooks:update-note", noteId, input),
+    removeNote: (noteId) => ipcRenderer.invoke("notebooks:remove-note", noteId),
+    transformNote: (notebookId, transform) => ipcRenderer.invoke("notebooks:transform-note", notebookId, transform),
+    search: (query, notebookId) => ipcRenderer.invoke("notebooks:search", query, notebookId),
+    ask: (notebookId, question) => ipcRenderer.invoke("notebooks:ask", notebookId, question),
+    listPodcasts: (notebookId) => ipcRenderer.invoke("notebooks:list-podcasts", notebookId),
+    createPodcast: (notebookId, options) => ipcRenderer.invoke("notebooks:create-podcast", notebookId, options),
+    pickSourceFile: () => ipcRenderer.invoke("notebooks:pick-source-file"),
+  },
 };
 
 contextBridge.exposeInMainWorld("opennbLM", api);

@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "noEmit": false
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../contracts/tsconfig.json" },
+    { "path": "../memory/tsconfig.json" }
+  ]
+}

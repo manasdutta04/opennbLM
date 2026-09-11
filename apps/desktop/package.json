@@ -13,6 +13,7 @@
     "@opennblm/engine-runtime": "workspace:*",
     "@opennblm/local-services": "workspace:*",
     "@opennblm/llm-providers": "workspace:*",
+    "@opennblm/notebook-runtime": "workspace:*",
     "@opennblm/rumik-runtime": "workspace:*",
     "@opennblm/teaching-engine": "workspace:*",
     "@opennblm/memory": "workspace:*",
