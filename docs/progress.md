@@ -1059,3 +1059,18 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Completed
 
 - Replaced the old wordmark/icon set with the circular goo mark (`packaging/icons/logo.svg`). PNG/ICO copies now live in packaging, desktop, renderer, and the marketing site. The previous `opennblm-icon.png` file is gone.
+
+## Release Windows NSIS timeout — 2026-09-12
+
+### Completed
+
+- Run [34686389467](https://github.com/manasdutta04/opennbLM/actions/runs/34686389467) failed after the app packaged: `app-builder` timed out downloading `nsis-3.0.4.1.7z` from GitHub. Typecheck and packaging were fine.
+- Release and continuous Windows workflows now cache Electron/NSIS binaries and retry `electron-builder` three times with backoff. BrandMark gradient stops use React `stopColor` / `stopOpacity`.
+
+### Checks
+
+- Workflow YAML updated. A new Release Windows run after this lands will publish the next patch if NSIS download succeeds.
+
+### Limitations
+
+- First cold cache on a runner can still miss the GitHub download. Retries reduce that; they do not remove the dependency on `electron-userland/electron-builder-binaries`.

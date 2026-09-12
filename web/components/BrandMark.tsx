@@ -16,9 +16,9 @@ export function BrandMark({ className }: { className?: string }) {
           <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8" />
         </filter>
         <radialGradient id="opennblm-sheen" cx="0.32" cy="0.24" r="0.9">
-          <stop offset="0" stop-color="#ffffff" stop-opacity="0.9" />
-          <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.35" />
-          <stop offset="0.7" stop-color="#ffffff" stop-opacity="0" />
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.9" />
+          <stop offset="0.35" stopColor="#ffffff" stopOpacity="0.35" />
+          <stop offset="0.7" stopColor="#ffffff" stopOpacity="0" />
         </radialGradient>
       </defs>
       <g clipPath="url(#opennblm-clip)">

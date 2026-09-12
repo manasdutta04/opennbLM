@@ -55,10 +55,37 @@ jobs:
         id: meta
         run: node scripts/next-release-version.mjs
 
+      - name: Cache electron-builder binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.cache/electron
+            ${{ github.workspace }}/.cache/electron-builder
+          key: electron-builder-win-${{ hashFiles('pnpm-lock.yaml', 'electron-builder.yml') }}
+          restore-keys: |
+            electron-builder-win-
+
+      - name: Build app
+        run: pnpm build
+
+      - name: Check packaged deps
+        run: node scripts/check-packaged-deps.mjs
+
       - name: Build Windows installer
-        run: pnpm package:win
+        shell: pwsh
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+          ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+        run: |
+          $max = 3
+          for ($i = 1; $i -le $max; $i++) {
+            pnpm exec electron-builder --config electron-builder.yml --win nsis --x64 --publish never
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Write-Host "electron-builder failed (attempt $i/$max); retrying after NSIS download backoff"
+            if ($i -eq $max) { exit $LASTEXITCODE }
+            Start-Sleep -Seconds (20 * $i)
+          }
 
       - name: Collect artifacts
         shell: pwsh
