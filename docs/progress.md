@@ -997,3 +997,14 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - Until a release publishes the unversioned filename, the site uses the GitHub API to find the current `.exe`. `/releases/latest` ignores prereleases such as `latest-windows`.
+
+## Immutable release tags — 2026-09-12
+
+### Completed
+
+- Local `v0.1.0` and `latest-windows` tags were force-updated to match origin so Cursor pull no longer hits a tag conflict.
+- Windows release workflows now replace installer assets on an existing release and do not move those git tags.
+
+### Limitations
+
+- If a tag is deleted and recreated on GitHub, clones will need another tag update. Do not retarget `v0.1.0` or `latest-windows`.
