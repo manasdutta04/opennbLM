@@ -1,4 +1,28 @@
 export interface AppInfo { name: string; version: string; }
+export type AppUpdateState =
+  | "idle"
+  | "checking"
+  | "available"
+  | "current"
+  | "downloading"
+  | "ready"
+  | "installing"
+  | "unavailable"
+  | "error";
+export interface AppUpdateStatus {
+  state: AppUpdateState;
+  currentVersion: string;
+  availableVersion?: string;
+  percent?: number;
+  error?: string;
+  canInstall: boolean;
+}
+export interface AppUpdateApi {
+  getStatus(): Promise<AppUpdateStatus>;
+  check(): Promise<AppUpdateStatus>;
+  install(): Promise<void>;
+  onStateChange(listener: (status: AppUpdateStatus) => void): () => void;
+}
 export type ConversationRole = "user" | "assistant" | "system";
 export interface TeachingMetadata { concept?: string; difficulty?: string; progress?: number; }
 export interface ConversationMessage { id: string; conversationId: string; role: ConversationRole; text: string; timestamp: string; audioReference?: string; teachingMetadata?: TeachingMetadata; }
@@ -339,6 +363,7 @@ export interface NotebooksApi {
 
 export interface PreloadApi {
   getAppInfo(): Promise<AppInfo>;
+  updates: AppUpdateApi;
   setup: SetupApi;
   conversations: ConversationApi;
   learnerMemory: LearnerMemoryApi;

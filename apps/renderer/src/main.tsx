@@ -44,6 +44,7 @@ import { NotebookHomeSection, NotebookWorkspace } from "./components/NotebookWor
 import { SettingsPage } from "./components/SettingsPage";
 import { FirstRunSetup } from "./components/FirstRunSetup";
 import { HomeSetupBanner } from "./components/HomeSetupBanner";
+import { AppUpdateCard } from "./components/AppUpdateCard";
 import "./styles.css";
 
 type Screen = "home" | "lesson" | "notebook" | "templates" | "memory" | "settings";
@@ -477,6 +478,7 @@ function App() {
       {screen === "home" && (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-6xl px-6 pb-16 pt-8">
+            <AppUpdateCard compact />
             <HomeSetupBanner
               brainReady={Boolean(brainReady)}
               voiceReady={voiceReady}

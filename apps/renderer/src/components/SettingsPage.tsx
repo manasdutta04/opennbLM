@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { SetupStatus } from "@opennblm/contracts";
 import { cn } from "../lib/cn";
+import { AppUpdateCard } from "./AppUpdateCard";
 
 type SettingsTab = "setup" | "brain" | "voice" | "appearance";
 
@@ -167,6 +168,7 @@ export function SettingsPage({
         <div className="mt-6 overflow-hidden rounded-2xl border border-hairline/40 bg-card">
           {tab === "setup" ? (
             <div className="space-y-5 px-5 py-5 text-[13px] leading-relaxed text-ink-secondary">
+              <AppUpdateCard />
               <div>
                 <div className="text-[15px] font-semibold text-ink">Get productive in three steps</div>
                 <p className="mt-1">

@@ -11,12 +11,13 @@
   "dependencies": {
     "@opennblm/contracts": "workspace:*",
     "@opennblm/engine-runtime": "workspace:*",
-    "@opennblm/local-services": "workspace:*",
     "@opennblm/llm-providers": "workspace:*",
+    "@opennblm/local-services": "workspace:*",
+    "@opennblm/memory": "workspace:*",
     "@opennblm/notebook-runtime": "workspace:*",
     "@opennblm/rumik-runtime": "workspace:*",
     "@opennblm/teaching-engine": "workspace:*",
-    "@opennblm/memory": "workspace:*",
-    "electron": "^34.3.3"
+    "electron": "^34.3.3",
+    "electron-updater": "^6.8.9"
   }
 }

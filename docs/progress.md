@@ -1117,3 +1117,17 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - The installed v0.1.4 build still lacks the runner. A new Windows release is required. Local CUDA still needs a working Python with torch on that machine.
+
+## In-app Windows updates — 2026-09-12
+
+### Completed
+
+- Packaged installs check GitHub Releases for a newer `latest.yml`. Settings → Setup guide and Help → Update opennbLM expose one Update action: download the NSIS installer, install silently, and relaunch. Home only shows the card when an update is actually available.
+
+### Checks
+
+- Typecheck the desktop, preload, renderer, and contracts packages after adding `electron-updater`.
+
+### Limitations
+
+- Builds before this change cannot update themselves; they still need a manual install of this release. After that, later versions can update in-app. The installer is unsigned, so Windows may still show SmartScreen on first run. `pnpm desktop:start` cannot apply updates.

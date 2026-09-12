@@ -4,15 +4,15 @@ import { join } from "node:path";
 const yml = readFileSync("electron-builder.yml", "utf8");
 const missing = [];
 
-for (const name of readdirSync("packages")) {
+for (const name of ["apps/desktop", ...readdirSync("packages").map((item) => join("packages", item))]) {
   let pkg;
   try {
-    pkg = JSON.parse(readFileSync(join("packages", name, "package.json"), "utf8"));
+    pkg = JSON.parse(readFileSync(join(name, "package.json"), "utf8"));
   } catch {
     continue;
   }
   for (const [dep, spec] of Object.entries(pkg.dependencies ?? {})) {
-    if (String(spec).startsWith("workspace:")) continue;
+    if (String(spec).startsWith("workspace:") || dep === "electron") continue;
     const listed = yml.includes(dep) || yml.includes(dep.replace("/", "+"));
     if (!listed) missing.push(`${pkg.name} → ${dep}`);
   }

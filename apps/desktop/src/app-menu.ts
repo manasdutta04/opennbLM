@@ -1,4 +1,5 @@
 import { BrowserWindow, Menu, type MenuItemConstructorOptions } from "electron";
+import { installAppUpdate } from "./app-updater.js";
 
 const MENUS: Record<string, MenuItemConstructorOptions[]> = {
   File: [
@@ -31,6 +32,12 @@ const MENUS: Record<string, MenuItemConstructorOptions[]> = {
     ...(process.platform === "darwin" ? [{ type: "separator" as const }, { role: "front" as const }] : []),
   ],
   Help: [
+    {
+      label: "Update opennbLM",
+      click: () => {
+        void installAppUpdate();
+      },
+    },
     {
       label: "About opennbLM",
       click: () => {

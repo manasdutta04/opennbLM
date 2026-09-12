@@ -1,8 +1,18 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { PreloadApi, RumikSegment, RumikStatus } from "@opennblm/contracts";
+import type { AppUpdateStatus, PreloadApi, RumikSegment, RumikStatus } from "@opennblm/contracts";
 
 const api: PreloadApi = {
   getAppInfo: () => ipcRenderer.invoke("app:info"),
+  updates: {
+    getStatus: () => ipcRenderer.invoke("updates:status"),
+    check: () => ipcRenderer.invoke("updates:check"),
+    install: () => ipcRenderer.invoke("updates:install"),
+    onStateChange: (listener) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, status: AppUpdateStatus) => listener(status);
+      ipcRenderer.on("updates:state", wrapped);
+      return () => ipcRenderer.removeListener("updates:state", wrapped);
+    },
+  },
   setup: { getStatus: () => ipcRenderer.invoke("setup:status"), complete: () => ipcRenderer.invoke("setup:complete") },
   conversations: { list: (search) => ipcRenderer.invoke("conversations:list", search), getForNotebook: (notebookId) => ipcRenderer.invoke("conversations:for-notebook", notebookId), create: (input) => ipcRenderer.invoke("conversations:create", input), rename: (id, title) => ipcRenderer.invoke("conversations:rename", id, title), addMessage: (input) => ipcRenderer.invoke("conversations:add-message", input), delete: (id) => ipcRenderer.invoke("conversations:delete", id) },
   learnerMemory: { list: () => ipcRenderer.invoke("learner-memory:list"), forget: (id) => ipcRenderer.invoke("learner-memory:forget", id), clear: () => ipcRenderer.invoke("learner-memory:clear") },

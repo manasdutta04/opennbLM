@@ -17,6 +17,7 @@ import { openBlankTerminal } from "./terminal-launch.js";
 import { windowChromeOptions } from "./window-chrome.js";
 import { installAppMenu, popupApplicationSubmenu } from "./app-menu.js";
 import { registerNotebookHandlers } from "./notebook-ipc.js";
+import { checkForAppUpdate, getAppUpdateStatus, installAppUpdate, onAppUpdateStatus, startPackagedUpdateCheck } from "./app-updater.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -250,6 +251,13 @@ app.whenReady().then(async () => {
     mainWindow.webContents.send("rumik:state", status);
   });
   ipcMain.handle("app:info", () => ({ name: "opennbLM", version: app.getVersion() }));
+  ipcMain.handle("updates:status", () => getAppUpdateStatus());
+  ipcMain.handle("updates:check", () => checkForAppUpdate());
+  ipcMain.handle("updates:install", () => installAppUpdate());
+  onAppUpdateStatus((status) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send("updates:state", status);
+  });
   ipcMain.handle("setup:status", async () => { setupStatus = await getSetupStatus(); return setupStatus; });
   ipcMain.handle("setup:complete", () => { writeFileSync(join(app.getPath("userData"), "setup-complete.json"), JSON.stringify({ completedAt: new Date().toISOString() })); });
   ipcMain.handle("conversations:list", (_event, search?: string) => services!.memory.listConversations(search));
@@ -362,6 +370,7 @@ app.whenReady().then(async () => {
 
   installAppMenu();
   createWindow();
+  startPackagedUpdateCheck();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 

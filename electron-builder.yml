@@ -70,6 +70,12 @@ files:
     to: node_modules
   - from: "node_modules/.pnpm/@gradio+client@2.6.0/node_modules"
     to: node_modules
+  - from: "node_modules/.pnpm/electron-updater@6.8.9/node_modules"
+    to: node_modules
+  - from: node_modules/.pnpm/builder-util-runtime@9.7.0/node_modules
+    to: node_modules
+  - from: node_modules/.pnpm/fs-extra@10.1.0/node_modules
+    to: node_modules
   - apps/desktop/package.json
   - apps/desktop/icon.png
   - apps/desktop/icon.ico
@@ -105,10 +111,16 @@ nsis:
   installerIcon: packaging/icons/icon.ico
   uninstallerIcon: packaging/icons/icon.ico
   installerHeaderIcon: packaging/icons/icon.ico
+publish:
+  provider: github
+  owner: manasdutta04
+  repo: opennbLM
+  releaseType: release
 win:
   icon: packaging/icons/icon.ico
   # rcedit must run so the .exe carries the brand icon. Signing stays off.
   signAndEditExecutable: true
+  verifyUpdateCodeSignature: false
   target:
     - nsis
   forceCodeSigning: false
