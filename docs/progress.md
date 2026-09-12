@@ -964,3 +964,15 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Verification
 
 - `pnpm typecheck` plus memory and teaching-engine tests (this session).
+
+## Marketing site mobile layout — 2026-09-12
+
+### Completed
+
+- Landing page no longer locks to `100svh` with `overflow: hidden` below 1100px, so phones can scroll.
+- Studio, setup, and source columns move into a top three-line menu on small screens. The overlay lists the same links.
+- Mobile landing keeps the study line, get-the-build copy, and download control at the top. The control reads “open in Windows” with “this is not a Windows device.”
+
+### Limitations
+
+- Desktop wide layout is unchanged. The Windows installer link is the same file; phones cannot run it.

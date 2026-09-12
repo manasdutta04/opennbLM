@@ -246,10 +246,16 @@ input {
   background: rgba(255, 255, 255, .4);
 }
 
-.download-row span:first-child {
+.download-row span:first-child,
+.download-label {
   flex: 1;
   min-width: 0;
   padding: .95rem 1.05rem;
+}
+
+.download-label-mobile,
+.download-device-note {
+  display: none;
 }
 
 .download-go {
@@ -460,15 +466,9 @@ input {
 }
 
 @media (max-width: 720px) {
-  .site-footer:not(.site-footer-plain) {
-    height: 100svh;
-    min-height: 100svh;
-    overflow: hidden;
-  }
-
   .footer-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: clamp(1rem, 3vh, 1.75rem);
+    grid-template-columns: 1fr;
+    gap: clamp(1.35rem, 3.4vh, 2rem);
   }
 
   .brand-blurb {
@@ -554,10 +554,17 @@ input {
   }
 }
 
-@media (min-width: 721px) and (max-width: 1100px) {
+@media (max-width: 1100px) {
   .site-footer:not(.site-footer-plain) {
+    height: auto;
+    min-height: 100svh;
+    overflow: visible;
+  }
+
+  .site-footer:not(.site-footer-plain) .footer-media {
+    position: fixed;
+    inset: 0;
     height: 100svh;
-    overflow: hidden;
   }
 }
 
@@ -603,7 +610,9 @@ input {
   .page-kicker,
   .info-card,
   .socials a,
-  .legal a {
+  .legal a,
+  .explore-layer,
+  .explore-sheet {
     animation: none;
   }
 
@@ -1325,4 +1334,145 @@ input {
 
 .cue-close:hover {
   background: #0f454f;
+}
+
+.explore-toggle {
+  display: none;
+}
+
+.explore-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+  background: rgba(23, 90, 103, 0.28);
+  animation: fade-in 0.22s ease both;
+}
+
+.explore-sheet {
+  width: min(26rem, 100%);
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--cream);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  padding: 1.15rem 1.2rem 1.4rem;
+  animation: rise-in 0.42s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.explore-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.15rem;
+}
+
+.explore-title {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-weight: 500;
+  font-size: 2rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.explore-close {
+  border: 0;
+  background: none;
+  padding: 0.35rem 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+}
+
+.explore-close:hover {
+  opacity: 0.62;
+}
+
+.explore-cols {
+  display: grid;
+  gap: 1.6rem;
+}
+
+.explore-icon {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 22px;
+}
+
+.explore-icon i {
+  display: block;
+  height: 1.5px;
+  background: var(--ink);
+}
+
+@media (max-width: 820px) {
+  .explore-toggle {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    top: max(0.85rem, env(safe-area-inset-top));
+    right: max(1rem, env(safe-area-inset-right));
+    z-index: 30;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--ink);
+    background: rgba(234, 227, 222, 0.88);
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .explore-toggle.is-open {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .explore-desktop {
+    display: none;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .brand,
+  .page-head {
+    padding-right: 3.6rem;
+  }
+
+  .download-label-desktop {
+    display: none;
+  }
+
+  .download-label-mobile {
+    display: inline;
+  }
+
+  .download-device-note {
+    display: block;
+    margin: 0.7rem 0 0;
+    max-width: 28ch;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    opacity: 0.72;
+  }
+
+  .site-footer:not(.site-footer-plain) .footer-media::after {
+    height: min(58vh, 28rem);
+    background: linear-gradient(
+      to bottom,
+      #EAE3DE 0%,
+      rgba(234, 227, 222, 0.88) 36%,
+      rgba(234, 227, 222, 0.28) 72%,
+      rgba(234, 227, 222, 0) 100%
+    );
+  }
 }

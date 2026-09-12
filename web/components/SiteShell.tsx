@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LINKS } from "@/lib/links";
+import { ExploreMenu } from "./ExploreMenu";
 import { SmoothLoopVideo } from "./SmoothLoopVideo";
 
 export function BrandLockup({ href }: { href?: string }) {
@@ -56,6 +57,7 @@ export function SiteShell({
   return (
     <footer className={video ? "site-footer" : "site-footer site-footer-plain"}>
       {video ? <SmoothLoopVideo /> : null}
+      <ExploreMenu />
       <div className="footer-inner">
         {children}
         <SiteFooterBar />

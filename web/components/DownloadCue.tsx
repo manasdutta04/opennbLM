@@ -6,9 +6,11 @@ import { LINKS } from "@/lib/links";
 export function DownloadCue({
   className,
   label = "download for windows",
+  mobileLabel = "open in Windows",
 }: {
   className?: string;
   label?: string;
+  mobileLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -19,13 +21,17 @@ export function DownloadCue({
         href={LINKS.download}
         onClick={() => setOpen(true)}
       >
-        <span>{label}</span>
+        <span className="download-label">
+          <span className="download-label-desktop">{label}</span>
+          <span className="download-label-mobile">{mobileLabel}</span>
+        </span>
         <span className="download-go" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="currentColor">
             <path d="M67.328 67.331h60.669V128H67.328zm-67.325 0h60.669V128H.003zM67.328 0h60.669v60.669H67.328zM.003 0h60.669v60.669H.003z" />
           </svg>
         </span>
       </a>
+      <p className="download-device-note">this is not a Windows device</p>
       {open ? (
         <div className="cue-layer" role="dialog" aria-modal="true" aria-labelledby="cue-title">
           <div className="cue-card">
