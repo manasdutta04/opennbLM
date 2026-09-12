@@ -1018,3 +1018,15 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - Not deployed from this session. The project must be imported on Vercel after these files are on `main`.
+
+## Packaged Gradio client — 2026-09-12
+
+### Completed
+
+- Installed Windows builds crashed on first launch because `@gradio/client` was imported from rumik-runtime and never copied into the ASAR. It is now packaged with `fetch-event-stream`.
+- Remote voice loads that client only when synthesizing, so a missing copy can no longer block the window from opening.
+- `scripts/check-packaged-deps.mjs` fails CI/`package:win` if a workspace npm dependency is omitted from `electron-builder.yml`.
+
+### Limitations
+
+- Existing installs stay broken until they download a build produced after this change.

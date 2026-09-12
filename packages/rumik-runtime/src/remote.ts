@@ -1,9 +1,17 @@
 import { createWriteStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
-import { Client } from "@gradio/client";
 import type { RumikConfig, RumikSpeaker } from "./index.js";
 import { parseDeliveryControls } from "./delivery.js";
+
+async function loadGradioClient() {
+  try {
+    const mod = await import("@gradio/client");
+    return mod.Client;
+  } catch {
+    throw new Error("Remote voice is missing from this install. Download the latest Windows build and reinstall.");
+  }
+}
 
 export { parseDeliveryControls } from "./delivery.js";
 export const DEFAULT_REMOTE_ENDPOINT =
@@ -118,6 +126,7 @@ export async function synthesizeRemoteSegment(options: {
 
   let result: unknown;
   try {
+    const Client = await loadGradioClient();
     const client = await Client.connect(space, token ? { hf_token: token } : {});
     const prediction = await Promise.race([
       client.predict("/synthesize", {

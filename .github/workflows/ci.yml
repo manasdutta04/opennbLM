@@ -23,4 +23,5 @@ jobs:
       - run: pnpm --filter @opennblm/renderer build
       - run: pnpm --filter @opennblm/preload build
       - run: pnpm --filter @opennblm/desktop build
+      - run: node scripts/check-packaged-deps.mjs
       - run: pnpm --filter @opennblm/web build

@@ -67,6 +67,8 @@ files:
     to: node_modules
   - from: node_modules/.pnpm/lie@3.3.0/node_modules
     to: node_modules
+  - from: "node_modules/.pnpm/@gradio+client@2.6.0/node_modules"
+    to: node_modules
   - apps/desktop/package.json
   - node_modules/@opennblm/**/*
   - packages/rumik-runtime/runtime/**/*
