@@ -17,9 +17,7 @@ import {
   Mic,
   Moon,
   Pause,
-  Plus,
   RefreshCw,
-  Search,
   Settings as SettingsIcon,
   Sparkles,
   Square,
@@ -500,20 +498,20 @@ function App() {
           <div className="flex-1" />
           <button
             onClick={() => void newNotebook()}
-            className="rounded-full bg-white px-3.5 py-1.5 text-[13px] font-medium text-black hover:brightness-95"
+            className="whitespace-nowrap rounded-full bg-white px-3.5 py-1.5 text-[13px] font-medium text-black [word-break:keep-all] hover:brightness-95"
           >
-            + Create notebook
+            New notebook
           </button>
           <button
             onClick={() => setScreen("memory")}
-            className="flex items-center gap-1.5 rounded-full border border-hairline/40 px-3 py-1.5 text-[13px] text-ink-secondary hover:bg-raised hover:text-ink"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-hairline/40 px-3 py-1.5 text-[13px] text-ink-secondary [word-break:keep-all] hover:bg-raised hover:text-ink"
           >
             <Brain size={15} />
             Memory
           </button>
           <button
             onClick={() => setScreen("settings")}
-            className="flex items-center gap-1.5 rounded-full border border-hairline/40 px-3 py-1.5 text-[13px] text-ink-secondary hover:bg-raised hover:text-ink"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-hairline/40 px-3 py-1.5 text-[13px] text-ink-secondary [word-break:keep-all] hover:bg-raised hover:text-ink"
           >
             <SettingsIcon size={15} />
             Settings
@@ -530,32 +528,7 @@ function App() {
 
       {screen === "home" && (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-6xl px-6 pb-16 pt-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="text-[13px] font-medium text-ink">Home</div>
-              <div className="ml-auto flex items-center gap-2">
-                {searchOpen ? (
-                  <div className="flex items-center gap-2 rounded-full border border-hairline/40 bg-card px-3 py-1.5">
-                    <Search size={14} className="text-ink-secondary" />
-                    <input
-                      autoFocus
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search notebooks"
-                      className="w-44 bg-transparent text-[13px] text-ink placeholder:text-ink-secondary"
-                      onBlur={() => {
-                        if (!search) setSearchOpen(false);
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <button onClick={() => setSearchOpen(true)} className="flex size-8 items-center justify-center rounded-full text-ink-secondary hover:bg-raised hover:text-ink" aria-label="Search">
-                    <Search size={16} />
-                  </button>
-                )}
-              </div>
-            </div>
-
+          <div className="mx-auto max-w-6xl px-6 pb-16 pt-8">
             <HomeSetupBanner
               brainReady={Boolean(brainReady)}
               voiceReady={voiceReady}
@@ -564,6 +537,10 @@ function App() {
             />
 
             <NotebookHomeSection
+              search={search}
+              searchOpen={searchOpen}
+              onSearch={setSearch}
+              onSearchOpen={setSearchOpen}
               notebooks={notebooks.filter((nb) => {
                 const q = search.trim().toLowerCase();
                 if (!q) return true;

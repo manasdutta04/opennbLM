@@ -1097,64 +1097,95 @@ export function NotebookHomeSection({
   onCreate,
   onRemove,
   onRename,
+  search,
+  searchOpen,
+  onSearch,
+  onSearchOpen,
 }: {
   notebooks: Notebook[];
   onOpen: (id: string) => void;
   onCreate: () => void;
   onRemove: (id: string) => void;
   onRename: (id: string, title: string) => void;
+  search: string;
+  searchOpen: boolean;
+  onSearch: (value: string) => void;
+  onSearchOpen: (open: boolean) => void;
 }) {
   return (
-    <section className="mt-8">
-      <div className="mb-4 flex items-end justify-between">
-        <div>
-          <h2 className="text-[22px] font-medium tracking-[-0.02em] text-ink">Recent notebooks</h2>
-          <p className="mt-1 text-[13px] text-ink-secondary">Sources, grounded chat, and Studio — all local.</p>
-        </div>
-        <button type="button" onClick={onCreate} className="text-[13px] text-ink-secondary hover:text-ink">
-          + New notebook
-        </button>
+    <section>
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <h2 className="text-[20px] font-medium tracking-[-0.02em] text-ink [word-break:keep-all]">Notebooks</h2>
+        {searchOpen ? (
+          <div className="flex items-center gap-2 rounded-full border border-hairline/40 bg-card px-3 py-1.5">
+            <Search size={14} className="text-ink-secondary" />
+            <input
+              autoFocus
+              value={search}
+              onChange={(e) => onSearch(e.target.value)}
+              placeholder="Search"
+              className="w-40 bg-transparent text-[13px] text-ink placeholder:text-ink-secondary"
+              onBlur={() => {
+                if (!search) onSearchOpen(false);
+              }}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onSearchOpen(true)}
+            className="flex size-8 items-center justify-center rounded-full text-ink-secondary hover:bg-raised hover:text-ink"
+            aria-label="Search notebooks"
+          >
+            <Search size={16} />
+          </button>
+        )}
       </div>
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         <button
           type="button"
           onClick={onCreate}
-          className="flex min-h-[160px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-hairline/50 text-ink-secondary transition hover:border-accent/40 hover:bg-card hover:text-ink"
+          className="flex min-h-[148px] flex-col items-center justify-center gap-2.5 rounded-2xl border border-dashed border-hairline/45 text-ink-secondary transition hover:border-hairline/70 hover:bg-card hover:text-ink"
         >
-          <Plus size={26} />
-          <span className="text-[14px]">Create new notebook</span>
+          <Plus size={22} />
+          <span className="text-[13.5px] [word-break:keep-all]">New notebook</span>
         </button>
-        {notebooks.map((nb) => (
-          <div
-            key={nb.id}
-            className="group relative flex min-h-[160px] flex-col rounded-2xl border border-hairline/35 bg-card p-4 transition hover:border-hairline/60"
-          >
-            <div className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100">
-              <OverflowMenu
-                items={[
-                  { label: "Open", onClick: () => onOpen(nb.id) },
-                  { label: "Rename", onClick: () => onRename(nb.id, nb.title) },
-                  { label: "Delete", danger: true, onClick: () => onRemove(nb.id) },
-                ]}
-              />
-            </div>
-            <button type="button" className="flex flex-1 flex-col items-start text-left" onClick={() => onOpen(nb.id)}>
-              <NotebookPen size={28} className="text-accent-text" />
-              <div className="mt-auto pt-6">
-                <div className="line-clamp-2 text-[15px] font-semibold text-ink">{nb.title}</div>
-                <div className="mt-1 text-[12px] text-ink-secondary">
-                  {new Date(nb.updatedAt).toLocaleDateString(undefined, {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                  {" · "}
-                  {nb.sourceCount ?? 0} sources
-                </div>
+        {notebooks.map((nb) => {
+          const sources = nb.sourceCount ?? 0;
+          return (
+            <div
+              key={nb.id}
+              className="group relative flex min-h-[148px] flex-col rounded-2xl border border-hairline/35 bg-card p-4 transition hover:border-hairline/60"
+            >
+              <div className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100">
+                <OverflowMenu
+                  items={[
+                    { label: "Open", onClick: () => onOpen(nb.id) },
+                    { label: "Rename", onClick: () => onRename(nb.id, nb.title) },
+                    { label: "Delete", danger: true, onClick: () => onRemove(nb.id) },
+                  ]}
+                />
               </div>
-            </button>
-          </div>
-        ))}
+              <button type="button" className="flex flex-1 flex-col items-start text-left" onClick={() => onOpen(nb.id)}>
+                <NotebookPen size={20} className="text-ink-secondary" />
+                <div className="mt-auto pt-8">
+                  <div className="line-clamp-2 text-[15px] font-medium leading-snug text-ink [overflow-wrap:break-word] [word-break:normal]">
+                    {nb.title}
+                  </div>
+                  <div className="mt-1.5 text-[12px] text-ink-secondary [word-break:keep-all]">
+                    {new Date(nb.updatedAt).toLocaleDateString(undefined, {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                    {" · "}
+                    {sources} {sources === 1 ? "source" : "sources"}
+                  </div>
+                </div>
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

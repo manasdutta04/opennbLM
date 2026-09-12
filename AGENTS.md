@@ -2,6 +2,8 @@
 
 opennbLM is a native, local-first, voice-first learning companion. Treat this repository as a new product; do not recover or recreate the deleted application.
 
+Longer product notes for coding agents live in [`.agents/`](.agents/). Read that folder on a fresh clone.
+
 ## Boundaries
 
 - `apps/desktop` owns Electron lifecycle, windows, IPC registration, and service startup/shutdown.

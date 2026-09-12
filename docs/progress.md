@@ -912,6 +912,21 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 - Text wrapping avoids breaking Indic scripts. Studio tiles keep full labels instead of jamming words.
 - Generated list and the open artifact footer show the Studio language used (`1 source · today · Kannada`).
 
+## Home polish + open-source docs — 2026-09-12
+
+### Completed
+
+- Home no longer shows a Home label. Notebooks grid is quieter; source counts use singular/plural.
+- Added Apache-2.0 `LICENSE`, `NOTICE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md`, `.agents/` notes, and GitHub issue/PR templates. README states this is an early MVP and that Rumik weights are not Apache.
+
+### Verification
+
+- Renderer rebuild (this session).
+
+### Limitations
+
+- Indic Audio Overview quality is unchanged. Publishing as 0.1.0 is appropriate only with the README caveats.
+
 ## Seven-language Audio Overview — 2026-09-12
 
 ### Completed

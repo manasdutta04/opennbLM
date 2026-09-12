@@ -1,0 +1,19 @@
+opennbLM
+Copyright 2026 opennbLM contributors
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file in the project root.
+
+Third-party notices
+-------------------
+
+Rumik OSS-1 (rumik-ai/rumik-oss-1)
+  Voice model and related weights used for Audio Overview.
+  License: CC-BY-NC-4.0 with an acceptable-use addendum from the model authors.
+  The Apache-2.0 grant on this repository does not apply to Rumik weights,
+  the Mimi codec terms, or hosted Space usage.
+  https://huggingface.co/rumik-ai/rumik-oss-1
+
+Teaching brains (Claude Code, Codex, Gemini CLI, OpenCode, Ollama, LM Studio)
+  Optional user-installed tools. Their licenses and terms apply when a user
+  connects them. This repository does not redistribute those products.

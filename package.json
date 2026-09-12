@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "main": "apps/desktop/dist/main.js",
   "author": "opennbLM contributors",
+  "license": "Apache-2.0",
   "description": "A native, voice-first AI learning companion.",
   "packageManager": "pnpm@9.14.4",
   "scripts": {
