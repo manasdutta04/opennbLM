@@ -10,6 +10,7 @@
   "dependencies": {
     "@opennblm/contracts": "workspace:*",
     "@vitejs/plugin-react": "^4.3.4",
+    "@xyflow/react": "^12.11.6",
     "clsx": "^2.1.1",
     "lucide-react": "^1.44.0",
     "react": "^19.0.0",

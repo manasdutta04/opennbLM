@@ -11,6 +11,8 @@ The renderer never opens SQLite. Electron main/local-services owns the database 
 
 Learner memory is not an archive of every message. After a Teaching Engine result, the main process deterministically extracts bounded signals: topics studied, current learner level, completed lesson summaries, recent context, selected explanation style, language, and possible misconception risks. Weak concepts are intentionally stored with lower confidence and phrased as things to revisit—not as definitive judgments.
 
+The Memory screen (top-bar) also lists named notebooks from the local notebook store so learners can reopen study work even when teaching notes are still empty. Notebooks and teaching notes stay separate: Clear notes does not delete notebooks.
+
 The `learner_memory` table stores `id`, `kind`, `memory_key`, `value`, confidence, optional source conversation id, and created/updated timestamps. `(kind, memory_key)` is unique so later evidence updates a note instead of creating an unbounded log. There is no vector database in v1.
 
 Before planning a new lesson, the main process retrieves a bounded recent memory context and passes it to the provider-independent Teaching Engine. The prompt instructs the engine to use it gently and never reveal hidden context in the lesson. For example, a recurring recursion difficulty can bias the next plan toward simpler intuition and concrete analogies.

@@ -36,6 +36,13 @@ import { cn } from "../lib/cn";
 import { ModelPicker } from "./ModelPicker";
 import { OverflowMenu } from "./OverflowMenu";
 import { MarkdownView } from "./MarkdownView";
+import {
+  FlashcardsView,
+  InfographicView,
+  MindMapView,
+  QuizView,
+  SlideDeckView,
+} from "./StudioArtifactViews";
 
 type ChatLine = {
   id: string;
@@ -291,6 +298,7 @@ export function NotebookWorkspace({
       const created = await window.opennbLM.conversations.create({
         learningTopic: notebook?.title || "Notebook chat",
         title: `${notebook?.title || "Notebook"} · chat`,
+        notebookId,
       });
       setConversationId(created.id);
       setChatLines([]);
@@ -932,86 +940,30 @@ export function NotebookWorkspace({
 function ArtifactBody({ artifact }: { artifact: StudioArtifact }) {
   const parsed = parseMaybeJson(artifact.body);
   if (artifact.kind === "mind_map" && parsed && typeof parsed === "object" && parsed && "root" in parsed) {
-    const node = parsed as { root: string; children?: Array<{ label: string; children?: Array<{ label: string }> }> };
-    return (
-      <div className="mt-4 space-y-2 text-[13px] text-ink">
-        <div className="font-semibold">{node.root}</div>
-        {(node.children || []).map((c) => (
-          <div key={c.label} className="ml-3 border-l border-hairline/40 pl-3">
-            <div>{c.label}</div>
-            {(c.children || []).map((g) => (
-              <div key={g.label} className="ml-3 text-ink-secondary">
-                · {g.label}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    );
+    return <MindMapView data={parsed as { root: string; children?: Array<{ label: string; children?: Array<{ label: string }> }> }} />;
   }
   if (artifact.kind === "flashcards" && parsed && typeof parsed === "object" && parsed && "cards" in parsed) {
     const cards = (parsed as { cards: Array<{ front: string; back: string }> }).cards || [];
-    return (
-      <div className="mt-4 space-y-2">
-        {cards.map((c, i) => (
-          <details key={i} className="rounded-xl border border-hairline/35 bg-card p-3 text-[13px]">
-            <summary className="cursor-pointer font-medium text-ink">{c.front}</summary>
-            <p className="mt-2 text-ink-secondary">{c.back}</p>
-          </details>
-        ))}
-      </div>
-    );
+    return <FlashcardsView cards={cards} />;
   }
   if (artifact.kind === "quiz" && parsed && typeof parsed === "object" && parsed && "questions" in parsed) {
     const questions =
       (parsed as { questions: Array<{ prompt: string; choices: string[]; answerIndex: number; explanation?: string }> }).questions || [];
-    return (
-      <div className="mt-4 space-y-3">
-        {questions.map((q, i) => (
-          <div key={i} className="rounded-xl border border-hairline/35 bg-card p-3 text-[13px]">
-            <div className="font-medium text-ink">
-              {i + 1}. {q.prompt}
-            </div>
-            <ul className="mt-2 space-y-1 text-ink-secondary">
-              {(q.choices || []).map((choice, ci) => (
-                <li key={ci} className={cn(ci === q.answerIndex && "text-success")}>
-                  {choice}
-                </li>
-              ))}
-            </ul>
-            {q.explanation ? <p className="mt-2 text-[12px] text-ink-secondary">{q.explanation}</p> : null}
-          </div>
-        ))}
-      </div>
-    );
+    return <QuizView questions={questions} />;
   }
   if (artifact.kind === "slide_deck" && parsed && typeof parsed === "object" && parsed && "slides" in parsed) {
     const slides = (parsed as { slides: Array<{ title: string; bullets: string[] }> }).slides || [];
-    return (
-      <div className="mt-4 space-y-3">
-        {slides.map((s, i) => (
-          <div key={i} className="rounded-xl border border-hairline/35 bg-card p-4">
-            <div className="text-[11px] text-ink-secondary">Slide {i + 1}</div>
-            <div className="text-[15px] font-semibold text-ink">{s.title}</div>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-[13px] text-ink-secondary">
-              {(s.bullets || []).map((b) => (
-                <li key={b}>{b}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    );
+    return <SlideDeckView slides={slides} />;
   }
   if (artifact.kind === "data_table" && parsed && typeof parsed === "object" && parsed && "columns" in parsed) {
     const table = parsed as { columns: string[]; rows: string[][] };
     return (
-      <div className="mt-4 overflow-x-auto">
+      <div className="mt-4 overflow-x-auto rounded-2xl border border-hairline/40">
         <table className="w-full border-collapse text-[12.5px]">
           <thead>
             <tr>
               {(table.columns || []).map((c) => (
-                <th key={c} className="border border-hairline/40 bg-card px-2 py-1.5 text-left text-ink">
+                <th key={c} className="border-b border-hairline/40 bg-card px-3 py-2 text-left text-ink">
                   {c}
                 </th>
               ))}
@@ -1019,9 +971,9 @@ function ArtifactBody({ artifact }: { artifact: StudioArtifact }) {
           </thead>
           <tbody>
             {(table.rows || []).map((row, i) => (
-              <tr key={i}>
+              <tr key={i} className="odd:bg-inset/40">
                 {row.map((cell, j) => (
-                  <td key={j} className="border border-hairline/30 px-2 py-1.5 text-ink-secondary">
+                  <td key={j} className="border-b border-hairline/25 px-3 py-2 text-ink-secondary">
                     {cell}
                   </td>
                 ))}
@@ -1033,20 +985,23 @@ function ArtifactBody({ artifact }: { artifact: StudioArtifact }) {
     );
   }
   if (artifact.kind === "infographic" && parsed && typeof parsed === "object" && parsed && "headline" in parsed) {
-    const info = parsed as { headline: string; sections: Array<{ title: string; points: string[] }> };
     return (
-      <div className="mt-4 space-y-3">
-        <h3 className="text-[16px] font-semibold text-ink">{info.headline}</h3>
-        {(info.sections || []).map((sec) => (
-          <div key={sec.title} className="rounded-xl border border-hairline/35 bg-card p-3">
-            <div className="font-medium text-ink">{sec.title}</div>
-            <ul className="mt-1 list-disc pl-5 text-[13px] text-ink-secondary">
-              {(sec.points || []).map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
+      <InfographicView
+        data={
+          parsed as {
+            headline: string;
+            subtitle?: string;
+            stats?: Array<{ label: string; value: string; hint?: string }>;
+            sections?: Array<{ title: string; points?: string[] }>;
+          }
+        }
+      />
+    );
+  }
+  if (artifact.kind === "report" && artifact.body.trim()) {
+    return (
+      <div className="mt-4">
+        <MarkdownView text={artifact.body} />
       </div>
     );
   }

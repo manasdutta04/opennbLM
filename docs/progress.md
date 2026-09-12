@@ -766,3 +766,15 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Verification
 
 - Package tests + `pnpm build` + `pnpm desktop:start`.
+
+## Studio visuals + Memory sync — 2026-09-12
+
+### Completed
+
+- Mind Map uses `@xyflow/react` graph view; Infographic uses poster layout with optional stats.
+- Quiz / flashcards / slides are interactive; JSON artifacts strip fences before save.
+- Memory (top-bar) lists named notebooks alongside teaching notes so the page is useful even before chat notes exist; Settings stays in the top bar.
+
+### Verification
+
+- `pnpm build` + `pnpm desktop:start`.

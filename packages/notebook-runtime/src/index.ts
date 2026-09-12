@@ -523,27 +523,29 @@ export function buildStudioArtifactPrompt(
     case "mind_map":
       return {
         title: "Mind map",
-        instruction: `${base}\n\nReturn ONLY valid JSON: {"root":"Topic","children":[{"label":"...","children":[{"label":"..."}]}]}. Max depth 3. Focus on the conceptual map of the sources.`,
+        instruction: `${base}\n\nReturn ONLY valid JSON (no markdown fences): {"root":"Topic","children":[{"label":"Branch","children":[{"label":"Leaf"}]}]}.
+Rules: max depth 3; 4–7 top-level branches; short labels (2–6 words); cover the conceptual map of the sources so a learner can scan relationships at a glance.`,
       };
     case "flashcards":
       return {
         title: "Flashcards",
-        instruction: `${base}\n\nReturn ONLY valid JSON: {"cards":[{"front":"...","back":"..."}]} with 8–16 cards covering core definitions and ideas.`,
+        instruction: `${base}\n\nReturn ONLY valid JSON (no markdown fences): {"cards":[{"front":"...","back":"..."}]} with 8–16 cards covering core definitions and ideas. Keep fronts short prompts; backs clear explanations.`,
       };
     case "quiz":
       return {
         title: "Quiz",
-        instruction: `${base}\n\nReturn ONLY valid JSON: {"questions":[{"prompt":"...","choices":["A","B","C","D"],"answerIndex":0,"explanation":"..."}]} with 6–10 multiple-choice questions.`,
+        instruction: `${base}\n\nReturn ONLY valid JSON (no markdown fences): {"questions":[{"prompt":"...","choices":["A","B","C","D"],"answerIndex":0,"explanation":"..."}]} with 6–10 multiple-choice questions. Exactly one correct answerIndex per question.`,
       };
     case "slide_deck":
       return {
         title: "Slide deck",
-        instruction: `${base}\n\nReturn ONLY valid JSON: {"slides":[{"title":"...","bullets":["..."]}]} with 6–12 slides telling a clear teaching story.`,
+        instruction: `${base}\n\nReturn ONLY valid JSON (no markdown fences): {"slides":[{"title":"...","bullets":["..."]}]} with 6–12 slides telling a clear teaching story. 3–5 short bullets per slide.`,
       };
     case "infographic":
       return {
         title: "Infographic",
-        instruction: `${base}\n\nReturn ONLY valid JSON: {"headline":"...","sections":[{"title":"...","points":["..."]}]} summarizing the gist visually as text blocks.`,
+        instruction: `${base}\n\nReturn ONLY valid JSON (no markdown fences): {"headline":"...","subtitle":"...","stats":[{"label":"...","value":"...","hint":"..."}],"sections":[{"title":"...","points":["..."]}]}.
+Rules: headline under 10 words; subtitle one sentence; 2–3 stats with punchy values (numbers or short phrases OK); 4–6 sections with 2–4 short points each. Designed for a visual poster, not a report.`,
       };
     case "data_table":
       return {

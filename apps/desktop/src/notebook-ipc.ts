@@ -198,14 +198,22 @@ export function registerNotebookHandlers(
         const response = await provider.chat({
           model,
           messages: [
-            { role: "system", content: "You generate structured study artifacts. Follow the output format exactly." },
+            { role: "system", content: "You generate structured study artifacts. Follow the output format exactly. For JSON kinds, return raw JSON only — no markdown fences." },
             { role: "user", content: prompt.instruction },
           ],
         });
+        let body = response.content.trim();
+        if (kind !== "report") {
+          const fenced = body.match(/```(?:json)?\s*([\s\S]*?)```/i);
+          if (fenced?.[1]) body = fenced[1].trim();
+          const start = body.indexOf("{");
+          const end = body.lastIndexOf("}");
+          if (start >= 0 && end > start) body = body.slice(start, end + 1);
+        }
         return store().updateArtifact(artifact.id, {
           status: "ready",
           title: prompt.title,
-          body: response.content.trim(),
+          body,
           error: null,
         });
       } catch (error) {
