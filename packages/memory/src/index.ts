@@ -38,6 +38,7 @@ export interface LearnerMemoryInput {
 export interface MemoryStore {
   readonly databasePath: string;
   listConversations(search?: string): Conversation[];
+  findConversationByNotebook(notebookId: string): Conversation | undefined;
   createConversation(input?: CreateConversationInput & { notebookId?: string }): Conversation;
   renameConversation(id: string, title: string): Conversation;
   addMessage(input: AddMessageInput): ConversationMessage;
@@ -136,6 +137,20 @@ export async function createMemoryStore(databasePath: string): Promise<MemorySto
           ])
         : rows(db, "SELECT * FROM conversations ORDER BY updated_at DESC");
       return result.map(map);
+    },
+    findConversationByNotebook(notebookId) {
+      if (!notebookId.trim()) return undefined;
+      try {
+        const result = rows(
+          db,
+          "SELECT * FROM conversations WHERE notebook_id = ? ORDER BY updated_at DESC LIMIT 1",
+          [notebookId],
+        );
+        if (result[0]) return map(result[0]);
+      } catch {
+        /* notebook_id column may be missing on a very old file */
+      }
+      return undefined;
     },
     createConversation(input = {}) {
       const timestamp = now();

@@ -35,6 +35,23 @@ test("learner memory supports forgetting one note and clearing all notes", async
   db.close();
 });
 
+test("notebook chat conversation is reused instead of created again", async () => {
+  const db = await store();
+  const notebook = db.notebooks.createNotebook("Machine learning");
+  const first = db.createConversation({
+    title: "Machine learning · chat",
+    learningTopic: "Machine learning",
+    notebookId: notebook.id,
+  });
+  db.addMessage({ conversationId: first.id, role: "user", text: "Tell me about supervised learning here." });
+  db.addMessage({ conversationId: first.id, role: "assistant", text: "Supervised learning uses labeled examples." });
+  const again = db.findConversationByNotebook(notebook.id);
+  assert.equal(again?.id, first.id);
+  assert.equal(again?.messages.length, 2);
+  assert.equal(db.findConversationByNotebook("missing"), undefined);
+  db.close();
+});
+
 test("notebooks store sources, chunks, notes, and search", async () => {
   const db = await store();
   const notebook = db.notebooks.createNotebook("Physics");

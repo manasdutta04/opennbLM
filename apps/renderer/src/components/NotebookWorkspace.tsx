@@ -105,6 +105,48 @@ function formatTime(sec: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+const THINKING_LINES = [
+  "Thinking",
+  "Reading",
+  "Finding",
+  "Gathering",
+  "Cultivating",
+  "Connecting",
+  "Weighing",
+  "Shaping",
+  "Checking",
+  "Distilling",
+  "Composing",
+  "Preparing",
+];
+
+function ChatThinkingBubble() {
+  const [line, setLine] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setLine((n) => (n + 1) % THINKING_LINES.length), 900);
+    return () => window.clearInterval(timer);
+  }, []);
+  const label = THINKING_LINES[line] ?? THINKING_LINES[0];
+  return (
+    <div className="flex justify-start" aria-live="polite" aria-busy="true">
+      <div className="flex max-w-[min(40rem,90%)] items-center gap-2.5 rounded-2xl bg-card px-4 py-2.5 text-[14px] text-ink-secondary">
+        <span className="inline-flex items-center gap-1" aria-hidden>
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="size-1.5 rounded-full bg-current animate-status-pulse"
+              style={{ animationDelay: `${i * 0.2}s` }}
+            />
+          ))}
+        </span>
+        <span key={label} className="think-swap thinking-shimmer">
+          {label}…
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function relativeAge(iso: string) {
   const ms = Date.now() - new Date(iso).getTime();
   const days = Math.floor(ms / 86_400_000);
@@ -256,6 +298,8 @@ export function NotebookWorkspace({
   const [guideLoading, setGuideLoading] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatLines, setChatLines] = useState<ChatLine[]>([]);
+  const [chatThinking, setChatThinking] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [studioLanguage, setStudioLanguage] = useState("English");
   const [audioOpen, setAudioOpen] = useState(false);
@@ -294,15 +338,34 @@ export function NotebookWorkspace({
   }, [notebookId]);
 
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
+      const existing = await window.opennbLM.conversations.getForNotebook(notebookId);
+      if (cancelled) return;
+      if (existing) {
+        setConversationId(existing.id);
+        setChatLines(
+          existing.messages.flatMap((message) =>
+            message.role === "user" || message.role === "assistant"
+              ? [{ id: message.id, role: message.role, text: message.text }]
+              : [],
+          ),
+        );
+        return;
+      }
       const created = await window.opennbLM.conversations.create({
         learningTopic: notebook?.title || "Notebook chat",
         title: `${notebook?.title || "Notebook"} · chat`,
         notebookId,
+        language: studioLanguage,
       });
+      if (cancelled) return;
       setConversationId(created.id);
       setChatLines([]);
     })().catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, [notebookId]);
 
   useEffect(() => {
@@ -334,6 +397,10 @@ export function NotebookWorkspace({
     }, 200);
     return () => window.clearTimeout(guideTimer.current);
   }, [notebookId, selectedKey, brainReady, studioLanguage]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, [chatLines, chatThinking]);
 
   const filteredSources = useMemo(() => {
     const q = sourceFilter.trim().toLowerCase();
@@ -374,24 +441,29 @@ export function NotebookWorkspace({
     }
     setChatInput("");
     setChatLines((lines) => [...lines, { id: `u-${Date.now()}`, role: "user", text }]);
-    await run(async () => {
-      await window.opennbLM.conversations.addMessage({ conversationId, role: "user", text });
-      const response = await window.opennbLM.teaching.teach(conversationId, text, {
-        notebookId,
-        sourceIds: [...selectedIds],
-        language: studioLanguage,
+    setChatThinking(true);
+    try {
+      await run(async () => {
+        await window.opennbLM.conversations.addMessage({ conversationId, role: "user", text });
+        const response = await window.opennbLM.teaching.teach(conversationId, text, {
+          notebookId,
+          sourceIds: [...selectedIds],
+          language: studioLanguage,
+        });
+        setChatLines((lines) => [
+          ...lines,
+          {
+            id: `a-${Date.now()}`,
+            role: "assistant",
+            text: response.text,
+            usedFallback: response.usedFallback,
+            citations: response.citations,
+          },
+        ]);
       });
-      setChatLines((lines) => [
-        ...lines,
-        {
-          id: `a-${Date.now()}`,
-          role: "assistant",
-          text: response.text,
-          usedFallback: response.usedFallback,
-          citations: response.citations,
-        },
-      ]);
-    });
+    } finally {
+      setChatThinking(false);
+    }
   };
 
   const startPending = (label: string) => {
@@ -708,6 +780,8 @@ export function NotebookWorkspace({
                     </div>
                   </div>
                 ))}
+                {chatThinking ? <ChatThinkingBubble /> : null}
+                <div ref={chatEndRef} />
               </div>
             </div>
           </div>
@@ -719,18 +793,19 @@ export function NotebookWorkspace({
               <input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Ask a question or create something"
-                className="min-w-0 flex-1 bg-transparent px-3 py-2 text-[14px] text-ink outline-none"
+                placeholder={chatThinking ? "Waiting for the model…" : "Ask a question or create something"}
+                disabled={chatThinking}
+                className="min-w-0 flex-1 bg-transparent px-3 py-2 text-[14px] text-ink outline-none disabled:opacity-60"
               />
               <span className="hidden items-center rounded-full border border-hairline/40 px-2.5 text-[11px] text-ink-secondary sm:inline-flex">
                 {selectedReadyCount} sources
               </span>
               <button
                 type="submit"
-                disabled={busy || !chatInput.trim()}
+                disabled={busy || chatThinking || !chatInput.trim()}
                 className="rounded-full bg-white px-4 py-2 text-[13px] font-medium text-black disabled:opacity-40"
               >
-                Send
+                {chatThinking ? "Thinking" : "Send"}
               </button>
             </div>
           </form>
@@ -744,7 +819,7 @@ export function NotebookWorkspace({
               </div>
 
               <div className="border-b border-hairline/25 px-3 py-2">
-                <div className="text-[11px] text-ink-secondary">Studio output language</div>
+                <div className="text-[11px] text-ink-secondary">Language</div>
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {STUDIO_LANGUAGES.map((lang) => (
                     <button

@@ -7,6 +7,7 @@ export interface CreateConversationInput { title?: string; learningTopic?: strin
 export interface AddMessageInput { conversationId: string; role: ConversationRole; text: string; audioReference?: string; teachingMetadata?: TeachingMetadata; }
 export interface ConversationApi {
   list(search?: string): Promise<Conversation[]>;
+  getForNotebook(notebookId: string): Promise<Conversation | null>;
   create(input?: CreateConversationInput): Promise<Conversation>;
   rename(id: string, title: string): Promise<Conversation>;
   addMessage(input: AddMessageInput): Promise<ConversationMessage>;

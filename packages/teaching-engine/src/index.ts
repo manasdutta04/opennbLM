@@ -209,6 +209,7 @@ const planRequest = (input: TeachingInput, correction = false): LLMRequest => {
         role: "system",
         content: `You are opennbLM's teaching planner. Return only a JSON object matching the supplied schema.
 The learner_facing field MUST be a natural, continuous explanation (4–8 short paragraphs) that a student can read aloud. Do NOT write learner_facing as a bullet outline, numbered study plan, or meta instructions like "Start with…" / "Quick check:".
+Answer language: ${input.language ?? "English"}. Write EVERY learner-visible string in that language only — learner_facing, topic, objective, key_concepts, explanation_steps, examples, analogy, misconception_risks, comprehension_check, and summary. The question may be in another language; still answer only in ${input.language ?? "English"}. Do not switch to the question's language.
 Also fill the structured fields for internal planning. Learner level: ${input.learnerLevel ?? "beginner"}. ${
           style ? `Style: ${style.structure}. Vocabulary: ${style.vocabulary}. Delivery intent: ${style.delivery}.` : ""
         } ${learnerContext} ${sources}`,

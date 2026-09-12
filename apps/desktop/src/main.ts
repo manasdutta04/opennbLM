@@ -219,6 +219,7 @@ app.whenReady().then(async () => {
   ipcMain.handle("setup:status", async () => { setupStatus = await getSetupStatus(); return setupStatus; });
   ipcMain.handle("setup:complete", () => { writeFileSync(join(app.getPath("userData"), "setup-complete.json"), JSON.stringify({ completedAt: new Date().toISOString() })); });
   ipcMain.handle("conversations:list", (_event, search?: string) => services!.memory.listConversations(search));
+  ipcMain.handle("conversations:for-notebook", (_event, notebookId: string) => services!.memory.findConversationByNotebook(notebookId) ?? null);
   ipcMain.handle("conversations:create", (_event, input) => services!.memory.createConversation(input));
   ipcMain.handle("conversations:rename", (_event, id: string, title: string) => services!.memory.renameConversation(id, title));
   ipcMain.handle("conversations:add-message", (_event, input) => services!.memory.addMessage(input));
@@ -302,29 +303,10 @@ app.whenReady().then(async () => {
     });
     services!.memory.addMessage({ conversationId, role: "assistant", text: result.response, teachingMetadata: { difficulty: result.plan.learner_level } });
     extractLearnerMemory(conversationId, result, options);
-    const deliveryDescription = `${result.delivery.overallTone}, ${result.delivery.pace} pace`;
-    const healthy = await rumik!.healthCheck().catch(() => false);
-    if (!healthy) {
-      return {
-        text: result.response,
-        deliveryLabel: result.delivery.overallTone,
-        voiceStarted: false,
-        voiceError: rumik!.getStatus().error || "Rumik voice is not available right now.",
-        usedFallback: result.usedFallback,
-        citations: grounded.citations,
-      };
-    }
-    void rumik!
-      .synthesize(result.response, {
-        speaker: result.delivery.speaker,
-        language: result.delivery.language,
-        deliveryDescription,
-      })
-      .catch(() => undefined);
     return {
       text: result.response,
       deliveryLabel: result.delivery.overallTone,
-      voiceStarted: true,
+      voiceStarted: false,
       usedFallback: result.usedFallback,
       citations: grounded.citations,
     };

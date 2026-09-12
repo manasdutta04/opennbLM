@@ -18,6 +18,14 @@ const validPlan = {
 };
 function providerWith(results) { let calls = 0; let lastRequest; return { get id() { return "mock"; }, async chat() {}, async *stream() {}, async listModels() { return []; }, async healthCheck() {}, async structured(request) { lastRequest = request; return results[calls++] ?? results.at(-1); }, get calls() { return calls; }, get lastRequest() { return lastRequest; } }; }
 
+test("teaching prompt requires the selected answer language", async () => {
+  const provider = providerWith([validPlan]);
+  const engine = createTeachingEngine(provider);
+  await engine.teach({ question: "Tell me about supervised learning here.", language: "Bengali" });
+  assert.match(String(provider.lastRequest.messages[0].content), /Bengali/);
+  assert.match(String(provider.lastRequest.messages[0].content), /answer only in Bengali/i);
+});
+
 test("accepts a valid teaching plan and renders a natural response", async () => {
   const provider = providerWith([validPlan]);
   const engine = createTeachingEngine(provider);

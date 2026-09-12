@@ -878,3 +878,25 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Verification
 
 - Renderer rebuild + desktop launch (this session).
+
+## Notebook chat thinking indicator — 2026-09-12
+
+### Completed
+
+- After a notebook question is sent, a live status stream cycles 12 gerunds (Thinking, Reading, Finding, …) on a loop until the answer arrives.
+
+### Verification
+
+- Renderer rebuild (this session). Not claimed against a live teaching-brain wait in this environment.
+
+## Notebook chat persist + language + no Rumik on chat — 2026-09-12
+
+### Completed
+
+- Chat answers are text only. `teaching:teach` no longer starts Rumik. Rumik stays for Audio Overview.
+- Opening a notebook reuses the saved conversation for that notebook and reloads messages from SQLite instead of creating a blank chat.
+- Teaching prompt now requires the selected language for every learner-visible field, even if the question is in another language. Language is chosen once in Studio and also applies to chat.
+
+### Verification
+
+- `pnpm typecheck` plus memory and teaching-engine tests (this session).
