@@ -75,7 +75,7 @@ export function AppUpdateCard({ compact = false }: { compact?: boolean }) {
         </div>
         <button
           type="button"
-          disabled={busy || status.state === "downloading" || status.state === "installing" || status.state === "unavailable"}
+          disabled={busy || status.state === "downloading" || status.state === "installing"}
           onClick={() => void run()}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12.5px] font-medium text-black hover:brightness-95 disabled:opacity-40"
         >

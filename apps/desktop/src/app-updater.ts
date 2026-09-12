@@ -1,36 +1,37 @@
-import { app } from "electron";
-import { createRequire } from "node:module";
+import { app, shell } from "electron";
+import { createWriteStream } from "node:fs";
+import { join } from "node:path";
+import { spawn } from "node:child_process";
+import { pipeline } from "node:stream/promises";
+import { Readable } from "node:stream";
 import type { AppUpdateStatus } from "@opennblm/contracts";
 
-const require = createRequire(import.meta.url);
+const RELEASES_API = "https://api.github.com/repos/manasdutta04/opennbLM/releases/latest";
 
-type Updater = {
-  autoDownload: boolean;
-  autoInstallOnAppQuit: boolean;
-  allowPrerelease: boolean;
-  checkForUpdates(): Promise<{ updateInfo?: { version?: string } }>;
-  downloadUpdate(): Promise<unknown>;
-  quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void;
-  on(event: string, listener: (...args: never[]) => void): void;
-};
-
-function loadUpdater(): Updater | undefined {
-  try {
-    const loaded = require("electron-updater") as { autoUpdater: Updater };
-    return loaded.autoUpdater;
-  } catch {
-    return undefined;
-  }
-}
-
-const updater = loadUpdater();
+let pendingUrl: string | undefined;
+let pendingFile: string | undefined;
 const listeners = new Set<(status: AppUpdateStatus) => void>();
 
 let status: AppUpdateStatus = {
-  state: app.isPackaged ? "idle" : "unavailable",
+  state: "idle",
   currentVersion: app.getVersion(),
   canInstall: false,
 };
+
+function parseVersion(value: string): [number, number, number] {
+  const match = String(value).trim().replace(/^v/i, "").match(/^(\d+)\.(\d+)\.(\d+)/);
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : [0, 0, 0];
+}
+
+export function isNewerVersion(remote: string, current: string): boolean {
+  const left = parseVersion(remote);
+  const right = parseVersion(current);
+  return (
+    left[0] > right[0]
+    || (left[0] === right[0] && left[1] > right[1])
+    || (left[0] === right[0] && left[1] === right[1] && left[2] > right[2])
+  );
+}
 
 function emit(next: Partial<AppUpdateStatus>): AppUpdateStatus {
   const state = next.state ?? status.state;
@@ -39,41 +40,11 @@ function emit(next: Partial<AppUpdateStatus>): AppUpdateStatus {
     ...next,
     state,
     currentVersion: app.getVersion(),
-    canInstall: app.isPackaged && (state === "available" || state === "ready"),
+    canInstall: state === "available" || state === "ready",
   };
   listeners.forEach((listener) => listener(status));
   return status;
 }
-
-function wireUpdater(): void {
-  if (!updater || !app.isPackaged) return;
-  updater.autoDownload = false;
-  updater.autoInstallOnAppQuit = false;
-  updater.allowPrerelease = false;
-  updater.on("checking-for-update", () => {
-    emit({ state: "checking", error: undefined });
-  });
-  updater.on("update-available", ((info: { version?: string }) => {
-    emit({ state: "available", availableVersion: info?.version, error: undefined });
-  }) as never);
-  updater.on("update-not-available", () => {
-    emit({ state: "current", error: undefined, availableVersion: undefined });
-  });
-  updater.on("download-progress", ((progress: { percent?: number }) => {
-    emit({ state: "downloading", percent: Math.round(progress?.percent ?? 0) });
-  }) as never);
-  updater.on("update-downloaded", ((info: { version?: string }) => {
-    emit({ state: "ready", availableVersion: info?.version, percent: 100, error: undefined });
-  }) as never);
-  updater.on("error", ((error: Error) => {
-    emit({
-      state: "error",
-      error: error?.message?.trim() || "Could not check for an update.",
-    });
-  }) as never);
-}
-
-wireUpdater();
 
 export function getAppUpdateStatus(): AppUpdateStatus {
   return { ...status };
@@ -84,40 +55,78 @@ export function onAppUpdateStatus(listener: (next: AppUpdateStatus) => void): ()
   return () => listeners.delete(listener);
 }
 
-export async function checkForAppUpdate(): Promise<AppUpdateStatus> {
-  if (!app.isPackaged || !updater) {
-    return emit({
-      state: "unavailable",
-      error: "Updates install from the Windows .exe, not from a source checkout.",
-    });
+async function fetchLatestInstaller(): Promise<{ version: string; url: string; name: string }> {
+  const response = await fetch(RELEASES_API, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      "User-Agent": "opennbLM",
+    },
+  });
+  if (!response.ok) throw new Error(`GitHub Releases returned ${response.status}. Try again in a minute.`);
+  const body = (await response.json()) as {
+    tag_name?: string;
+    assets?: Array<{ name?: string; browser_download_url?: string }>;
+  };
+  const version = String(body.tag_name || "").replace(/^v/i, "");
+  const asset = (body.assets || []).find((item) => /opennbLM-win-x64\.exe$/i.test(item.name || ""))
+    || (body.assets || []).find((item) => /\.exe$/i.test(item.name || "") && !/uninstall/i.test(item.name || ""));
+  if (!version || !asset?.browser_download_url) {
+    throw new Error("The latest GitHub Release does not include a Windows installer.");
   }
+  return { version, url: asset.browser_download_url, name: asset.name || "opennbLM-win-x64.exe" };
+}
+
+export async function checkForAppUpdate(): Promise<AppUpdateStatus> {
   try {
     emit({ state: "checking", error: undefined });
-    const result = await updater.checkForUpdates();
-    const version = result?.updateInfo?.version;
-    if (version && version !== app.getVersion()) {
-      return emit({ state: "available", availableVersion: version, error: undefined });
+    const latest = await fetchLatestInstaller();
+    pendingUrl = latest.url;
+    if (isNewerVersion(latest.version, app.getVersion())) {
+      return emit({ state: "available", availableVersion: latest.version, error: undefined });
     }
-    if (status.state === "checking") {
-      return emit({ state: "current", availableVersion: undefined });
-    }
-    return getAppUpdateStatus();
+    pendingUrl = undefined;
+    return emit({ state: "current", availableVersion: undefined, error: undefined });
   } catch (error) {
     return emit({
       state: "error",
-      error: error instanceof Error ? error.message : "Could not check for an update.",
+      error: error instanceof Error ? error.message : "Could not check GitHub Releases.",
     });
   }
 }
 
-export async function installAppUpdate(): Promise<void> {
-  if (!app.isPackaged || !updater) {
+async function downloadInstaller(url: string): Promise<string> {
+  const dest = join(app.getPath("temp"), "opennbLM-update.exe");
+  const response = await fetch(url, { headers: { "User-Agent": "opennbLM" } });
+  if (!response.ok || !response.body) throw new Error(`Download failed (${response.status}).`);
+  const total = Number(response.headers.get("content-length") || 0);
+  let received = 0;
+  const nodeStream = Readable.fromWeb(response.body as import("node:stream/web").ReadableStream);
+  nodeStream.on("data", (chunk: Buffer) => {
+    received += chunk.length;
     emit({
-      state: "unavailable",
-      error: "Updates install from the Windows .exe, not from a source checkout.",
+      state: "downloading",
+      percent: total > 0 ? Math.min(99, Math.round((received / total) * 100)) : undefined,
     });
-    return;
-  }
+  });
+  await pipeline(nodeStream, createWriteStream(dest));
+  pendingFile = dest;
+  emit({ state: "ready", percent: 100 });
+  return dest;
+}
+
+function launchInstaller(file: string): void {
+  const child = spawn(file, ["/S"], {
+    detached: true,
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  child.once("error", () => {
+    void shell.openPath(file);
+  });
+  child.unref();
+}
+
+export async function installAppUpdate(): Promise<void> {
   if (status.state !== "available" && status.state !== "ready") {
     await checkForAppUpdate();
   }
@@ -126,14 +135,17 @@ export async function installAppUpdate(): Promise<void> {
     throw new Error(status.error || "No update is ready to install.");
   }
   if (status.state === "available") {
+    if (!pendingUrl) await checkForAppUpdate();
+    if (!pendingUrl) throw new Error("No installer URL from GitHub Releases.");
     emit({ state: "downloading", percent: 0, error: undefined });
-    await updater.downloadUpdate();
+    await downloadInstaller(pendingUrl);
   }
+  if (!pendingFile) throw new Error("The update finished downloading but the installer is missing.");
   emit({ state: "installing" });
-  updater.quitAndInstall(true, true);
+  launchInstaller(pendingFile);
+  app.quit();
 }
 
 export function startPackagedUpdateCheck(): void {
-  if (!app.isPackaged) return;
   void checkForAppUpdate();
 }

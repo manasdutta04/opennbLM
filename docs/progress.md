@@ -1146,3 +1146,18 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - A long overview can still stop if the local worker dies (VRAM). The next attempt stays on this PC instead of burning remote quota.
+
+## In-app update check talks to GitHub — 2026-09-12
+
+### Completed
+
+- v0.1.6 showed “updates install from the Windows .exe, not from a source checkout” and disabled Check. `electron-updater` never loaded from the pnpm layout, so the app never asked GitHub even though `v0.1.7` and `latest.yml` were already published.
+- Check now reads `releases/latest` directly, compares versions, downloads `opennbLM-win-x64.exe`, and runs the silent NSIS installer.
+
+### Checks
+
+- Typecheck desktop after the updater rewrite.
+
+### Limitations
+
+- v0.1.6 cannot apply this fix to itself. Install the next GitHub Release once; later versions can update in-app.
