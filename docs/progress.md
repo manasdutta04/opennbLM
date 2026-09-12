@@ -1088,3 +1088,17 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - The taskbar/start-menu atom stays until this installer is installed. Windows can keep a cached shortcut icon until Explorer refreshes. `pnpm desktop:start` still launches `electron.exe`, so that process may keep the Electron mark even when the window icon is correct.
+
+## Landing video seating — 2026-09-12
+
+### Completed
+
+- Removed the JS fade/seek loop. The landing clip is one `<video loop>` pinned with `object-position: center bottom`. Desktop stays full-bleed `cover` with no overlay. At ≤1100px the clip is a flow item under the copy with `object-fit: contain`, so a loop cannot recrop and jump the frame up.
+
+### Checks
+
+- Seating matches the original footer treatment: native loop, center-bottom, contain on portrait, only a short top seam on small screens.
+
+### Limitations
+
+- The source file is a hard cut at 10s. Native loop keeps the camera locked; it does not invent a crossfade.
