@@ -917,6 +917,17 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Completed
 
 - Home no longer shows a Home label. Notebooks grid is quieter; source counts use singular/plural.
+
+## First-run setup widgets — 2026-09-12
+
+### Completed
+
+- After install, first launch is a five-step setup: welcome, this PC, teaching brain, optional Rumik voice, then create a notebook. Home shows three setup widgets until a brain is connected.
+- Site footer credit: “A craft of Manas Dutta with Xiaa” — Manas Dutta opens manasdutta.com; Xiaa opens “sitting on Manas's computer.” Download and setup copy mention the in-app widgets.
+
+### Verification
+
+- Renderer rebuild (this session). First-run only appears when `setup-complete.json` is missing.
 - Added Apache-2.0 `LICENSE`, `NOTICE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md`, `.agents/` notes, and GitHub issue/PR templates. README states this is an early MVP and that Rumik weights are not Apache.
 
 ### Verification

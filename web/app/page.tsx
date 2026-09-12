@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CraftCredit } from "@/components/CraftCredit";
 import { BrandLockup, SiteShell } from "@/components/SiteShell";
 import { DownloadCue } from "@/components/DownloadCue";
 import { LINKS } from "@/lib/links";
@@ -10,6 +11,7 @@ export default function HomePage() {
         <div className="brand">
           <BrandLockup />
           <p className="brand-blurb">study your own files in a notebook. ask a model you already use. studio can speak, map, or quiz that material.</p>
+          <CraftCredit />
         </div>
 
         <nav className="col" aria-label="studio">
@@ -48,7 +50,7 @@ export default function HomePage() {
 
         <div className="aside">
           <h2 className="col-title">get the build</h2>
-          <p>windows x64 installer. then open a notebook and connect a teaching brain.</p>
+          <p>windows x64 installer. after install, setup widgets walk through this pc, a teaching brain, and optional voice.</p>
           <DownloadCue className="download-row" />
         </div>
       </div>

@@ -34,7 +34,6 @@ import type {
   LearnerMemory,
   ModelSelection,
   Notebook,
-  SetupStatus,
   TeachingStyle,
 } from "@opennblm/contracts";
 import { cn } from "./lib/cn";
@@ -43,6 +42,7 @@ import { AppTitleBar } from "./components/AppTitleBar";
 import { OverflowMenu } from "./components/OverflowMenu";
 import { NotebookHomeSection, NotebookWorkspace } from "./components/NotebookWorkspace";
 import { SettingsPage } from "./components/SettingsPage";
+import { FirstRunSetup } from "./components/FirstRunSetup";
 import { HomeSetupBanner } from "./components/HomeSetupBanner";
 import "./styles.css";
 
@@ -114,59 +114,6 @@ function LessonGlyph({ title, size = "md" }: { title: string; size?: "md" | "lg"
       }}
     >
       <span aria-hidden>{title.trim().slice(0, 1).toUpperCase() || "L"}</span>
-    </div>
-  );
-}
-
-function SetupBanner() {
-  const [status, setStatus] = useState<SetupStatus | undefined>();
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    void window.opennbLM.setup.getStatus().then((next) => {
-      setStatus(next);
-      setOpen(next.firstRun);
-    });
-  }, []);
-  if (!status || !open) return null;
-  const voiceReady = status.runtime.available && status.model.available;
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-7 backdrop-blur-[14px]">
-      <div className="animate-pop-in w-full max-w-[520px] rounded-2xl border border-hairline/50 bg-panel p-8 shadow-2xl shadow-black/50">
-        <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-accent-text">First run · Local setup</div>
-        <h2 className="mt-2 text-[28px] font-semibold tracking-[-0.02em] text-ink">Welcome to opennbLM.</h2>
-        <p className="mt-2 max-w-[430px] text-[13.5px] leading-relaxed text-ink-secondary">
-          Local notebooks are ready. Create a notebook, add sources, and use Connect brain for grounded chat and Studio.
-        </p>
-        <div className="mt-5 divide-y divide-hairline/35 border-y border-hairline/35">
-          {[
-            { ok: voiceReady, title: "Rumik voice engine", detail: voiceReady ? "Ready" : "Optional — add later" },
-            { ok: status.audio.available, title: "Audio output", detail: status.audio.detail },
-            { ok: true, title: "Local storage", detail: `${status.system.freeMemoryMb.toLocaleString()} MB available` },
-          ].map((row) => (
-            <div key={row.title} className="flex items-start gap-3 py-3">
-              <span className={cn("mt-1.5 size-2 rounded-full", row.ok ? "bg-success" : "bg-warning")} />
-              <div>
-                <div className="text-[13px] text-ink">{row.title}</div>
-                <div className="text-[11.5px] text-ink-secondary">{row.detail}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-6 flex gap-2.5">
-          <button
-            className="rounded-full bg-white px-4 py-2 text-[13px] font-medium text-black hover:brightness-95"
-            onClick={async () => {
-              await window.opennbLM.setup.complete();
-              setOpen(false);
-            }}
-          >
-            Start learning
-          </button>
-          <button className="rounded-full px-4 py-2 text-[13px] text-ink-secondary hover:bg-raised hover:text-ink" onClick={() => setOpen(false)}>
-            Review later
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -481,6 +428,7 @@ function App() {
 
   return (
     <div className="animate-workspace-in flex h-full min-h-0 flex-col overflow-hidden bg-app text-ink">
+      <FirstRunSetup brainReady={Boolean(brainReady)} onCreateNotebook={() => void newNotebook()} />
       <AppTitleBar />
       {screen === "home" ? (
         <header
@@ -1159,9 +1107,4 @@ function formatDate(at: number) {
   return new Date(at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
-createRoot(document.getElementById("root")!).render(
-  <>
-    <SetupBanner />
-    <App />
-  </>,
-);
+createRoot(document.getElementById("root")!).render(<App />);

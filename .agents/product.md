@@ -4,12 +4,13 @@ opennbLM is a **native, local-first, voice-first learning companion** for Window
 
 ## What users do
 
-1. Create a notebook on the home grid.
-2. Add sources (PDF, URL, pasted text).
-3. Connect a **teaching brain** from the notebook model picker (not Settings API keys).
-4. Ask in chat. Answers follow the Studio language picker.
-5. Generate Studio items: Audio Overview, mind map, slides, report, flashcards, quiz, infographic, data table.
-6. Memory stores **teaching notes after a brain answer** only. Creating a notebook or generating Studio does not fill Memory.
+1. After install, first launch runs setup widgets (this PC, teaching brain, optional voice).
+2. Create a notebook on the home grid.
+3. Add sources (PDF, URL, pasted text).
+4. Connect a **teaching brain** from the notebook model picker (not Settings API keys).
+5. Ask in chat. Answers follow the Studio language picker.
+6. Generate Studio items: Audio Overview, mind map, slides, report, flashcards, quiz, infographic, data table.
+7. Memory stores **teaching notes after a brain answer** only. Creating a notebook or generating Studio does not fill Memory.
 
 ## What it is not
 

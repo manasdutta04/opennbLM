@@ -34,8 +34,8 @@ export function DownloadCue({
             </p>
             <ol>
               <li>run the .exe, then open opennbLM from the start menu.</li>
-              <li>create a notebook, click connect brain, and pick a model you already use.</li>
-              <li>add a pdf or notes, then ask or open studio.</li>
+              <li>finish the first-run setup widgets: this pc, teaching brain, optional voice.</li>
+              <li>create a notebook, add a pdf or notes, then ask or open studio.</li>
             </ol>
             <p className="cue-sub">if it will not start</p>
             <ul>

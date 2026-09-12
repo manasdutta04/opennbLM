@@ -19,7 +19,7 @@ export default function SetupPage() {
           . run it, then launch opennbLM from the start menu or the desktop shortcut.
         </p>
         <p>
-          the first home screen may show a setup banner until a teaching brain is connected. chat and studio stay locked until that happens.
+          the first launch opens setup widgets: this pc, connect a teaching brain, then optional rumik voice. you can skip and come back. home still shows those widgets until a brain is connected. chat and studio stay locked until that happens.
         </p>
 
         <h2>2. connect a teaching brain</h2>

@@ -1,4 +1,3 @@
-import { AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react";
 import { cn } from "../lib/cn";
 
 export function HomeSetupBanner({
@@ -12,51 +11,58 @@ export function HomeSetupBanner({
   onOpenSettings: () => void;
   onCreateNotebook: () => void;
 }) {
-  // Required setup = teaching brain. Hide only after that finishes.
   if (brainReady) return null;
 
   return (
-    <div className="mb-6 overflow-hidden rounded-2xl border border-warning/35 bg-warning/5">
-      <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[13px] font-semibold text-ink">
-            <AlertCircle size={16} className="text-warning" />
-            Setup incomplete — connect a teaching brain
-          </div>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-ink-secondary">
-            Follow Settings → Setup guide: connect a brain from any notebook’s model picker, then add sources. Voice is optional — choose Remote (HTTPS) or Local in Settings → Voice engine.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-3 text-[12px]">
-            <Step ok={false} label="1 · Teaching brain (required)" />
-            <Step ok={voiceReady} label="2 · Voice (optional)" />
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={onCreateNotebook}
-            className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[12.5px] font-medium text-black"
-          >
-            Create notebook <ArrowRight size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className="rounded-full border border-hairline/40 px-3.5 py-2 text-[12.5px] text-ink hover:bg-raised"
-          >
-            Open setup guide
-          </button>
-        </div>
-      </div>
+    <div className="mb-8 grid gap-2 sm:grid-cols-3">
+      <Widget
+        ok
+        title="Notebooks"
+        detail="Local. Create one, then add sources."
+        action="New notebook"
+        onAction={onCreateNotebook}
+      />
+      <Widget
+        ok={false}
+        title="Teaching brain"
+        detail="Required. Connect from the notebook model picker."
+        action="Open a notebook"
+        onAction={onCreateNotebook}
+      />
+      <Widget
+        ok={voiceReady}
+        title="Voice"
+        detail={voiceReady ? "Ready for Audio Overview." : "Optional. Remote or Local in Settings."}
+        action="Voice settings"
+        onAction={onOpenSettings}
+      />
     </div>
   );
 }
 
-function Step({ ok, label }: { ok: boolean; label: string }) {
+function Widget({
+  ok,
+  title,
+  detail,
+  action,
+  onAction,
+}: {
+  ok: boolean;
+  title: string;
+  detail: string;
+  action: string;
+  onAction: () => void;
+}) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1", ok ? "border-success/30 text-success" : "border-hairline/40 text-ink-secondary")}>
-      {ok ? <CheckCircle2 size={13} /> : <span className="size-1.5 rounded-full bg-warning" />}
-      {label}
-    </span>
+    <div className="rounded-2xl border border-hairline/35 bg-card px-4 py-3.5">
+      <div className="flex items-center gap-2">
+        <span className={cn("size-2 rounded-full", ok ? "bg-success" : "bg-warning")} />
+        <div className="text-[13px] font-medium text-ink [word-break:keep-all]">{title}</div>
+      </div>
+      <p className="mt-2 text-[12.5px] leading-relaxed text-ink-secondary">{detail}</p>
+      <button type="button" className="mt-3 text-[12.5px] text-ink-secondary hover:text-ink" onClick={onAction}>
+        {action}
+      </button>
+    </div>
   );
 }
