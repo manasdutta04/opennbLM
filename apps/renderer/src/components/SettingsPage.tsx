@@ -124,7 +124,7 @@ export function SettingsPage({
           <ArrowLeft size={15} /> Home
         </button>
         <div className="flex items-center gap-3">
-          <img src="./icon.png" alt="" width={40} height={40} className="size-10 rounded-xl" draggable={false} />
+          <img src="./icon.svg" alt="" width={40} height={40} className="size-10 rounded-full" draggable={false} />
           <div>
             <h1 className="text-[28px] font-semibold tracking-[-0.02em] text-ink">Settings</h1>
             <p className="text-[13.5px] text-ink-secondary">

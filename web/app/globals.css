@@ -150,9 +150,9 @@ input {
 
 .brand-mark {
   width: clamp(48px, 4.2vw, 68px);
-  height: auto;
+  height: clamp(48px, 4.2vw, 68px);
   flex-shrink: 0;
-  border-radius: 18%;
+  border-radius: 50%;
   object-fit: contain;
 }
 

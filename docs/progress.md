@@ -1053,3 +1053,9 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - Existing installs still look only at `Roaming\\opennbLM\\models` until this build is installed. Shortcut icons can stay cached by Windows until Explorer refreshes.
+
+## Brand mark — 2026-09-12
+
+### Completed
+
+- Replaced the old wordmark/icon set with the circular goo mark (`packaging/icons/logo.svg`). PNG/ICO copies now live in packaging, desktop, renderer, and the marketing site. The previous `opennblm-icon.png` file is gone.

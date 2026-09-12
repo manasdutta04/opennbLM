@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "./BrandMark";
 
 const REPO = "https://github.com/manasdutta04/opennbLM";
 const RELEASES = "https://github.com/manasdutta04/opennbLM/releases/latest";
@@ -7,7 +8,7 @@ export function SiteNav() {
   return (
     <nav className="nav">
       <Link href="/" className="brand">
-        <span className="brand-mark" aria-hidden />
+        <BrandMark className="brand-mark" />
         opennbLM
       </Link>
       <div className="nav-links">

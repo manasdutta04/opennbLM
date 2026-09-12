@@ -40,7 +40,7 @@ export function AppTitleBar() {
       }
     >
       <div className="flex shrink-0 items-center gap-2">
-        <img src="./icon.png" alt="" width={18} height={18} className="shrink-0 rounded-[4px]" draggable={false} />
+        <img src="./icon.svg" alt="" width={18} height={18} className="shrink-0 rounded-full" draggable={false} />
         <span className="shrink-0 text-[13.5px] font-semibold tracking-[0.02em] text-ink">opennbLM</span>
       </div>
       <nav

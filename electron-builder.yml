@@ -84,6 +84,8 @@ extraResources:
     to: icons/icon.ico
   - from: packaging/icons/icon.png
     to: icons/icon.png
+  - from: packaging/icons/logo.svg
+    to: icons/logo.svg
 artifactName: opennbLM-${os}-${arch}.${ext}
 nsis:
   oneClick: false

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 64 64" role="img" aria-label="opennbLM">
+  <defs>
+    <clipPath id="opennblm-clip">
+      <circle cx="32" cy="32" r="32" fill="#fff"/>
+    </clipPath>
+    <filter id="opennblm-goo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3.40" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8"/>
+    </filter>
+    <radialGradient id="opennblm-sheen" cx="0.32" cy="0.24" r="0.9">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="0.7" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#opennblm-clip)">
+    <rect width="64" height="64" fill="#ffffff"/>
+    <g filter="url(#opennblm-goo)">
+      <g transform="translate(32 32)">
+        <g transform="translate(-32 -32)">
+          <circle cx="41.03" cy="21.14" r="6.77" fill="#2a1a5c"/>
+          <circle cx="25.42" cy="42.47" r="12.58" fill="#6b4bff"/>
+          <circle cx="39.69" cy="17.14" r="7.83" fill="#a76bff"/>
+          <circle cx="18.78" cy="20.37" r="11.60" fill="#c4a0ff"/>
+          <circle cx="33.48" cy="20.61" r="9.75" fill="#2a1a5c"/>
+          <circle cx="32.63" cy="22.17" r="9.95" fill="#6b4bff"/>
+        </g>
+      </g>
+    </g>
+    <rect width="64" height="64" fill="url(#opennblm-sheen)"/>
+  </g>
+</svg>

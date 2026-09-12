@@ -1,18 +1,24 @@
 import Link from "next/link";
 import { LINKS } from "@/lib/links";
+import { BrandMark } from "./BrandMark";
 import { ExploreMenu } from "./ExploreMenu";
 import { SmoothLoopVideo } from "./SmoothLoopVideo";
 
 export function BrandLockup({ href }: { href?: string }) {
-  const name = <p className="brand-name">opennbLM</p>;
+  const inner = (
+    <>
+      <BrandMark className="brand-mark" />
+      <p className="brand-name">opennbLM</p>
+    </>
+  );
   if (href) {
     return (
       <Link href={href} className="brand-lockup" aria-label="opennbLM home">
-        {name}
+        {inner}
       </Link>
     );
   }
-  return <div className="brand-lockup">{name}</div>;
+  return <div className="brand-lockup">{inner}</div>;
 }
 
 export function SiteFooterBar() {

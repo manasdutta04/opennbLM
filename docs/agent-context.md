@@ -46,7 +46,7 @@ Short handoff for agents. Product: native, local-first, voice-first learning com
 
 ## UI / shell
 
-- Brand icon: `packaging/icons/opennblm-icon.png` (copied to desktop/renderer/packaging).
+- Brand icon: `packaging/icons/logo.svg` (raster copies in desktop, renderer, web, and `icon.ico`).
 - Provider marks: official SVGs including Kimi, Qwen, Hermes (`ProviderIcons` / `HermesMark`).
 - Home: no Library/Memory tabs; Memory from header; View all → templates; Featured rows.
 - Lesson: three-dot overflow (rename/delete); double-click opens.

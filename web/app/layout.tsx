@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "opennbLM — windows study app",
   description: "study your own files in a notebook. ask a model you already use. studio can speak, map, or quiz that material.",
-  icons: { icon: "/icon.png" },
+  icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }, { url: "/icon.png" }] },
 };
 
 export const viewport: Viewport = {

@@ -440,7 +440,7 @@ function App() {
             className="flex items-center gap-2.5 rounded-lg px-1 py-1 hover:bg-raised/40"
             onClick={() => setScreen("home")}
           >
-            <img src="./icon.png" alt="" width={22} height={22} className="size-[22px] rounded-[5px]" draggable={false} />
+            <img src="./icon.svg" alt="" width={22} height={22} className="size-[22px] rounded-full" draggable={false} />
             <span className="text-[15px] font-medium tracking-[-0.01em] text-ink">opennbLM</span>
           </button>
           <div className="flex-1" />
