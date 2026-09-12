@@ -16,8 +16,8 @@ export default function HomePage() {
         <ExploreColumns />
 
         <div className="aside">
-          <h2 className="col-title">get the build</h2>
-          <p>windows x64 installer. after install, setup widgets walk through this pc, a teaching brain, and optional voice.</p>
+          <h2 className="col-title aside-lede">get the build</h2>
+          <p className="aside-lede">windows x64 installer. after install, setup widgets walk through this pc, a teaching brain, and optional voice.</p>
           <DownloadCue className="download-row" />
         </div>
       </div>

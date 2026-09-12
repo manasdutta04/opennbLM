@@ -429,7 +429,8 @@ input {
 .col .link-list li:nth-child(6) { animation-delay: calc(var(--col-stagger, .2s) + .48s); }
 
 .aside .col-title { animation-delay: .4s; }
-.aside p { animation-delay: .48s; }
+.aside p,
+.aside-lede { animation-delay: .48s; }
 .download-row { animation-delay: .56s; }
 .page-kicker { animation-delay: .1s; }
 .info-card:nth-child(1) { animation-delay: .16s; }
@@ -1446,6 +1447,10 @@ input {
   .brand,
   .page-head {
     padding-right: 3.6rem;
+  }
+
+  .aside-lede {
+    display: none;
   }
 
   .download-label-desktop {

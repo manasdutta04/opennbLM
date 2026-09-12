@@ -48,12 +48,25 @@ files:
     filter:
       - dist/**/*
       - package.json
+  - from: packages/notebook-runtime
+    to: node_modules/@opennblm/notebook-runtime
+    filter:
+      - dist/**/*
+      - package.json
   - from: node_modules/.pnpm/sql.js@1.13.0/node_modules/sql.js
     to: node_modules/sql.js
     filter:
       - package.json
       - dist/sql-wasm.js
       - dist/sql-wasm.wasm
+  - from: node_modules/.pnpm/jszip@3.10.2/node_modules
+    to: node_modules
+  - from: node_modules/.pnpm/pdf-parse@1.1.4/node_modules
+    to: node_modules
+  - from: node_modules/.pnpm/readable-stream@2.3.8/node_modules
+    to: node_modules
+  - from: node_modules/.pnpm/lie@3.3.0/node_modules
+    to: node_modules
   - apps/desktop/package.json
   - node_modules/@opennblm/**/*
   - packages/rumik-runtime/runtime/**/*

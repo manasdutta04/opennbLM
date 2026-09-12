@@ -971,8 +971,18 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 
 - Landing page no longer locks to `100svh` with `overflow: hidden` below 1100px, so phones can scroll.
 - Studio, setup, and source columns move into a top three-line menu on small screens. The overlay lists the same links.
-- Mobile landing keeps the study line, get-the-build copy, and download control at the top. The control reads “open in Windows” with “this is not a Windows device.”
+- Mobile landing keeps the study line and the download control at the top. The “get the build” heading and installer blurb are hidden on small screens. The control reads “open in Windows” with “this is not a Windows device.”
 
 ### Limitations
 
 - Desktop wide layout is unchanged. The Windows installer link is the same file; phones cannot run it.
+
+## Packaged notebook-runtime — 2026-09-12
+
+### Completed
+
+- The Windows installer crashed on launch because Electron could not resolve `@opennblm/notebook-runtime`. The package is now copied into the ASAR `node_modules` layout with jszip and pdf-parse, matching the other workspace packages.
+
+### Limitations
+
+- A new Release Windows run is required before installed copies pick this up. Existing 0.1.0 installs stay broken until they reinstall.
