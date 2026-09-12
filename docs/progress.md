@@ -1074,3 +1074,17 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - First cold cache on a runner can still miss the GitHub download. Retries reduce that; they do not remove the dependency on `electron-userland/electron-builder-binaries`.
+
+## Windows icon, portable voice path, landing polish — 2026-09-12
+
+### Completed
+
+- Rebuilt `icon.ico` as a real multi-size icon (16–256). The previous file was a 512 PNG labeled as 256, which Windows/rcedit ignore. `signAndEditExecutable` is on again so the installer `.exe` actually receives the brand mark. Settings → Voice now shows `%APPDATA%\\…` (or `~`) instead of a machine user name. The mobile download control no longer stretches the Windows mark into a large square. The landing video fades through the poster instead of crossfading two clips.
+
+### Checks
+
+- ICO directory now has 7 sizes. Typecheck the desktop and renderer packages after the path helper change.
+
+### Limitations
+
+- The taskbar/start-menu atom stays until this installer is installed. Windows can keep a cached shortcut icon until Explorer refreshes. `pnpm desktop:start` still launches `electron.exe`, so that process may keep the Electron mark even when the window icon is correct.

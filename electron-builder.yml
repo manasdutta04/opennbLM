@@ -71,6 +71,7 @@ files:
     to: node_modules
   - apps/desktop/package.json
   - apps/desktop/icon.png
+  - apps/desktop/icon.ico
   - node_modules/@opennblm/**/*
   - packages/rumik-runtime/runtime/**/*
   - packages/rumik-runtime/NOTICE.rumik.md
@@ -95,8 +96,13 @@ nsis:
   createStartMenuShortcut: true
   deleteAppDataOnUninstall: false
   shortcutName: opennbLM
+  installerIcon: packaging/icons/icon.ico
+  uninstallerIcon: packaging/icons/icon.ico
+  installerHeaderIcon: packaging/icons/icon.ico
 win:
-  signAndEditExecutable: false
+  icon: packaging/icons/icon.ico
+  # rcedit must run so the .exe carries the brand icon. Signing stays off.
+  signAndEditExecutable: true
   target:
     - nsis
   forceCodeSigning: false

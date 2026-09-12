@@ -101,6 +101,7 @@ input {
   pointer-events: none;
 }
 
+.footer-poster,
 .footer-bg {
   position: absolute;
   inset: 0;
@@ -109,18 +110,24 @@ input {
   object-fit: cover;
   object-position: center bottom;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 1.05s ease;
+}
+
+.footer-poster {
+  z-index: 0;
+}
+
+.footer-bg {
+  z-index: 1;
+  opacity: 1;
+  transition: opacity 0.4s ease;
 }
 
 .footer-bg.is-front {
   opacity: 1;
-  z-index: 1;
 }
 
-.footer-bg.is-back {
+.footer-bg.is-hidden {
   opacity: 0;
-  z-index: 0;
 }
 
 .footer-inner {
@@ -246,11 +253,10 @@ input {
   background: rgba(255, 255, 255, .4);
 }
 
-.download-row span:first-child,
 .download-label {
-  flex: 0 0 auto;
-  min-width: max-content;
-  padding: .95rem 1.05rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: .85rem 1rem;
   white-space: nowrap;
 }
 
@@ -260,11 +266,14 @@ input {
 }
 
 .download-go {
-  width: clamp(56px, 4vw, 66px);
+  flex: 0 0 2.75rem;
+  width: 2.75rem;
+  max-width: 2.75rem;
   background: var(--ink);
   color: var(--cream);
   display: grid;
   place-items: center;
+  overflow: hidden;
   transition: background .2s ease;
 }
 
@@ -273,8 +282,9 @@ input {
 }
 
 .download-go svg {
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .footer-bottom {
@@ -520,9 +530,9 @@ input {
     height: 28px;
   }
 
-  .download-row span:first-child {
+  .download-label {
     font-size: 16px;
-    padding: 1rem 1.05rem;
+    padding: .85rem .95rem;
   }
 }
 
@@ -585,7 +595,8 @@ input {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .footer-bg {
+  .footer-bg,
+  .footer-poster {
     display: none;
     animation: none;
   }

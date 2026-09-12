@@ -18,6 +18,20 @@ import { cn } from "../lib/cn";
 
 type SettingsTab = "setup" | "brain" | "voice" | "appearance";
 
+function portableBindPath(path: string, platform: string): string {
+  if (!path) {
+    return platform === "win32"
+      ? "%APPDATA%\\opennbLM\\models\\rumik-oss-1"
+      : "~/.config/opennbLM/models/rumik-oss-1";
+  }
+  return path
+    .replace(/^[A-Za-z]:\\Users\\[^\\]+\\AppData\\Roaming/i, "%APPDATA%")
+    .replace(/^[A-Za-z]:\\Users\\[^\\]+\\AppData\\Local/i, "%LOCALAPPDATA%")
+    .replace(/^[A-Za-z]:\\Users\\[^\\]+/i, "%USERPROFILE%")
+    .replace(/^\/Users\/[^/]+/, "~")
+    .replace(/^\/home\/[^/]+/, "~");
+}
+
 export function SettingsPage({
   onBack,
   voiceReady,
@@ -46,10 +60,11 @@ export function SettingsPage({
 
   const bindPath = setup?.dataPaths.rumikModel ?? setup?.model.bindPath ?? "";
   const platform = setup?.system.platform ?? "win32";
+  const displayBindPath = portableBindPath(bindPath, platform);
   const downloadCommand =
     platform === "win32"
-      ? `pip install -U huggingface_hub && python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir=r'${(bindPath || "%APPDATA%\\\\opennbLM\\\\models\\\\rumik-oss-1").replace(/\\/g, "\\\\")}')"`
-      : `pip install -U huggingface_hub && python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir='${bindPath || "$HOME/.config/opennbLM/models/rumik-oss-1"}')"`;
+      ? `pip install -U huggingface_hub && python -c "import os; from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir=os.path.expandvars(r'${displayBindPath.replace(/\\/g, "\\\\")}'))"`
+      : `pip install -U huggingface_hub && python -c "import os; from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir=os.path.expanduser('${displayBindPath.replace(/\\/g, "/")}'))"`;
 
   const load = async () => {
     setRefreshing(true);
@@ -451,17 +466,21 @@ export function SettingsPage({
                   <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-ink-secondary">Bind path</div>
                   <div className="flex items-start gap-2">
                     <code className="min-w-0 flex-1 break-all rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-[11.5px] text-ink">
-                      {bindPath || "…/models/rumik-oss-1"}
+                      {displayBindPath}
                     </code>
                     <button
                       type="button"
-                      disabled={!bindPath}
-                      onClick={() => void copyText("path", bindPath)}
-                      className="shrink-0 rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-ink hover:bg-control/60 disabled:opacity-40"
+                      onClick={() => void copyText("path", displayBindPath)}
+                      className="shrink-0 rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-ink hover:bg-control/60"
                     >
                       {copied === "path" ? <Check size={14} /> : <Copy size={14} />}
                     </button>
                   </div>
+                  <p className="mt-1.5 text-[11.5px] text-ink-secondary/80">
+                    {platform === "win32"
+                      ? "%APPDATA% is your Windows user folder. It is different on every PC, so this path never includes a computer or account name."
+                      : "~ is your home folder. It is different on every computer."}
+                  </p>
                 </div>
 
                 <div>

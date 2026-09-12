@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, Menu, safeStorage, shell } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, Menu, nativeImage, safeStorage, shell } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chmodSync, existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
@@ -164,10 +164,18 @@ function extractLearnerMemory(conversationId: string, result: { plan: { topic: s
 }
 
 function resolveAppIcon(): string {
-  const packaged = join(process.resourcesPath, "icons", process.platform === "win32" ? "icon.ico" : "icon.png");
-  if (existsSync(packaged)) return packaged;
-  const nextToMain = join(__dirname, "../icon.png");
-  if (existsSync(nextToMain)) return nextToMain;
+  const names = process.platform === "win32" ? ["icon.ico", "icon.png"] : ["icon.png", "icon.ico"];
+  const dirs = [
+    join(process.resourcesPath, "icons"),
+    join(__dirname, ".."),
+    join(__dirname, "../../../packaging/icons"),
+  ];
+  for (const dir of dirs) {
+    for (const name of names) {
+      const candidate = join(dir, name);
+      if (existsSync(candidate)) return candidate;
+    }
+  }
   return join(__dirname, "../../../packaging/icons/icon.png");
 }
 
@@ -185,12 +193,14 @@ function resolveRumikBindPath(): string {
 }
 
 function createWindow(): void {
+  const iconPath = resolveAppIcon();
+  const iconImage = nativeImage.createFromPath(iconPath);
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 960,
     minHeight: 640,
-    icon: resolveAppIcon(),
+    icon: iconImage.isEmpty() ? iconPath : iconImage,
     show: false,
     ...windowChromeOptions(),
     webPreferences: {
@@ -200,6 +210,7 @@ function createWindow(): void {
       sandbox: true
     }
   });
+  if (!iconImage.isEmpty()) mainWindow.setIcon(iconImage);
 
   const rendererUrl = process.env.OPENNBLM_RENDERER_URL;
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
