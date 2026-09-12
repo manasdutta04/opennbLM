@@ -1030,3 +1030,15 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - Existing installs stay broken until they download a build produced after this change.
+
+## Auto-increment Windows releases — 2026-09-12
+
+### Completed
+
+- Pushing desktop changes to `main` now publishes a new GitHub Release (`v0.1.1`, `v0.1.2`, …) instead of rewriting `v0.1.0`.
+- The patch number comes from the highest existing `vX.Y.Z` tag. Tags are created, never moved.
+- `latest-windows` no longer rebuilds on every main push.
+
+### Limitations
+
+- Docs-only and `web/` commits do not cut a Windows release. The repo `package.json` version stays at the development value; GitHub tags are the release numbers.

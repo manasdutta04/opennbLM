@@ -1,11 +1,8 @@
 name: Continuous Windows pre-release
 
-# Rebuilds a moving "latest-windows" prerelease after each main push.
-# Versioned releases still come from Release Windows on v* tags.
+# Manual only. Automatic versioned installers come from Release Windows on main.
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -40,17 +37,8 @@ jobs:
           Get-ChildItem release -Filter *.exe | Copy-Item -Destination dist-upload/
           Get-ChildItem release -Filter *.yml | Copy-Item -Destination dist-upload/ -ErrorAction SilentlyContinue
 
-      - name: Publish latest-windows prerelease
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: pwsh
-        run: |
-          $files = @(Get-ChildItem dist-upload -File | ForEach-Object { $_.FullName })
-          if (-not $files) { throw "No installer files in dist-upload" }
-          gh release view latest-windows 2>$null | Out-Null
-          if ($LASTEXITCODE -eq 0) {
-            # Keep the tag where it is. Retargeting it conflicts with every local clone.
-            gh release upload latest-windows @files --clobber
-          } else {
-            gh release create latest-windows @files --title "Latest Windows (main)" --prerelease --generate-notes
-          }
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: opennbLM-windows-x64-prerelease
+          path: dist-upload/*

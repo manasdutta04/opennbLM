@@ -29,7 +29,7 @@ export default function DownloadPage() {
           </li>
         </ul>
         <p>
-          other builds, including the moving latest-windows prerelease from main, are on{" "}
+          older versioned builds are on{" "}
           <a href={LINKS.releases} target="_blank" rel="noreferrer">
             github releases
           </a>
