@@ -9,6 +9,7 @@
     "test": "node --test tests/rumik.test.mjs"
   },
   "dependencies": {
+    "@opennblm/contracts": "workspace:*",
     "@gradio/client": "^2.6.0"
   }
 }

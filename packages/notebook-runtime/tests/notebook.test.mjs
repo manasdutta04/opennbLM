@@ -70,13 +70,16 @@ test("podcast prompt encodes word budgets and teaching tone rules", () => {
   });
   assert.match(prompt, /300–400 words/);
   assert.match(prompt, /WORD LIMIT/);
-  assert.match(prompt, /COMPLETE sentences/);
+  assert.match(prompt, /COMPLETE sentence/);
   assert.match(prompt, /exam revision/);
   assert.match(prompt, /SpeakerName \[tone\]: dialogue/);
   assert.match(prompt, /excited, professional/);
   assert.match(prompt, /NEVER include <laugh>/);
   assert.match(prompt, /Default to excited/);
   assert.match(prompt, /STRUCTURE for The Brief/);
+  assert.match(prompt, /Do not transliterate Hindi into Latin letters/);
+  assert.match(prompt, /Devanagari|native/i);
+  assert.match(prompt, /12–16 spoken words/);
 });
 
 test("debate prompt assigns challenger vs advocate roles", () => {
@@ -163,6 +166,20 @@ test("sanitizeSpokenText strips markdown and removes laugh tags", () => {
 test("sanitizeSpokenText keeps short rebuttals", () => {
   const text = sanitizeSpokenText("I disagree.");
   assert.equal(text, "I disagree.");
+});
+
+test("utterancesFromPodcastTurns splits Indic danda sentences", () => {
+  const utterances = utterancesFromPodcastTurns([
+    {
+      speaker: "Ira",
+      tone: "excited",
+      text: "मशीन लर्निंग आँकड़ों में पैटर्न खोजती है। यह लेबल वाले उदाहरणों से सीखती है।",
+    },
+  ]);
+  assert.equal(utterances.length, 2);
+  assert.match(utterances[0].text, /पैटर्न/);
+  assert.match(utterances[1].text, /उदाहरणों/);
+  assert.ok(utterances.every((item) => /[।.!?]$/.test(item.text)));
 });
 
 test("utterancesFromPodcastTurns preserves tone per sentence", () => {

@@ -158,6 +158,9 @@ importers:
       '@gradio/client':
         specifier: ^2.6.0
         version: 2.6.0
+      '@opennblm/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/teaching-engine:
     dependencies:

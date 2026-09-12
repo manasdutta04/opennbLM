@@ -20,14 +20,11 @@ export type RumikPace = (typeof RUMIK_PACES)[number];
 const LANGUAGE_ACCENT: Record<string, RumikAccent> = {
   english: "Indian English accent",
   hindi: "Hindi accent",
-  bengali: "Bengali accent",
-  gujarati: "Indian English accent",
-  kannada: "Kannada accent",
-  malayalam: "Indian English accent",
-  marathi: "Indian English accent",
-  punjabi: "Punjabi accent",
-  tamil: "Tamil accent",
   telugu: "Telugu accent",
+  tamil: "Tamil accent",
+  kannada: "Kannada accent",
+  bengali: "Bengali accent",
+  punjabi: "Punjabi accent",
 };
 
 export function accentFromLanguage(language?: string): RumikAccent {

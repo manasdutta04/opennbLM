@@ -24,6 +24,8 @@ test("teaching prompt requires the selected answer language", async () => {
   await engine.teach({ question: "Tell me about supervised learning here.", language: "Bengali" });
   assert.match(String(provider.lastRequest.messages[0].content), /Bengali/);
   assert.match(String(provider.lastRequest.messages[0].content), /answer only in Bengali/i);
+  assert.match(String(provider.lastRequest.messages[0].content), /native script/i);
+  assert.match(String(provider.lastRequest.messages[0].content), /Do not transliterate Bengali into Latin letters/);
 });
 
 test("accepts a valid teaching plan and renders a natural response", async () => {

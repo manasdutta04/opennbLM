@@ -11,6 +11,19 @@ test("segmentation keeps one sentence per chunk", () => {
   assert.deepEqual(chunks, ["First idea ends here.", "Second idea follows next."]);
 });
 
+test("segmentation splits Indic danda sentences and caps Indic lines", () => {
+  const chunks = segmentForRumik(
+    "मशीन लर्निंग आँकड़ों में पैटर्न खोजती है। यह लेबल वाले उदाहरणों से सीखती है।",
+  );
+  assert.equal(chunks.length, 2);
+  assert.match(chunks[0], /पैटर्न/);
+  assert.match(chunks[1], /उदाहरणों/);
+  const long = Array.from({ length: 40 }, (_, i) => `शब्द${i}`).join(" ");
+  const capped = segmentForRumik(long, undefined, "Hindi");
+  assert.ok(capped.length > 1);
+  assert.ok(capped.every((item) => item.length <= 200));
+});
+
 test("segmentation splits oversized sentences on word boundaries", () => {
   const long = Array.from({ length: 80 }, (_, i) => `word${i}`).join(" ");
   const chunks = segmentForRumik(long, 120);
@@ -101,6 +114,9 @@ test("buildRumikDescription emits HF-canonical strings", () => {
     "excited, Hindi accent, fast pace",
   );
   assert.equal(accentFromLanguage("English"), "Indian English accent");
+  assert.equal(accentFromLanguage("Hindi"), "Hindi accent");
+  assert.equal(accentFromLanguage("Telugu"), "Telugu accent");
+  assert.equal(accentFromLanguage("Gujarati"), "Indian English accent");
   assert.equal(
     buildRumikDescription({ language: "English" }),
     "professional, Indian English accent, steady pace",

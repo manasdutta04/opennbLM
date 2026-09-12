@@ -21,16 +21,18 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type {
-  AudioOverviewFormat,
-  AudioOverviewLength,
-  InstanceInfo,
-  ModelSelection,
-  Notebook,
-  NotebookSource,
-  SourceContextLevel,
-  StudioArtifact,
-  StudioArtifactKind,
+import {
+  STUDIO_LANGUAGES,
+  isStudioLanguage,
+  type AudioOverviewFormat,
+  type AudioOverviewLength,
+  type InstanceInfo,
+  type ModelSelection,
+  type Notebook,
+  type NotebookSource,
+  type SourceContextLevel,
+  type StudioArtifact,
+  type StudioArtifactKind,
 } from "@opennblm/contracts";
 import { cn } from "../lib/cn";
 import { ModelPicker } from "./ModelPicker";
@@ -54,19 +56,6 @@ type ChatLine = {
 };
 
 type PendingGen = { id: string; label: string; sourceCount: number };
-
-const STUDIO_LANGUAGES = [
-  "English",
-  "Hindi",
-  "Bengali",
-  "Gujarati",
-  "Kannada",
-  "Malayalam",
-  "Marathi",
-  "Punjabi",
-  "Tamil",
-  "Telugu",
-];
 
 const STUDIO_TILES: Array<{
   kind: Exclude<StudioArtifactKind, "audio_overview" | "note"> | "audio_overview";
@@ -320,6 +309,7 @@ export function NotebookWorkspace({
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [studioLanguage, setStudioLanguage] = useState("English");
+  const spokenLanguage = isStudioLanguage(studioLanguage) ? studioLanguage : "English";
   const [audioOpen, setAudioOpen] = useState(false);
   const [audioFormat, setAudioFormat] = useState<AudioOverviewFormat>("deep_dive");
   const [audioLength, setAudioLength] = useState<AudioOverviewLength>("default");
@@ -375,7 +365,7 @@ export function NotebookWorkspace({
         learningTopic: notebook?.title || "Notebook chat",
         title: `${notebook?.title || "Notebook"} · chat`,
         notebookId,
-        language: studioLanguage,
+        language: spokenLanguage,
       });
       if (cancelled) return;
       setConversationId(created.id);
@@ -395,7 +385,7 @@ export function NotebookWorkspace({
     guideTimer.current = window.setTimeout(() => {
       setGuideLoading(true);
       void window.opennbLM.notebooks
-        .generateGuide(notebookId, { sourceIds: [...selectedIds], language: studioLanguage })
+        .generateGuide(notebookId, { sourceIds: [...selectedIds], language: spokenLanguage })
         .then((res) => {
           setGuide(res.text);
           if (res.title) {
@@ -414,7 +404,7 @@ export function NotebookWorkspace({
         .finally(() => setGuideLoading(false));
     }, 200);
     return () => window.clearTimeout(guideTimer.current);
-  }, [notebookId, selectedKey, brainReady, studioLanguage]);
+  }, [notebookId, selectedKey, brainReady, spokenLanguage]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -466,7 +456,7 @@ export function NotebookWorkspace({
         const response = await window.opennbLM.teaching.teach(conversationId, text, {
           notebookId,
           sourceIds: [...selectedIds],
-          language: studioLanguage,
+          language: spokenLanguage,
         });
         setChatLines((lines) => [
           ...lines,
@@ -500,7 +490,7 @@ export function NotebookWorkspace({
         await window.opennbLM.notebooks.createPodcast(notebookId, {
           format: audioFormat,
           length: audioLength,
-          language: studioLanguage,
+          language: spokenLanguage,
           sourceIds: [...selectedIds],
           focusPrompt: focusPrompt || undefined,
         });
@@ -517,7 +507,7 @@ export function NotebookWorkspace({
       try {
         await window.opennbLM.notebooks.generateArtifact(notebookId, kind, {
           sourceIds: [...selectedIds],
-          language: studioLanguage,
+          language: spokenLanguage,
           focusPrompt: focusPrompt || undefined,
         });
       } finally {
@@ -848,7 +838,7 @@ export function NotebookWorkspace({
                       onClick={() => setStudioLanguage(lang)}
                       className={cn(
                         "rounded-full px-2 py-0.5 text-[10.5px]",
-                        studioLanguage === lang ? "bg-white text-black" : "border border-hairline/40 text-ink-secondary",
+                        spokenLanguage === lang ? "bg-white text-black" : "border border-hairline/40 text-ink-secondary",
                       )}
                     >
                       {lang}
@@ -947,7 +937,7 @@ export function NotebookWorkspace({
                     <div className="min-w-0">
                       <div className="text-[13px] text-ink">{row.label}</div>
                       <div className="text-[11px] text-ink-secondary">
-                        based on {row.sourceCount} sources · {studioLanguage}
+                        based on {row.sourceCount} sources · {spokenLanguage}
                       </div>
                     </div>
                   </div>

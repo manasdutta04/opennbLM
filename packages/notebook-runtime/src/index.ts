@@ -1,10 +1,12 @@
 import type { NotebookStore } from "@opennblm/memory";
-import type {
-  AudioOverviewFormat,
-  AudioOverviewLength,
-  NotebookSource,
-  SourceKind,
-  StudioArtifactKind,
+import {
+  SPOKEN_SENTENCE_END,
+  splitSpokenSentences,
+  type AudioOverviewFormat,
+  type AudioOverviewLength,
+  type NotebookSource,
+  type SourceKind,
+  type StudioArtifactKind,
 } from "@opennblm/contracts";
 import { chunkText, extractPlainText, fetchUrlText } from "./ingest.js";
 
@@ -241,8 +243,8 @@ export function sanitizeSpokenText(raw: string): string {
   const words = text.split(/\s+/).filter(Boolean);
   // Allow short complete rebuttals ("I disagree.") while dropping telegraphic junk.
   if (words.length < 2) return "";
-  if (!/[.!?。！？]$/.test(text)) {
-    text = `${text.replace(/[.!?。！？]*$/, "")}.`;
+  if (!SPOKEN_SENTENCE_END.test(text)) {
+    text = `${text.replace(/[.!?。！？।॥]*$/, "")}.`;
   }
   return text;
 }
@@ -253,7 +255,7 @@ export function utterancesFromPodcastTurns(turns: PodcastTurn[]): PodcastTurn[] 
   for (const turn of turns) {
     const cleaned = sanitizeSpokenText(turn.text);
     if (!cleaned) continue;
-    const parts = cleaned.split(/(?<=[.!?。！？])\s+/u).map((s) => s.trim()).filter(Boolean);
+    const parts = splitSpokenSentences(cleaned);
     for (const sentence of parts.length ? parts : [cleaned]) {
       const text = sanitizeSpokenText(sentence);
       if (text) out.push({ speaker: turn.speaker, text, tone: normalizeLineTone(turn.tone) });
@@ -454,8 +456,14 @@ export function buildPodcastScriptPrompt(
     debate: `The Debate: ${a} (Challenger) questions and presses; ${b} (Advocate) answers and defends. It must feel like a real educational debate with clash and a clear wrap — not two people politely summarizing the same notes.`,
   };
 
-  const turnHint =
-    format === "debate"
+  const indic = language.trim().toLowerCase() !== "english";
+  const turnHint = indic
+    ? format === "debate"
+      ? `- Use ${Math.max(10, Math.round(budget.maxLines * 0.7))}–${budget.maxLines} short dialogue turns (question / answer rhythm).
+- Each turn: 1 COMPLETE sentence. Each sentence 12–16 spoken words.`
+      : `- Use ${Math.max(6, Math.round(budget.maxLines * 0.55))}–${budget.maxLines} dialogue turns.
+- Each turn: 1 COMPLETE sentence. Each sentence 12–16 spoken words.`
+    : format === "debate"
       ? `- Use ${Math.max(10, Math.round(budget.maxLines * 0.7))}–${budget.maxLines} short dialogue turns (question / answer rhythm).
 - Each turn: usually 1 COMPLETE sentence (2 max). Each sentence under 24 words.`
       : `- Use ${Math.max(6, Math.round(budget.maxLines * 0.55))}–${budget.maxLines} dialogue turns.
@@ -495,7 +503,8 @@ SpeakerName [tone]: dialogue
 WORD LIMIT (hard requirement — count spoken words only):
 - Write between ${budget.min} and ${budget.max} words total (${budget.label}).
 ${turnHint}
-- Every line MUST end with . ! or ?
+
+${spokenScriptRules(language)}
 
 SPEAKABILITY RULES (non-negotiable):
 ${speakRules}
@@ -503,6 +512,32 @@ ${focus}
 
 SOURCES:
 ${material.slice(0, length === "shorter" ? 8000 : length === "longer" ? 14000 : 11000)}`;
+}
+
+const INDIC_SCRIPTS: Record<string, string> = {
+  hindi: "Devanagari (हिन्दी)",
+  telugu: "Telugu script (తెలుగు)",
+  tamil: "Tamil script (தமிழ்)",
+  kannada: "Kannada script (ಕನ್ನಡ)",
+  bengali: "Bengali script (বাংলা)",
+  punjabi: "Gurmukhi (ਪੰਜਾਬੀ)",
+};
+
+function spokenScriptRules(language: string): string {
+  const lang = language.trim() || "English";
+  if (lang.toLowerCase() === "english") {
+    return `LANGUAGE (English):
+- Write the dialogue in English using Latin letters.
+- Everyday classroom speech — short complete thoughts, not a lecture transcript.
+- Every line MUST end with . ! or ?`;
+  }
+  const script = INDIC_SCRIPTS[lang.toLowerCase()] || `the native ${lang} script`;
+  return `LANGUAGE (${lang}):
+- Write EVERY spoken word in ${lang} using ${script}. Do not transliterate ${lang} into Latin letters.
+- Classroom speech: short complete thoughts, everyday words — not a translated textbook.
+- You may keep widely used English terms (machine learning, data) inside a ${lang} sentence.
+- Never pack a paragraph into one line.
+- End sentences with . ! ? or Indic danda ।`;
 }
 
 function jsonLanguageRules(language: string): string {

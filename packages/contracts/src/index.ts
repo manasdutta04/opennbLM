@@ -188,6 +188,32 @@ export type RumikAccent =
   | "Indian English accent";
 export type RumikPace = "slow pace" | "fast pace" | "steady pace";
 
+/** Studio + Rumik languages with official rumik-oss-1 accents. */
+export const STUDIO_LANGUAGES = [
+  "English",
+  "Hindi",
+  "Bengali",
+  "Telugu",
+  "Tamil",
+  "Kannada",
+  "Punjabi",
+] as const;
+export type StudioLanguage = (typeof STUDIO_LANGUAGES)[number];
+
+export function isStudioLanguage(value: string): value is StudioLanguage {
+  return (STUDIO_LANGUAGES as readonly string[]).includes(value);
+}
+
+/** Split on Western punctuation (space required after) or Indic danda. */
+export const SPOKEN_SENTENCE_SPLIT = /(?<=[.!?。！？])\s+|(?<=[।॥])\s*/u;
+export const SPOKEN_SENTENCE_END = /[.!?。！？।॥]$/u;
+
+export function splitSpokenSentences(text: string): string[] {
+  const normalized = String(text || "").replace(/\s+/g, " ").trim();
+  if (!normalized) return [];
+  return normalized.split(SPOKEN_SENTENCE_SPLIT).map((part) => part.trim()).filter(Boolean);
+}
+
 export interface Notebook {
   id: string;
   title: string;

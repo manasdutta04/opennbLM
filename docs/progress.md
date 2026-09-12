@@ -912,6 +912,21 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 - Text wrapping avoids breaking Indic scripts. Studio tiles keep full labels instead of jamming words.
 - Generated list and the open artifact footer show the Studio language used (`1 source · today · Kannada`).
 
+## Seven-language Audio Overview — 2026-09-12
+
+### Completed
+
+- Studio language picker is now the seven rumik-oss-1 delivery languages: English, Hindi, Telugu, Tamil, Kannada, Bengali, Punjabi.
+- Audio Overview scripts must use native script (no Latin transliteration), short spoken lines, and matching Rumik accents. Indic sentences split on danda `।` and stay under a 200-character segment cap.
+
+### Verification
+
+- notebook-runtime, rumik-runtime, and teaching-engine tests (this session). Existing Audio Overviews stay as recorded until regenerated.
+
+### Limitations
+
+- Live Rumik quality across all six Indic languages was not certified in this pass. English behavior is unchanged.
+
 ### Verification
 
 - Renderer rebuild (this session). Existing artifacts pick up the new views immediately.

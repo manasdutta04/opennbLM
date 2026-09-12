@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn, spawnSync, ChildProcess } from "node:child_process";
+import { splitSpokenSentences } from "@opennblm/contracts";
 import { detectCudaAvailable } from "./cuda.js";
 import { DEFAULT_REMOTE_ENDPOINT, synthesizeRemoteSegment } from "./remote.js";
 export { concatWavFiles } from "./wav.js";
@@ -184,14 +185,27 @@ function splitOversizedSentence(sentence: string, maxCharacters: number): string
   return parts;
 }
 
-export function segmentForRumik(text: string, maxCharacters = 420): string[] {
+const INDIC_SCRIPT = /[\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0B80-\u0BFF\u0C00-\u0C7F]/u;
+const ENGLISH_SEGMENT_CHARS = 420;
+const INDIC_SEGMENT_CHARS = 200;
+
+export function rumikSegmentLimit(text: string, language?: string, maxCharacters?: number): number {
+  if (typeof maxCharacters === "number" && maxCharacters > 0) return maxCharacters;
+  const lang = (language || "").trim().toLowerCase();
+  if (lang && lang !== "english") return INDIC_SEGMENT_CHARS;
+  if (INDIC_SCRIPT.test(text)) return INDIC_SEGMENT_CHARS;
+  return ENGLISH_SEGMENT_CHARS;
+}
+
+export function segmentForRumik(text: string, maxCharacters?: number, language?: string): string[] {
   const normalized = text.replace(/\s+/g, " ").trim();
   if (!normalized) return [];
+  const limit = rumikSegmentLimit(normalized, language, maxCharacters);
   // One Rumik generation per sentence — packing sentences caused unfinished speech then abrupt jumps.
-  const sentences = normalized.split(/(?<=[.!?。！？])\s+/u).filter(Boolean);
+  const sentences = splitSpokenSentences(normalized);
   const chunks: string[] = [];
   for (const sentence of sentences.length ? sentences : [normalized]) {
-    for (const piece of splitOversizedSentence(sentence, maxCharacters)) {
+    for (const piece of splitOversizedSentence(sentence, limit)) {
       chunks.push(piece);
     }
   }
@@ -612,7 +626,7 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
         const config = { ...defaultConfig, ...override };
         const broadcast = config.broadcast !== false;
         const results: RumikAudioSegment[] = [];
-        const segments = segmentForRumik(text);
+        const segments = segmentForRumik(text, undefined, config.language);
         for (let index = 0; index < segments.length; index += 1) {
           if (cancelRequested) throw new Error("Rumik synthesis cancelled");
           const segment = segments[index]!;
