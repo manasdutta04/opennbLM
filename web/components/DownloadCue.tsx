@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { resolveLatestWindowsInstaller } from "@/lib/latest-download";
 import { LINKS } from "@/lib/links";
 
 export function DownloadCue({
@@ -13,12 +14,23 @@ export function DownloadCue({
   mobileLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [href, setHref] = useState<string>(LINKS.download);
+
+  useEffect(() => {
+    let cancelled = false;
+    void resolveLatestWindowsInstaller().then((url) => {
+      if (!cancelled) setHref(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <>
       <a
         className={className}
-        href={LINKS.download}
+        href={href}
         onClick={() => setOpen(true)}
       >
         <span className="download-label">

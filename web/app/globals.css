@@ -137,7 +137,7 @@ input {
   display: grid;
   align-items: start;
   gap: clamp(1.5rem, 3vw, 3.25rem);
-  grid-template-columns: minmax(240px, 1.45fr) repeat(3, minmax(130px, .85fr)) minmax(260px, 1.25fr);
+  grid-template-columns: minmax(240px, 1.45fr) repeat(3, minmax(130px, .85fr)) minmax(300px, 1.25fr);
 }
 
 .brand-lockup {
@@ -237,20 +237,21 @@ input {
 }
 
 .download-row {
-  display: flex;
+  display: inline-flex;
   flex-direction: row;
   align-items: stretch;
-  width: 100%;
-  max-width: 380px;
+  width: max-content;
+  max-width: 100%;
   border: 1px solid var(--ink);
   background: rgba(255, 255, 255, .4);
 }
 
 .download-row span:first-child,
 .download-label {
-  flex: 1;
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: max-content;
   padding: .95rem 1.05rem;
+  white-space: nowrap;
 }
 
 .download-label-mobile,
@@ -1451,6 +1452,17 @@ input {
 
   .aside-lede {
     display: none;
+  }
+
+  .download-row {
+    display: flex;
+    width: 100%;
+    max-width: none;
+  }
+
+  .download-label {
+    flex: 1;
+    min-width: 0;
   }
 
   .download-label-desktop {

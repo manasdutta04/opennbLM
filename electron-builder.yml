@@ -77,7 +77,7 @@ extraResources:
     to: rumik
     filter:
       - '**/*'
-artifactName: opennbLM-${version}-${os}-${arch}.${ext}
+artifactName: opennbLM-${os}-${arch}.${ext}
 nsis:
   oneClick: false
   perMachine: false

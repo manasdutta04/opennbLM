@@ -8,10 +8,10 @@ export default function DownloadPage() {
       <article className="doc">
         <h1 className="page-title">windows installer</h1>
         <p className="lede">
-          the current release is opennbLM 0.1.0 for windows x64. ci builds the nsis package when a version tag is pushed.
+          this page always offers the latest windows x64 installer from github releases.
         </p>
         <p>
-          <DownloadCue className="download-row" label="opennbLM-0.1.0-win-x64.exe" />
+          <DownloadCue className="download-row" />
         </p>
         <h2>after install</h2>
         <ol>

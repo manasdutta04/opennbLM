@@ -986,3 +986,14 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - A new Release Windows run is required before installed copies pick this up. Existing 0.1.0 installs stay broken until they reinstall.
+
+## Latest Windows download — 2026-09-12
+
+### Completed
+
+- Desktop download control keeps “download for windows” on one line.
+- The button resolves the latest GitHub release `.exe` and starts that download. New installers publish as `opennbLM-win-x64.exe` so `/releases/latest/download/` stays stable.
+
+### Limitations
+
+- Until a release publishes the unversioned filename, the site uses the GitHub API to find the current `.exe`. `/releases/latest` ignores prereleases such as `latest-windows`.
