@@ -4,6 +4,7 @@ release/
 .vite/
 .next/
 out/
+*.tsbuildinfo
 *.log
 *.db
 *.db-shm

@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "pnpm --filter @opennblm/renderer dev",
     "build": "pnpm typecheck && pnpm --filter @opennblm/renderer build && pnpm --filter @opennblm/preload build && pnpm --filter @opennblm/desktop build",
-    "typecheck": "tsc --build",
+    "typecheck": "tsc --build --force",
     "desktop:start": "pnpm --filter @opennblm/desktop start",
     "package": "pnpm build && electron-builder --config electron-builder.yml --publish never",
     "package:win": "pnpm build && electron-builder --config electron-builder.yml --win nsis --x64 --publish never",

@@ -807,3 +807,10 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 
 - First Windows GitHub Release appears after a successful Actions run (tag push or workflow_dispatch) with repo write permissions.
 - Landing Download opens `/releases/latest`; until a non-prerelease exists, point users at the `latest-windows` prerelease or create `v0.1.0`.
+
+## Clean CI typecheck for Windows release — 2026-09-12
+
+### Completed
+
+- Stopped tracking `*.tsbuildinfo` (they made `tsc --build` skip emit on clean CI, so workspace packages had JS or nothing and no `.d.ts`).
+- `pnpm typecheck` now runs `tsc --build --force` so GitHub Actions always rebuilds declarations before packaging.
