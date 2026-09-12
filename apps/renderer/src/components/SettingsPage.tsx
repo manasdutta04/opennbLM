@@ -10,6 +10,8 @@ import {
   Volume2,
   Sparkles,
   Cpu,
+  Cloud,
+  HardDrive,
 } from "lucide-react";
 import type { SetupStatus } from "@opennblm/contracts";
 import { cn } from "../lib/cn";
@@ -38,6 +40,7 @@ export function SettingsPage({
   const [rumikError, setRumikError] = useState<string | undefined>();
   const [copied, setCopied] = useState<"path" | "command" | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [switchingMode, setSwitchingMode] = useState(false);
 
   const bindPath = setup?.dataPaths.rumikModel ?? setup?.model.bindPath ?? "";
   const platform = setup?.system.platform ?? "win32";
@@ -65,6 +68,21 @@ export function SettingsPage({
   useEffect(() => {
     void load();
   }, []);
+
+  const preferredVoice = setup?.rumik?.preferredMode ?? setup?.rumik?.mode ?? "remote";
+
+  const setVoiceMode = async (mode: "local" | "remote") => {
+    if (switchingMode) return;
+    setSwitchingMode(true);
+    try {
+      await window.opennbLM.rumik.setMode(mode);
+      await load();
+    } catch (error) {
+      setRumikError(error instanceof Error ? error.message : "Could not switch voice mode");
+    } finally {
+      setSwitchingMode(false);
+    }
+  };
 
   const copyText = async (kind: "path" | "command", value: string) => {
     try {
@@ -161,17 +179,17 @@ export function SettingsPage({
                     <span className={cn("flex size-6 items-center justify-center rounded-full text-[12px]", voiceReady ? "bg-success/20 text-success" : "bg-white text-black")}>
                       {voiceReady ? <Check size={14} /> : "3"}
                     </span>
-                    Optional: install Rumik for local voice
+                    Optional: choose a voice engine
                   </div>
                   <p className="mt-2">
-                    Audio Overview can use remote Rumik fallback without installing anything. For unlimited local voice on NVIDIA CUDA, follow the Voice engine tab.
+                    In Voice engine, pick remote (HTTPS public Space, no install) or local (NVIDIA CUDA + weights on this PC).
                   </p>
                   <button
                     type="button"
                     className="mt-3 rounded-full border border-hairline/40 px-3 py-1.5 text-[12.5px] text-ink hover:bg-raised"
                     onClick={() => setTab("voice")}
                   >
-                    Open voice install steps
+                    Open voice engine
                   </button>
                 </li>
               </ol>
@@ -180,7 +198,7 @@ export function SettingsPage({
                 <div className="font-medium text-ink">Status</div>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   <StatusPill ok={brainReady} label="Teaching brain" detail={brainReady ? "Connected" : "Not connected"} />
-                  <StatusPill ok={voiceReady} label="Voice" detail={voiceReady ? "Ready" : setup?.rumik?.mode === "remote" ? "Remote fallback available" : "Optional"} />
+                  <StatusPill ok={voiceReady} label="Voice" detail={voiceReady ? (setup?.rumik?.mode === "remote" ? "Remote ready" : "Local ready") : "Not connected"} />
                 </div>
               </div>
             </div>
@@ -242,7 +260,7 @@ export function SettingsPage({
                       setup?.rumik?.mode === "remote" ? "border-accent/30 text-accent-text" : "border-hairline/40 text-ink-secondary",
                     )}
                   >
-                    {setup?.rumik?.mode === "remote" ? "Remote fallback" : "Local"}
+                    {setup?.rumik?.mode === "remote" ? "Remote" : "Local"}
                   </span>
                   <span className={cn("rounded-full border px-2.5 py-1 text-[11.5px]", voiceReady ? "border-success/30 text-success" : "border-warning/30 text-warning")}>
                     {voiceReady ? "Ready" : "Not connected"}
@@ -256,19 +274,49 @@ export function SettingsPage({
                 </div>
               ) : null}
 
-              <div className="mt-4 space-y-2 rounded-xl border border-hairline/35 bg-inset/50 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
-                <div className="text-[13px] font-medium text-ink">What you can do</div>
-                <ul className="list-disc space-y-1.5 pl-4">
-                  <li>
-                    <span className="text-ink">Do nothing</span> — Audio Overview can still try the public rumik-ai Space (best-effort quota).
-                  </li>
-                  <li>
-                    <span className="text-ink">Install local CUDA</span> — unlimited on-device voice after one model download (preferred).
-                  </li>
-                  <li>
-                    Text teaching / Studio without voice still works when Rumik is offline.
-                  </li>
-                </ul>
+              <div className="mt-4">
+                <div className="text-[13px] font-medium text-ink">How should voice connect?</div>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-ink-secondary">
+                  Pick one. Remote uses the public rumik-ai Space over HTTPS. Local runs Rumik on this PC.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    disabled={switchingMode}
+                    onClick={() => void setVoiceMode("remote")}
+                    className={cn(
+                      "rounded-xl border px-3 py-3 text-left transition-colors disabled:opacity-60",
+                      preferredVoice === "remote"
+                        ? "border-accent/40 bg-accent/10"
+                        : "border-hairline/35 bg-inset/40 hover:bg-control/40",
+                    )}
+                  >
+                    <div className="flex items-center gap-2 text-[13px] font-medium text-ink">
+                      <Cloud size={15} /> Remote (HTTPS)
+                    </div>
+                    <p className="mt-1.5 text-[12px] leading-relaxed text-ink-secondary">
+                      Public Space. Works after the .exe install. No GPU or weights.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={switchingMode}
+                    onClick={() => void setVoiceMode("local")}
+                    className={cn(
+                      "rounded-xl border px-3 py-3 text-left transition-colors disabled:opacity-60",
+                      preferredVoice === "local"
+                        ? "border-accent/40 bg-accent/10"
+                        : "border-hairline/35 bg-inset/40 hover:bg-control/40",
+                    )}
+                  >
+                    <div className="flex items-center gap-2 text-[13px] font-medium text-ink">
+                      <HardDrive size={15} /> Local (this PC)
+                    </div>
+                    <p className="mt-1.5 text-[12px] leading-relaxed text-ink-secondary">
+                      NVIDIA CUDA + rumik-oss-1 weights on this machine.
+                    </p>
+                  </button>
+                </div>
               </div>
 
               <div className="mt-3 grid gap-2 text-[12.5px] text-ink-secondary sm:grid-cols-2">
@@ -279,24 +327,24 @@ export function SettingsPage({
                   <div className="mt-1">{setup?.rumik?.cudaAvailable ? "Detected" : "Not available"}</div>
                   <div className="mt-1 text-[11.5px] opacity-90">
                     {setup?.rumik?.cudaAvailable
-                      ? "Local path preferred when weights are installed."
-                      : "Needs an NVIDIA GPU. Remote fallback can still speak."}
+                      ? "Ready if you switch to local and bind weights."
+                      : "Needed only for local voice. Remote does not use a GPU."}
                   </div>
                 </div>
                 <div className={cn("rounded-xl border px-3 py-2", setup?.runtime.available ? "border-success/25 bg-success/5" : "border-warning/25 bg-warning/5")}>
-                  <div className="font-medium text-ink">{setup?.rumik?.mode === "remote" ? "Hosted endpoint" : "Python runtime"}</div>
+                  <div className="font-medium text-ink">{preferredVoice === "remote" ? "Hosted endpoint" : "Python runtime"}</div>
                   <div className="mt-1">{setup?.runtime.available ? "Ready" : "Missing"}</div>
                   {setup?.runtime.detail ? <div className="mt-1 text-[11.5px] opacity-90">{setup.runtime.detail}</div> : null}
                 </div>
               </div>
 
-              {setup?.rumik?.mode === "remote" ? (
+              {preferredVoice === "remote" ? (
                 <div className="mt-4 space-y-2 rounded-xl border border-accent/25 bg-accent/5 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
-                  <div className="text-[13px] font-medium text-ink">Currently on remote fallback</div>
+                  <div className="text-[13px] font-medium text-ink">Remote is selected</div>
                   <p>
-                    Voice is produced by the public rumik-ai ZeroGPU Space over HTTPS. This is not local Mac/CPU inference.
+                    Audio Overview calls this HTTPS Space from the desktop app. You do not clone the repo. This is not on-device inference. Chat and other Studio tools still work if the Space is at quota.
                   </p>
-                  {setup.rumik.remoteEndpoint ? (
+                  {setup?.rumik?.remoteEndpoint ? (
                     <code className="block break-all rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-[11.5px] text-ink">
                       {setup.rumik.remoteEndpoint}
                     </code>
@@ -304,6 +352,7 @@ export function SettingsPage({
                 </div>
               ) : null}
 
+              {preferredVoice === "local" ? (
               <div className="mt-4 space-y-3 rounded-xl border border-hairline/35 bg-inset/60 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
                 <div className="text-[13px] font-medium text-ink">Install local Rumik (Windows CUDA)</div>
                 <ol className="list-decimal space-y-2 pl-4">
@@ -384,6 +433,7 @@ export function SettingsPage({
                   <code className="rounded bg-raised px-1 text-[11px] text-ink">RUMIK_LOW_VRAM</code>.
                 </p>
               </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -402,7 +452,7 @@ export function SettingsPage({
               <div className="rounded-xl border border-hairline/35 px-4 py-3 text-[12.5px] leading-relaxed text-ink-secondary">
                 <div className="text-[14px] font-medium text-ink">Privacy</div>
                 <p className="mt-1.5">
-                  Notebooks, sources, notes, chats, and learner memory stay in this app’s local data folder. Cloud is used only when you choose a cloud teaching brain or Rumik remote voice fallback.
+                  Notebooks, sources, notes, chats, and learner memory stay in this app’s local data folder. Cloud is used only when you choose a cloud teaching brain or Remote (HTTPS) voice.
                 </p>
               </div>
             </div>

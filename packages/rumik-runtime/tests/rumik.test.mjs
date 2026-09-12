@@ -31,6 +31,21 @@ test("forced local mode reports missing runtime without synthesis success", asyn
   assert.equal(manager.getMode(), "local");
 });
 
+test("setPreferredMode switches between remote and local", async () => {
+  const manager = createRumikManager({
+    pythonPath: "opennblm-python-does-not-exist",
+    modelPath: "missing-model",
+    outputDirectory: "temp-audio",
+  });
+  manager.setPreferredMode("local");
+  assert.equal(manager.getMode(), "local");
+  assert.equal(manager.getStatus().preferredMode, "local");
+  manager.setPreferredMode("remote");
+  assert.equal(manager.getMode(), "remote");
+  assert.equal(manager.getStatus().preferredMode, "remote");
+  assert.equal(manager.getStatus().runtimeAvailable, true);
+});
+
 test("without CUDA preference, default mode is remote reachability fallback", async () => {
   const manager = createRumikManager({
     pythonPath: "opennblm-python-does-not-exist",

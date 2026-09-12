@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "opennbLM — local-first learning companion",
-  description:
-    "A native Windows learning companion with notebooks, Studio tools, and Rumik voice. Local-first, voice-first, grounded in your sources.",
+  title: "opennbLM — windows study app",
+  description: "study your own files in a notebook. ask a model you already use. studio can speak, map, or quiz that material.",
   icons: { icon: "/icon.png" },
 };
 

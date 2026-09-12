@@ -18,17 +18,17 @@ export function SiteFooterBar() {
   return (
     <div className="footer-bottom">
       <div className="socials">
-        <a href={LINKS.repo} aria-label="GitHub" target="_blank" rel="noreferrer">
+        <a href={LINKS.repo} aria-label="github" target="_blank" rel="noreferrer">
           <GitHubIcon />
         </a>
-        <a href={LINKS.twitter} aria-label="Twitter" target="_blank" rel="noreferrer">
+        <a href={LINKS.twitter} aria-label="twitter" target="_blank" rel="noreferrer">
           <TwitterIcon />
         </a>
       </div>
-      <nav className="legal" aria-label="Legal">
-        <Link href="/privacy">Privacy</Link>
-        <Link href="/terms">Terms</Link>
-        <Link href="/docs">Docs</Link>
+      <nav className="legal" aria-label="legal">
+        <Link href="/privacy">privacy</Link>
+        <Link href="/terms">terms</Link>
+        <Link href="/docs">docs</Link>
       </nav>
     </div>
   );

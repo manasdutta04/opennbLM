@@ -44,6 +44,7 @@ export interface RumikStatus {
   modelRevision: string;
   sampleRate: 24000;
   mode: RumikMode;
+  preferredMode?: RumikMode;
   cudaAvailable: boolean;
   remoteEndpoint?: string;
   error?: string;
@@ -66,6 +67,7 @@ export interface RumikManager {
   detectCuda(): Promise<boolean>;
   getStatus(): RumikStatus;
   getMode(): RumikMode;
+  setPreferredMode(mode: RumikMode): void;
   start(): Promise<void>;
   stop(): Promise<void>;
   healthCheck(): Promise<boolean>;
@@ -215,8 +217,9 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
     resolve(join(dirname(fileURLToPath(import.meta.url)), "../runtime/rumik_runner.py"));
 
   let cudaAvailable = detectCudaAvailable(python);
+  let preferredMode = options.preferredMode;
   let mode: RumikMode = resolveMode(
-    options.preferredMode,
+    preferredMode,
     cudaAvailable,
     Boolean(options.modelPath && existsSync(options.modelPath)),
   );
@@ -229,6 +232,7 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
     modelRevision: RUMIK_MODEL_REVISION,
     sampleRate: 24000,
     mode,
+    preferredMode,
     cudaAvailable,
     remoteEndpoint: mode === "remote" ? remoteEndpoint : undefined,
   };
@@ -251,13 +255,14 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
 
   const refreshMode = () => {
     mode = resolveMode(
-      options.preferredMode,
+      preferredMode,
       cudaAvailable,
       Boolean(options.modelPath && existsSync(options.modelPath)),
     );
     status = {
       ...status,
       mode,
+      preferredMode,
       cudaAvailable,
       remoteEndpoint: mode === "remote" ? remoteEndpoint : undefined,
     };
@@ -507,6 +512,21 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
     detectCuda,
     getStatus: () => ({ ...status }),
     getMode: () => mode,
+    setPreferredMode(next) {
+      preferredMode = next;
+      if (next === "remote") killWorker();
+      refreshMode();
+      if (mode === "remote") {
+        status = {
+          ...status,
+          state: "idle",
+          runtimeAvailable: true,
+          modelAvailable: true,
+          error: undefined,
+        };
+      }
+      emitState();
+    },
     onSegmentReady(listener) {
       segmentListeners.add(listener);
       return () => segmentListeners.delete(listener);

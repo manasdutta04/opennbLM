@@ -1,7 +1,7 @@
 import { app, BrowserWindow, clipboard, ipcMain, Menu, shell } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { arch, freemem, homedir, platform } from "node:os";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
@@ -72,9 +72,7 @@ async function getSetupStatus() {
       source: mode === "remote" ? "remote" : existsSync(bundledPython) ? "bundled" : runtimeAvailable ? "system" : "unavailable",
       detail:
         mode === "remote"
-          ? rumikStatus.cudaAvailable
-            ? "CUDA detected, but local Rumik weights are not bound — using hosted voice fallback (not local inference)."
-            : "No NVIDIA CUDA — using hosted Rumik voice fallback (not local inference)."
+          ? "Remote (HTTPS) is selected — using the public rumik-ai Space."
           : runtimeAvailable
             ? undefined
             : "Install Python 3 on PATH, or set RUMIK_PYTHON to a CUDA-capable interpreter.",
@@ -86,9 +84,7 @@ async function getSetupStatus() {
       bindPath,
       detail:
         mode === "remote"
-          ? rumikStatus.cudaAvailable
-            ? `Bind official weights at ${bindPath} to use local inference. Until then, voice uses the public rumik-ai Space.`
-            : "Remote mode uses the public rumik-ai ZeroGPU Space; local weights are optional."
+          ? "The built-in HTTPS Space is the voice host. Switch to Local if you want inference on this PC."
           : modelAvailable
             ? undefined
             : `Download rumik-ai/rumik-oss-1 into ${bindPath} (or set RUMIK_MODEL_PATH).`,
@@ -98,10 +94,29 @@ async function getSetupStatus() {
     dataPaths: { userData: app.getPath("userData"), logs: app.getPath("logs"), resources: packagedResources, rumikModel: bindPath },
     rumik: {
       mode,
+      preferredMode: rumikStatus.preferredMode ?? mode,
       cudaAvailable: rumikStatus.cudaAvailable,
       remoteEndpoint: rumikStatus.remoteEndpoint,
     },
   };
+}
+
+function rumikPreferencePath() {
+  return join(app.getPath("userData"), "rumik-preference.json");
+}
+
+function loadRumikPreferredMode(): "local" | "remote" {
+  try {
+    const raw = JSON.parse(readFileSync(rumikPreferencePath(), "utf8")) as { mode?: string };
+    if (raw.mode === "local" || raw.mode === "remote") return raw.mode;
+  } catch {
+    /* first run */
+  }
+  return "remote";
+}
+
+function saveRumikPreferredMode(mode: "local" | "remote") {
+  writeFileSync(rumikPreferencePath(), JSON.stringify({ mode }));
 }
 
 function learnerContext(memory: LearnerMemory[]): string { return memory.slice(0, 12).map((item) => `${item.kind}: ${item.key} — ${item.value}`).join("; "); }
@@ -154,6 +169,7 @@ app.whenReady().then(async () => {
     pythonPath: resolveRumikPython(bundledPython),
     modelPath: process.env.RUMIK_MODEL_PATH || (existsSync(bundledModel) ? bundledModel : join(app.getPath("userData"), "models", "rumik-oss-1")),
     outputDirectory: rumikOutput,
+    preferredMode: loadRumikPreferredMode(),
   });
   await rumik.healthCheck().catch(() => false);
   rumik.onSegmentReady((segment) => {
@@ -203,6 +219,13 @@ app.whenReady().then(async () => {
     popupApplicationSubmenu(win, label, x, y);
   });
   ipcMain.handle("rumik:status", () => rumik!.getStatus());
+  ipcMain.handle("rumik:set-mode", async (_event, mode: unknown) => {
+    if (mode !== "local" && mode !== "remote") throw new Error("Choose remote or local for the voice engine.");
+    saveRumikPreferredMode(mode);
+    rumik!.setPreferredMode(mode);
+    await rumik!.start().catch(() => undefined);
+    return rumik!.getStatus();
+  });
   ipcMain.handle("rumik:start", () => rumik!.start());
   ipcMain.handle("rumik:stop", () => rumik!.stop());
   ipcMain.handle("rumik:health", () => rumik!.healthCheck());

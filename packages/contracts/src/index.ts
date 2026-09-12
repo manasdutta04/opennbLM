@@ -24,6 +24,7 @@ export interface SetupStatus {
   dataPaths: { userData: string; logs: string; resources: string; rumikModel: string };
   rumik?: {
     mode: "local" | "remote";
+    preferredMode: "local" | "remote";
     cudaAvailable: boolean;
     remoteEndpoint?: string;
   };
@@ -124,13 +125,14 @@ export interface RumikStatus {
   modelRevision: string;
   sampleRate: number;
   mode?: "local" | "remote";
+  preferredMode?: "local" | "remote";
   cudaAvailable?: boolean;
   remoteEndpoint?: string;
   error?: string;
 }
 export interface RumikConfig { speaker: "Ira" | "Aisha" | "Siya" | "Zoya"; temperature: number; topK: number; maxTokens: number; deliveryDescription: string; language: string; broadcast?: boolean; }
 export interface RumikSegment { id: string; text: string; wavPath: string; }
-export interface RumikApi { getStatus(): Promise<RumikStatus>; start(): Promise<void>; stop(): Promise<void>; healthCheck(): Promise<boolean>; synthesize(text: string, config?: Partial<RumikConfig>): Promise<{ segments: RumikSegment[] }>; cancel(): Promise<void>; getVoices(): Promise<readonly string[]>; onSegmentReady(listener: (segment: RumikSegment) => void): () => void; onStateChange(listener: (status: RumikStatus) => void): () => void; }
+export interface RumikApi { getStatus(): Promise<RumikStatus>; setMode(mode: "local" | "remote"): Promise<RumikStatus>; start(): Promise<void>; stop(): Promise<void>; healthCheck(): Promise<boolean>; synthesize(text: string, config?: Partial<RumikConfig>): Promise<{ segments: RumikSegment[] }>; cancel(): Promise<void>; getVoices(): Promise<readonly string[]>; onSegmentReady(listener: (segment: RumikSegment) => void): () => void; onStateChange(listener: (status: RumikStatus) => void): () => void; }
 export type TeachingStyle = "teacher" | "friend" | "10-year-old" | "story" | "simple" | "technical" | "hype";
 export interface TeachingApi {
   teach(

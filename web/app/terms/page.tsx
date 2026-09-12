@@ -3,31 +3,33 @@ import { LINKS } from "@/lib/links";
 
 export default function TermsPage() {
   return (
-    <PageFrame kicker="Terms">
-      <div className="info-grid info-grid-2">
-        <article className="info-card">
-          <h2>What you get</h2>
-          <p>opennbLM is an early Windows desktop companion. Features match what is in the current GitHub release, not a future roadmap.</p>
-        </article>
-        <article className="info-card">
-          <h2>Your models</h2>
-          <p>You bring the teaching brain. Their terms apply when you use Claude, Codex, Gemini, OpenCode, Ollama, or LM Studio.</p>
-        </article>
-        <article className="info-card">
-          <h2>Rumik voice</h2>
-          <p>Rumik-OSS-1 is offered under CC BY-NC 4.0 for research and non-commercial use. Local install steps are in Settings.</p>
-        </article>
-        <article className="info-card">
-          <h2>Source</h2>
-          <p>
-            The project is open on GitHub. Questions and defects go to{" "}
-            <a href={LINKS.issues} target="_blank" rel="noreferrer">
-              issues
-            </a>
-            .
-          </p>
-        </article>
-      </div>
+    <PageFrame kicker="terms">
+      <article className="doc">
+        <h1 className="page-title">how this software is offered</h1>
+        <p className="lede">
+          opennbLM is an early windows desktop project. what you get is whatever the current github release actually contains.
+        </p>
+        <h2>your teaching brain</h2>
+        <p>
+          you attach claude, codex, gemini, opencode, ollama, or lm studio. those products have their own terms. opennbLM does not replace them.
+        </p>
+        <h2>rumik</h2>
+        <p>
+          rumik-oss-1 weights are cc by-nc 4.0 (research / non-commercial). remote (https) uses the public rumik-ai space and may hit quota. choose remote or local in settings → voice engine.
+        </p>
+        <h2>source</h2>
+        <p>
+          the code is on{" "}
+          <a href={LINKS.repo} target="_blank" rel="noreferrer">
+            github
+          </a>
+          . report defects on{" "}
+          <a href={LINKS.issues} target="_blank" rel="noreferrer">
+            issues
+          </a>
+          .
+        </p>
+      </article>
     </PageFrame>
   );
 }

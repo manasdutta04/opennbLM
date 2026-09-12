@@ -11,12 +11,12 @@ export function SiteNav() {
         opennbLM
       </Link>
       <div className="nav-links">
-        <Link href="/docs">Docs</Link>
+        <Link href="/docs">docs</Link>
         <a href={REPO} target="_blank" rel="noreferrer">
-          GitHub
+          github
         </a>
         <a className="btn btn-primary" href={RELEASES}>
-          Download
+          download
         </a>
       </div>
     </nav>

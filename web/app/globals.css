@@ -20,9 +20,10 @@ html {
 html,
 body {
   margin: 0;
-  height: 100%;
+  min-height: 100%;
   background: var(--cream);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 body {
@@ -56,10 +57,19 @@ input {
 
 .site-footer-plain {
   background: var(--cream);
+  height: auto;
+  min-height: 100svh;
+  overflow: visible;
 }
 
 .site-footer-plain .footer-media {
   display: none;
+}
+
+.site-footer-plain .footer-inner,
+.site-footer-plain .page-body {
+  flex: none;
+  min-height: 0;
 }
 
 .site-footer {
@@ -67,10 +77,7 @@ input {
   isolation: isolate;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  height: 100svh;
   min-height: 100svh;
-  overflow: hidden;
   overflow-wrap: break-word;
   background: #EAE3DE;
   color: var(--ink);
@@ -79,6 +86,12 @@ input {
     max(clamp(1.25rem, 4vw, 4.5rem), env(safe-area-inset-right))
     max(clamp(1.5rem, 3vh, 2.75rem), env(safe-area-inset-bottom))
     max(clamp(1.25rem, 4vw, 4.5rem), env(safe-area-inset-left));
+}
+
+.site-footer:not(.site-footer-plain) {
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
 }
 
 .footer-media {
@@ -153,7 +166,7 @@ input {
 
 .brand-blurb {
   margin-top: clamp(1.15rem, 2.4vh, 1.9rem);
-  max-width: 24ch;
+  max-width: 36ch;
   line-height: 1.62;
 }
 
@@ -192,7 +205,6 @@ input {
   font-size: clamp(.95rem, .5vw + .8rem, 1.12rem);
   font-weight: 600;
   letter-spacing: .055em;
-  text-transform: uppercase;
 }
 
 .link-list {
@@ -381,7 +393,7 @@ input {
 }
 
 @media (max-width: 720px) {
-  .site-footer {
+  .site-footer:not(.site-footer-plain) {
     height: 100svh;
     min-height: 100svh;
     overflow: hidden;
@@ -476,7 +488,7 @@ input {
 }
 
 @media (min-width: 721px) and (max-width: 1100px) {
-  .site-footer {
+  .site-footer:not(.site-footer-plain) {
     height: 100svh;
     overflow: hidden;
   }
@@ -553,7 +565,6 @@ input {
   font-size: clamp(.95rem, .5vw + .8rem, 1.12rem);
   font-weight: 600;
   letter-spacing: .055em;
-  text-transform: uppercase;
 }
 
 .info-grid {
@@ -632,7 +643,6 @@ input {
 .pane span {
   font-size: 0.72rem;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
   font-weight: 600;
 }
 
@@ -678,7 +688,6 @@ input {
   font-style: normal;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
   font-weight: 600;
   margin-bottom: 0.45rem;
 }
@@ -895,7 +904,6 @@ input {
   font-style: normal;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
   opacity: 0.7;
 }
 
@@ -989,6 +997,90 @@ input {
   font-size: 0.88rem;
 }
 
+.doc {
+  max-width: 46rem;
+  padding-bottom: 2.5rem;
+}
+
+.doc h1.page-title {
+  max-width: 18ch;
+  margin-bottom: 0.85rem;
+}
+
+.doc .lede {
+  max-width: 48ch;
+  margin-bottom: 1.75rem;
+}
+
+.doc h2 {
+  margin: 1.75rem 0 0.55rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-weight: 500;
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+}
+
+.doc p,
+.doc li {
+  line-height: 1.65;
+}
+
+.doc p {
+  margin: 0 0 0.85rem;
+}
+
+.doc ol,
+.doc ul {
+  margin: 0 0 1rem;
+  padding-left: 1.2rem;
+}
+
+.doc li + li {
+  margin-top: 0.4rem;
+}
+
+.doc code {
+  font-size: 0.88em;
+  border: 1px solid rgba(23, 90, 103, 0.18);
+  border-radius: 0.3rem;
+  padding: 0.05rem 0.3rem;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.note {
+  border: 1px solid rgba(23, 90, 103, 0.22);
+  border-radius: 0.9rem;
+  padding: 0.95rem 1.1rem;
+  margin: 1.1rem 0 1.4rem;
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.note strong {
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.toc {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem 1.25rem;
+  margin: 0 0 1.75rem;
+}
+
+.toc a {
+  border-bottom: 1px solid rgba(23, 90, 103, 0.18);
+  padding-bottom: 0.35rem;
+}
+
+.toc a:hover {
+  opacity: 0.65;
+}
+
+@media (max-width: 720px) {
+  .toc {
+    grid-template-columns: 1fr;
+  }
+}
+
 .step-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1029,7 +1121,6 @@ input {
   font-size: .78rem;
   font-weight: 600;
   letter-spacing: .08em;
-  text-transform: uppercase;
   opacity: .72;
 }
 
@@ -1091,4 +1182,80 @@ input {
   .page-head {
     align-items: center;
   }
+}
+
+.cue-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  overflow-y: auto;
+  background: rgba(23, 90, 103, 0.22);
+}
+
+.cue-card {
+  width: min(28rem, 100%);
+  max-height: min(78svh, 28rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  background: var(--cream);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  padding: 1.2rem 1.3rem 1.1rem;
+}
+
+.cue-title {
+  margin: 0 0 0.85rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-weight: 500;
+  font-size: 1.7rem;
+  letter-spacing: -0.02em;
+}
+
+.cue-card ol,
+.cue-card ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.15rem;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.cue-card li + li {
+  margin-top: 0.28rem;
+}
+
+.cue-sub {
+  margin: 0 0 0.4rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.cue-card pre {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(23, 90, 103, 0.22);
+  background: rgba(255, 255, 255, 0.35);
+  overflow-x: auto;
+}
+
+.cue-card code {
+  font-size: 0.88rem;
+}
+
+.cue-close {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--cream);
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.cue-close:hover {
+  background: #0f454f;
 }

@@ -24,7 +24,7 @@ export function HomeSetupBanner({
             Setup incomplete — connect a teaching brain
           </div>
           <p className="mt-1 text-[12.5px] leading-relaxed text-ink-secondary">
-            Follow Settings → Setup guide: connect a brain from any notebook’s model picker, then add sources. Voice (Rumik) is optional — remote fallback can speak until you install local CUDA weights.
+            Follow Settings → Setup guide: connect a brain from any notebook’s model picker, then add sources. Voice is optional — choose Remote (HTTPS) or Local in Settings → Voice engine.
           </p>
           <div className="mt-3 flex flex-wrap gap-3 text-[12px]">
             <Step ok={false} label="1 · Teaching brain (required)" />

@@ -832,3 +832,21 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 - Socials are GitHub + X (`x.com/manasdutta04`) only. Talk to us opens GitHub Issues.
 - Background video crossfades onto a second player before the clip ends so the loop does not hard-cut.
 - Studio and Setup home links each have their own route (notebooks, audio overview, mind map, infographic, quiz, flashcards, slides, brain, architecture). Subpages are plain cream with a diagram or layout, not the home video.
+- Docs, architecture, voice, setup, and Studio pages now describe the shipped Windows app in product language. Voice copy states that remote Rumik is built in after install (no HTTPS field). Settings and the home banner say the same.
+
+## Download cue + explicit voice mode — 2026-09-12
+
+### Completed
+
+- Shortened the Windows download popup to three steps plus one start-failure line, removed the Ollama block, and made the modal itself scroll with normal word wrapping (the footer `overflow-wrap` was jamming copy).
+- Settings → Voice engine now has an explicit Remote (HTTPS) vs Local (this PC) choice. The selection persists in `userData/rumik-preference.json` and is passed into `createRumikManager({ preferredMode })`. Default for a new install is remote.
+- Local CUDA install steps appear only after Local is selected. Remote shows the built-in Space endpoint. Site voice/setup/docs copy matches that control.
+
+### Verification
+
+- `pnpm typecheck` and rumik-runtime tests (run in this session).
+
+### Known limitations
+
+- Remote still uses the built-in public Space URL; there is no custom HTTPS field in Settings (env `RUMIK_REMOTE_URL` remains a developer override).
+- Switching to Local without CUDA/weights reports not connected; it does not silently fall back to remote.

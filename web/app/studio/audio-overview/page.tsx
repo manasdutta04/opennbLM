@@ -1,35 +1,34 @@
-import type { CSSProperties } from "react";
 import { PageFrame } from "@/components/SiteShell";
 
 export default function AudioOverviewPage() {
   return (
-    <PageFrame kicker="Audio Overview">
-      <div className="split">
-        <div className="copy-col">
-          <h1 className="page-title">Hear the sources, not a leftover summary.</h1>
-          <p className="lede">
-            Audio Overview turns selected material into a spoken pass. Debate is two seats: a challenger and an advocate, taking turns.
-          </p>
-        </div>
-        <div className="wave-stage" aria-hidden="true">
-          <div className="lane">
-            <em>Ira</em>
-            <div className="bars">
-              {Array.from({ length: 18 }, (_, i) => (
-                <span key={i} style={{ "--h": `${28 + ((i * 17) % 52)}%` } as CSSProperties} />
-              ))}
-            </div>
-          </div>
-          <div className="lane">
-            <em>Aisha</em>
-            <div className="bars">
-              {Array.from({ length: 18 }, (_, i) => (
-                <span key={i} style={{ "--h": `${22 + ((i * 13) % 58)}%` } as CSSProperties} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+    <PageFrame kicker="audio overview">
+      <article className="doc">
+        <h1 className="page-title">listen through the sources</h1>
+        <p className="lede">
+          audio overview writes a script from the selected sources, then rumik speaks it line by line and the app concatenates the wav files.
+        </p>
+        <h2>formats</h2>
+        <ul>
+          <li>
+            <strong>deep dive</strong> — a longer pass through the material.
+          </li>
+          <li>
+            <strong>brief</strong> — a short spoken summary.
+          </li>
+          <li>
+            <strong>critique</strong> — a critical reading of what the sources claim.
+          </li>
+          <li>
+            <strong>debate</strong> — ira as challenger, aisha as advocate, strict turn-taking, a real close.
+          </li>
+        </ul>
+        <h2>voice</h2>
+        <p>
+          after a normal .exe install, settings → voice engine defaults to remote (https). switch to local there if you have cuda and want on-device speech. if a line fails mid-run, the app can keep a partial overview when enough sentences already exist. see{" "}
+          <a href="/voice">voice engine</a>.
+        </p>
+      </article>
     </PageFrame>
   );
 }
