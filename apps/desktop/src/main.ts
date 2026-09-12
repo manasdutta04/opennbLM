@@ -7,7 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { createLocalServices } from "@opennblm/local-services";
 import { ProviderManager } from "./provider-manager.js";
-import { createRumikManager } from "@opennblm/rumik-runtime";
+import { createRumikManager, resolveRumikModelPath } from "@opennblm/rumik-runtime";
 import { createTeachingEngine } from "@opennblm/teaching-engine";
 import type { TeachingStyle } from "@opennblm/teaching-engine";
 import type { LearnerMemory, ModelSelection } from "@opennblm/contracts";
@@ -53,9 +53,7 @@ let setupStatus: Awaited<ReturnType<typeof getSetupStatus>> | undefined;
 async function getSetupStatus() {
   const packagedResources = process.resourcesPath;
   const bundledPython = process.platform === "win32" ? join(packagedResources, "rumik", "python", "python.exe") : join(packagedResources, "rumik", "python", "bin", "python3");
-  const bundledModel = join(packagedResources, "rumik", "model");
-  const userModel = join(app.getPath("userData"), "models", "rumik-oss-1");
-  const bindPath = process.env.RUMIK_MODEL_PATH || (existsSync(bundledModel) ? bundledModel : userModel);
+  const bindPath = resolveRumikBindPath();
   await rumik!.detectCuda();
   const rumikStatus = rumik!.getStatus();
   const runtimeAvailable = await rumik!.detectRuntime();
@@ -165,13 +163,34 @@ function extractLearnerMemory(conversationId: string, result: { plan: { topic: s
   for (const risk of result.plan.misconception_risks.slice(0, 2)) store.upsertLearnerMemory({ kind: "weak_concept", key: risk, value: "Possible misconception to revisit with simpler intuition", confidence: 0.45, sourceConversationId: conversationId });
 }
 
+function resolveAppIcon(): string {
+  const packaged = join(process.resourcesPath, "icons", process.platform === "win32" ? "icon.ico" : "icon.png");
+  if (existsSync(packaged)) return packaged;
+  const nextToMain = join(__dirname, "../icon.png");
+  if (existsSync(nextToMain)) return nextToMain;
+  return join(__dirname, "../../../packaging/icons/icon.png");
+}
+
+function rumikModelCandidates(): string[] {
+  const userModel = join(app.getPath("userData"), "models", "rumik-oss-1");
+  const bundled = join(process.resourcesPath, "rumik", "model");
+  const roaming = process.env.APPDATA || join(homedir(), "AppData", "Roaming");
+  const legacyDev = join(roaming, "@opennblm", "desktop", "models", "rumik-oss-1");
+  return [userModel, legacyDev, bundled];
+}
+
+function resolveRumikBindPath(): string {
+  return resolveRumikModelPath(rumikModelCandidates(), process.env.RUMIK_MODEL_PATH)
+    || join(app.getPath("userData"), "models", "rumik-oss-1");
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 960,
     minHeight: 640,
-    icon: join(__dirname, "../icon.png"),
+    icon: resolveAppIcon(),
     show: false,
     ...windowChromeOptions(),
     webPreferences: {
@@ -190,6 +209,10 @@ function createWindow(): void {
   else void mainWindow.loadFile(join(__dirname, "../../renderer/dist/index.html"));
 }
 
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.opennblm.desktop");
+}
+
 app.whenReady().then(async () => {
   services = await createLocalServices(app.getPath("userData"));
   providers = new ProviderManager(app.getPath("userData"));
@@ -198,10 +221,9 @@ app.whenReady().then(async () => {
   const rumikOutput = join(app.getPath("userData"), "audio");
   mkdirSync(rumikOutput, { recursive: true });
   const bundledPython = process.platform === "win32" ? join(process.resourcesPath, "rumik", "python", "python.exe") : join(process.resourcesPath, "rumik", "python", "bin", "python3");
-  const bundledModel = join(process.resourcesPath, "rumik", "model");
   rumik = createRumikManager({
     pythonPath: resolveRumikPython(bundledPython),
-    modelPath: process.env.RUMIK_MODEL_PATH || (existsSync(bundledModel) ? bundledModel : join(app.getPath("userData"), "models", "rumik-oss-1")),
+    modelPath: resolveRumikBindPath(),
     outputDirectory: rumikOutput,
     preferredMode: loadRumikPreferredMode(),
     hfToken: loadRumikHfToken(),

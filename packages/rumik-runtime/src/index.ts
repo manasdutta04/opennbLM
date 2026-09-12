@@ -4,8 +4,10 @@ import { fileURLToPath } from "node:url";
 import { spawn, spawnSync, ChildProcess } from "node:child_process";
 import { splitSpokenSentences } from "@opennblm/contracts";
 import { detectCudaAvailable } from "./cuda.js";
+import { directoryHasRumikWeights } from "./model-path.js";
 import { DEFAULT_REMOTE_ENDPOINT, synthesizeRemoteSegment } from "./remote.js";
 export { concatWavFiles } from "./wav.js";
+export { directoryHasRumikWeights, resolveRumikModelPath } from "./model-path.js";
 export {
   accentFromLanguage,
   buildRumikDescription,
@@ -239,13 +241,13 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
   let mode: RumikMode = resolveMode(
     preferredMode,
     cudaAvailable,
-    Boolean(options.modelPath && existsSync(options.modelPath)),
+    directoryHasRumikWeights(options.modelPath),
   );
 
   let status: RumikStatus = {
     state: "idle",
     runtimeAvailable: mode === "remote" ? true : false,
-    modelAvailable: mode === "remote" ? true : Boolean(options.modelPath && existsSync(options.modelPath)),
+    modelAvailable: mode === "remote" ? true : directoryHasRumikWeights(options.modelPath),
     modelId: RUMIK_MODEL_ID,
     modelRevision: RUMIK_MODEL_REVISION,
     sampleRate: 24000,
@@ -276,7 +278,7 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
     mode = resolveMode(
       preferredMode,
       cudaAvailable,
-      Boolean(options.modelPath && existsSync(options.modelPath)),
+      directoryHasRumikWeights(options.modelPath),
     );
     status = {
       ...status,
@@ -312,7 +314,7 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
       status.modelAvailable = true;
       return true;
     }
-    status.modelAvailable = Boolean(options.modelPath && existsSync(options.modelPath));
+    status.modelAvailable = directoryHasRumikWeights(options.modelPath);
     return status.modelAvailable;
   }
 

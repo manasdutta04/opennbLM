@@ -1042,3 +1042,14 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - Docs-only and `web/` commits do not cut a Windows release. The repo `package.json` version stays at the development value; GitHub tags are the release numbers.
+
+## Packaged icon + legacy Rumik path — 2026-09-12
+
+### Completed
+
+- Windows builds now ship `icon.ico` and set `AppUserModelId`, so the taskbar/shortcut should not fall back to the Electron atom.
+- Local Rumik looks for complete weights (`config.json` + `.safetensors`), including the earlier `%APPDATA%\\@opennblm\\desktop\\models\\rumik-oss-1` folder used by `pnpm desktop:start`.
+
+### Limitations
+
+- Existing installs still look only at `Roaming\\opennbLM\\models` until this build is installed. Shortcut icons can stay cached by Windows until Explorer refreshes.

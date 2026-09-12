@@ -48,8 +48,8 @@ export function SettingsPage({
   const platform = setup?.system.platform ?? "win32";
   const downloadCommand =
     platform === "win32"
-      ? `pip install -U huggingface_hub && python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir=r'${(bindPath || "%APPDATA%\\\\@opennblm\\\\desktop\\\\models\\\\rumik-oss-1").replace(/\\/g, "\\\\")}')"`
-      : `pip install -U huggingface_hub && python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir='${bindPath || "$HOME/.config/@opennblm/desktop/models/rumik-oss-1"}')"`;
+      ? `pip install -U huggingface_hub && python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir=r'${(bindPath || "%APPDATA%\\\\opennbLM\\\\models\\\\rumik-oss-1").replace(/\\/g, "\\\\")}')"`
+      : `pip install -U huggingface_hub && python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir='${bindPath || "$HOME/.config/opennbLM/models/rumik-oss-1"}')"`;
 
   const load = async () => {
     setRefreshing(true);
@@ -279,7 +279,7 @@ export function SettingsPage({
                     {setup?.rumik?.mode === "remote" ? "Remote" : "Local"}
                   </span>
                   <span className={cn("rounded-full border px-2.5 py-1 text-[11.5px]", voiceReady ? "border-success/30 text-success" : "border-warning/30 text-warning")}>
-                    {voiceReady ? "Ready" : "Not connected"}
+                    {voiceReady ? "Ready" : preferredVoice === "local" ? "Weights not found" : "Not connected"}
                   </span>
                 </div>
               </div>
@@ -418,6 +418,16 @@ export function SettingsPage({
               {preferredVoice === "local" ? (
               <div className="mt-4 space-y-3 rounded-xl border border-hairline/35 bg-inset/60 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
                 <div className="text-[13px] font-medium text-ink">Install local Rumik (Windows CUDA)</div>
+                {setup?.model.available ? (
+                  <p className="text-success">Weights found at the bind path. Refresh if the badge still says they are missing.</p>
+                ) : (
+                  <p>
+                    The installed app looks in this bind path. A download from running the source build may live under
+                    {" "}
+                    <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">%APPDATA%\@opennblm\desktop\models</code>
+                    — newer builds also find that folder automatically.
+                  </p>
+                )}
                 <ol className="list-decimal space-y-2 pl-4">
                   <li>
                     Install <span className="text-ink">NVIDIA drivers + CUDA-capable Python 3</span> with

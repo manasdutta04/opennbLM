@@ -3,7 +3,7 @@ productName: opennbLM
 directories:
   output: release
 asar: true
-icon: packaging/icons/icon.png
+icon: packaging/icons/icon.ico
 files:
   - apps/desktop/dist/**/*
   - apps/renderer/dist/**/*
@@ -70,6 +70,7 @@ files:
   - from: "node_modules/.pnpm/@gradio+client@2.6.0/node_modules"
     to: node_modules
   - apps/desktop/package.json
+  - apps/desktop/icon.png
   - node_modules/@opennblm/**/*
   - packages/rumik-runtime/runtime/**/*
   - packages/rumik-runtime/NOTICE.rumik.md
@@ -79,6 +80,10 @@ extraResources:
     to: rumik
     filter:
       - '**/*'
+  - from: packaging/icons/icon.ico
+    to: icons/icon.ico
+  - from: packaging/icons/icon.png
+    to: icons/icon.png
 artifactName: opennbLM-${os}-${arch}.${ext}
 nsis:
   oneClick: false
