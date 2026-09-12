@@ -1,0 +1,92 @@
+name: Release Windows
+
+# Push a tag like v0.1.1 (matching package.json) to publish a versioned Windows installer.
+# For a moving build from main, see continuous-windows.yml (latest-windows prerelease).
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: "Mark GitHub Release as prerelease"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync package version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart("v")
+          if (-not ($version -match '^\d+\.\d+\.\d+')) {
+            throw "Tag must look like v1.2.3 (got $tag)"
+          }
+          node -e "const fs=require('fs'); const p='package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.version=process.argv[1]; fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n');" $version
+          Write-Host "Set package.json version to $version"
+
+      - name: Resolve release tag (workflow_dispatch)
+        id: meta
+        shell: pwsh
+        run: |
+          if ("${{ github.ref }}" -like "refs/tags/v*") {
+            "tag=${{ github.ref_name }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "name=opennbLM ${{ github.ref_name }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            $version = (Get-Content package.json | ConvertFrom-Json).version
+            "tag=v$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "name=opennbLM v$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
+      - name: Build Windows installer
+        run: pnpm package:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Collect artifacts
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path release -Recurse | Select-Object FullName, Length
+          New-Item -ItemType Directory -Force -Path dist-upload | Out-Null
+          Get-ChildItem release -Filter *.exe | Copy-Item -Destination dist-upload/
+          Get-ChildItem release -Filter *.yml | Copy-Item -Destination dist-upload/ -ErrorAction SilentlyContinue
+          Get-ChildItem release -Filter *.blockmap | Copy-Item -Destination dist-upload/ -ErrorAction SilentlyContinue
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: opennbLM-windows-x64
+          path: dist-upload/*
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.name }}
+          prerelease: ${{ inputs.prerelease == true }}
+          generate_release_notes: true
+          files: dist-upload/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

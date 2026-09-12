@@ -44,6 +44,8 @@ import { ModelPicker } from "./components/ModelPicker";
 import { AppTitleBar } from "./components/AppTitleBar";
 import { OverflowMenu } from "./components/OverflowMenu";
 import { NotebookHomeSection, NotebookWorkspace } from "./components/NotebookWorkspace";
+import { SettingsPage } from "./components/SettingsPage";
+import { HomeSetupBanner } from "./components/HomeSetupBanner";
 import "./styles.css";
 
 type Screen = "home" | "lesson" | "notebook" | "templates" | "memory" | "settings";
@@ -554,6 +556,13 @@ function App() {
               </div>
             </div>
 
+            <HomeSetupBanner
+              brainReady={Boolean(brainReady)}
+              voiceReady={voiceReady}
+              onOpenSettings={() => setScreen("settings")}
+              onCreateNotebook={() => void newNotebook()}
+            />
+
             <NotebookHomeSection
               notebooks={notebooks.filter((nb) => {
                 const q = search.trim().toLowerCase();
@@ -821,6 +830,7 @@ function App() {
           isDark={isDark}
           setIsDark={setIsDark}
           onVoiceStatusChange={setVoiceReady}
+          brainReady={Boolean(brainReady)}
         />
       )}
 
@@ -1187,302 +1197,6 @@ function MemoryPage({
             </section>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-/** Settings = app prefs only. Engines connect inside the lesson model picker. */
-function SettingsPage({
-  onBack,
-  voiceReady,
-  isDark,
-  setIsDark,
-  onVoiceStatusChange,
-}: {
-  onBack: () => void;
-  voiceReady: boolean;
-  isDark: boolean;
-  setIsDark: (v: boolean) => void;
-  onVoiceStatusChange: (ready: boolean) => void;
-}) {
-  const [setup, setSetup] = useState<SetupStatus | undefined>();
-  const [rumikError, setRumikError] = useState<string | undefined>();
-  const [copied, setCopied] = useState<"path" | "command" | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const bindPath = setup?.dataPaths.rumikModel ?? setup?.model.bindPath ?? "";
-  const platform = setup?.system.platform ?? "win32";
-  const downloadCommand =
-    platform === "win32"
-      ? `pip install -U huggingface_hub && python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir=r'${(bindPath || "%APPDATA%\\\\@opennblm\\\\desktop\\\\models\\\\rumik-oss-1").replace(/\\/g, "\\\\")}')"`
-      : `pip install -U huggingface_hub && python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='rumik-ai/rumik-oss-1', revision='main', local_dir='${bindPath || "$HOME/.config/@opennblm/desktop/models/rumik-oss-1"}')"`;
-
-  const load = async () => {
-    setRefreshing(true);
-    try {
-      const [nextSetup, rumikOk, rumikStatus] = await Promise.all([
-        window.opennbLM.setup.getStatus(),
-        window.opennbLM.rumik.healthCheck().catch(() => false),
-        window.opennbLM.rumik.getStatus().catch(() => undefined),
-      ]);
-      setSetup(nextSetup);
-      setRumikError(rumikStatus?.error);
-      onVoiceStatusChange(Boolean(rumikOk || (nextSetup.runtime.available && nextSetup.model.available)));
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  const copyText = async (kind: "path" | "command", value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(kind);
-      window.setTimeout(() => setCopied(null), 1600);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-2xl px-6 py-8">
-        <button onClick={onBack} className="mb-6 flex items-center gap-1.5 text-[13px] text-ink-secondary hover:text-ink">
-          <ArrowLeft size={15} /> Home
-        </button>
-        <div className="flex items-center gap-3">
-          <img src="./icon.png" alt="" width={40} height={40} className="size-10 rounded-xl" draggable={false} />
-          <div>
-            <h1 className="text-[28px] font-semibold tracking-[-0.02em] text-ink">Settings</h1>
-            <p className="text-[13.5px] text-ink-secondary">Appearance and Rumik. Engines are managed in a lesson via Connect brain.</p>
-          </div>
-        </div>
-
-        <div className="mt-8 divide-y divide-hairline/35 overflow-hidden rounded-2xl border border-hairline/40 bg-card">
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div>
-              <div className="text-[14px] font-medium text-ink">Appearance</div>
-              <div className="text-[12.5px] text-ink-secondary">Dark Graphite or light surfaces</div>
-            </div>
-            <button onClick={() => setIsDark(!isDark)} className="flex items-center gap-2 rounded-full border border-hairline/40 bg-raised px-3 py-2 text-[13px] text-ink">
-              {isDark ? <Moon size={15} /> : <Sun size={15} />}
-              {isDark ? "Dark" : "Light"}
-            </button>
-          </div>
-
-          <div className="px-5 py-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="text-[14px] font-medium text-ink">Voice engine</div>
-                <div className="text-[12.5px] text-ink-secondary">
-                  Rumik-OSS-1 · {setup?.model.modelId ?? "rumik-ai/rumik-oss-1"} · rev {setup?.model.revision ?? "main"}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void load()}
-                  className="rounded-full border border-hairline/40 bg-raised p-2 text-ink-secondary hover:text-ink"
-                  title="Recheck Rumik"
-                >
-                  <RefreshCw size={14} className={cn(refreshing && "animate-spin")} />
-                </button>
-                <span
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 text-[11.5px]",
-                    setup?.rumik?.mode === "remote"
-                      ? "border-accent/30 text-accent-text"
-                      : "border-hairline/40 text-ink-secondary",
-                  )}
-                  title={
-                    setup?.rumik?.mode === "remote"
-                      ? "Hosted voice fallback — not local CUDA inference"
-                      : "Local CUDA inference when model weights are bound"
-                  }
-                >
-                  {setup?.rumik?.mode === "remote" ? "Remote fallback" : "Local"}
-                </span>
-                <span className={cn("rounded-full border px-2.5 py-1 text-[11.5px]", voiceReady ? "border-success/30 text-success" : "border-warning/30 text-warning")}>
-                  {voiceReady ? "Ready" : "Not connected"}
-                </span>
-              </div>
-            </div>
-
-            {rumikError ? (
-              <div className="mt-3 rounded-xl border border-warning/30 bg-warning/5 px-3 py-2 text-[12.5px] leading-relaxed text-warning">
-                {rumikError}
-              </div>
-            ) : null}
-
-            <div className="mt-3 space-y-2 rounded-xl border border-hairline/35 bg-inset/50 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
-              <div className="text-[13px] font-medium text-ink">Two free paths</div>
-              <ol className="list-decimal space-y-1.5 pl-4">
-                <li>
-                  <span className="text-ink">Local (preferred)</span> — NVIDIA CUDA + one download of the official
-                  {" "}
-                  <span className="text-ink">rumik-ai/rumik-oss-1</span>
-                  {" "}
-                  weights. Unlimited on your machine after that.
-                </li>
-                <li>
-                  <span className="text-ink">Remote fallback</span> — no install; public rumik-ai Space over HTTPS so
-                  evaluators without a GPU can still hear voice. Best-effort (Space quota may apply). Not local Mac/CPU inference.
-                </li>
-              </ol>
-              <p className="text-[11.5px] opacity-90">
-                No separately quantized Hugging Face repo. On ≤6 GB GPUs the app applies <span className="text-ink">4-bit NF4</span> automatically at load from the official snapshot.
-              </p>
-            </div>
-
-            <div className="mt-3 grid gap-2 text-[12.5px] text-ink-secondary sm:grid-cols-2">
-              <div className={cn("rounded-xl border px-3 py-2", setup?.rumik?.cudaAvailable ? "border-success/25 bg-success/5" : "border-hairline/35 bg-inset/40")}>
-                CUDA · {setup?.rumik?.cudaAvailable ? "detected" : "not available"}
-                <div className="mt-1 text-[11.5px] opacity-90">
-                  {setup?.rumik?.cudaAvailable
-                    ? "Local path preferred when weights are installed."
-                    : "Local inference needs NVIDIA CUDA. Voice can still run via remote fallback."}
-                </div>
-              </div>
-              <div className={cn("rounded-xl border px-3 py-2", setup?.runtime.available ? "border-success/25 bg-success/5" : "border-warning/25 bg-warning/5")}>
-                {setup?.rumik?.mode === "remote" ? "Hosted endpoint" : "Python runtime"} · {setup?.runtime.available ? "ready" : "missing"}
-                {setup?.runtime.detail ? <div className="mt-1 text-[11.5px] opacity-90">{setup.runtime.detail}</div> : null}
-              </div>
-            </div>
-
-            {setup?.rumik?.mode === "remote" ? (
-              <div className="mt-4 space-y-2 rounded-xl border border-accent/25 bg-accent/5 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
-                <div className="text-[13px] font-medium text-ink">Currently on remote fallback</div>
-                <p>
-                  This machine is not using local Rumik inference. Expressive voice is produced by calling the
-                  public <span className="text-ink">rumik-ai</span> ZeroGPU Space over HTTPS. That is a reachability
-                  fallback — it does <span className="text-ink">not</span> mean Rumik runs locally on Mac or without CUDA.
-                </p>
-                {setup.rumik.remoteEndpoint ? (
-                  <code className="block break-all rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-[11.5px] text-ink">
-                    {setup.rumik.remoteEndpoint}
-                  </code>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div className="mt-4 space-y-3 rounded-xl border border-hairline/35 bg-inset/60 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
-              <div className="text-[13px] font-medium text-ink">
-                {setup?.rumik?.mode === "remote" ? "Optional: install local CUDA path" : "Install Rumik so local voice binds correctly"}
-              </div>
-              <ol className="list-decimal space-y-2 pl-4">
-                <li>
-                  Need an <span className="text-ink">NVIDIA GPU with CUDA</span>, plus Python 3 with
-                  {" "}
-                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">torch</code>,
-                  {" "}
-                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">transformers</code>,
-                  {" "}
-                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">soundfile</code>,
-                  {" "}
-                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">accelerate</code>, and
-                  {" "}
-                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">bitsandbytes</code>
-                  {" "}
-                  (see the model card’s
-                  {" "}
-                  <code className="rounded bg-raised px-1 py-0.5 text-[11.5px] text-ink">requirements.txt</code>
-                  {" "}
-                  plus bitsandbytes).
-                </li>
-                <li>
-                  Download the official snapshot
-                  {" "}
-                  <span className="text-ink">rumik-ai/rumik-oss-1</span>
-                  {" "}
-                  from Hugging Face into the bind path below. No separate quantized package — the app does not auto-download weights, but it does auto 4-bit at load on ≤6 GB GPUs.
-                </li>
-                <li>
-                  Restart opennbLM (or press refresh here) after the download finishes. Mode should switch to <span className="text-ink">Local</span>.
-                </li>
-              </ol>
-
-              <div>
-                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-ink-secondary">Bind path</div>
-                <div className="flex items-start gap-2">
-                  <code className="min-w-0 flex-1 break-all rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-[11.5px] text-ink">
-                    {bindPath || "…/models/rumik-oss-1"}
-                  </code>
-                  <button
-                    type="button"
-                    disabled={!bindPath}
-                    onClick={() => void copyText("path", bindPath)}
-                    className="shrink-0 rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-ink hover:bg-control/60 disabled:opacity-40"
-                    title="Copy bind path"
-                  >
-                    {copied === "path" ? <Check size={14} /> : <Copy size={14} />}
-                  </button>
-                </div>
-                <p className="mt-1.5 text-[11.5px]">
-                  Override with env var <code className="rounded bg-raised px-1 text-[11px] text-ink">RUMIK_MODEL_PATH</code>
-                  {" "}
-                  (and optionally <code className="rounded bg-raised px-1 text-[11px] text-ink">RUMIK_PYTHON</code>).
-                </p>
-              </div>
-
-              <div>
-                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-ink-secondary">Download command</div>
-                <div className="flex items-start gap-2">
-                  <code className="min-w-0 flex-1 whitespace-pre-wrap break-all rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-[11.5px] text-ink">
-                    {downloadCommand}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={() => void copyText("command", downloadCommand)}
-                    className="shrink-0 rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-ink hover:bg-control/60"
-                    title="Copy download command"
-                  >
-                    {copied === "command" ? <Check size={14} /> : <Copy size={14} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => void window.opennbLM.engines.openInstallTerminal(downloadCommand)}
-                  className="rounded-full border border-hairline/40 bg-raised px-3 py-1.5 text-[12.5px] font-medium text-ink hover:bg-control/60"
-                >
-                  Copy command + open terminal
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void window.opennbLM.shell?.openExternal?.("https://huggingface.co/rumik-ai/rumik-oss-1")}
-                  className="rounded-full border border-hairline/40 bg-raised px-3 py-1.5 text-[12.5px] font-medium text-accent-text hover:bg-control/60"
-                >
-                  Model card on Hugging Face
-                </button>
-              </div>
-              <p className="text-[11.5px] text-ink-secondary/80">
-                License: CC BY-NC 4.0 (research / non-commercial). Text teaching still works without Rumik.
-                Force modes with <code className="rounded bg-raised px-1 text-[11px] text-ink">RUMIK_LOW_VRAM=1</code>
-                {" "}
-                / <code className="rounded bg-raised px-1 text-[11px] text-ink">RUMIK_LOAD_IN_4BIT=1</code>
-                {" "}
-                (set to <code className="rounded bg-raised px-1 text-[11px] text-ink">0</code> to disable).
-              </p>
-            </div>
-          </div>
-
-          <div className="px-5 py-4 text-[12.5px] leading-relaxed text-ink-secondary">
-            <div className="text-[14px] font-medium text-ink">Privacy</div>
-            <p className="mt-1.5">
-              Notebooks, sources, notes, chats, and learner memory stay in this app’s local data folder on your machine.
-              Cloud is used only when you choose a cloud teaching brain or Rumik remote voice fallback.
-            </p>
-            <p className="mt-2">
-              Lessons and notebooks are private by default. Open a lesson or notebook and use Connect brain to install or sign in to a teaching engine.
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

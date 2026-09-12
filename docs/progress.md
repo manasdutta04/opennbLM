@@ -789,3 +789,21 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Verification
 
 - `pnpm build` + `pnpm desktop:start`.
+
+## Setup onboarding + web landing + Windows CI — 2026-09-12
+
+### Completed
+
+- Settings rewritten with tabs: Setup guide, Teaching brain, Voice engine (install/connect/copy bind path + download command), Appearance.
+- Home setup banner stays until a teaching brain is connected; voice remains optional with remote Rumik fallback.
+- Added `web/` Next.js static site (landing + docs) with Download pointing at GitHub Releases (Windows).
+- Added GitHub Actions: `ci.yml` (typecheck/build), `release-windows.yml` (versioned `v*` tags), `continuous-windows.yml` (moving `latest-windows` prerelease on main).
+
+### Verification
+
+- `pnpm install`, `pnpm typecheck`, `pnpm build`, `pnpm --filter @opennblm/web build` (run in this session).
+
+### Known limitations
+
+- First Windows GitHub Release appears after a successful Actions run (tag push or workflow_dispatch) with repo write permissions.
+- Landing Download opens `/releases/latest`; until a non-prerelease exists, point users at the `latest-windows` prerelease or create `v0.1.0`.

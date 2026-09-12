@@ -16,6 +16,8 @@
     "package:mac": "pnpm build && electron-builder --config electron-builder.yml --mac dmg --arm64 --publish never",
     "package:mac:intel": "pnpm build && electron-builder --config electron-builder.yml --mac dmg --x64 --publish never",
     "package:dir": "pnpm build && electron-builder --config electron-builder.yml --dir --publish never",
+    "web:dev": "pnpm --filter @opennblm/web dev",
+    "web:build": "pnpm --filter @opennblm/web build",
     "check": "pnpm typecheck && pnpm build"
   },
   "devDependencies": {
