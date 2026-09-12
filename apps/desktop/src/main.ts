@@ -235,6 +235,7 @@ app.whenReady().then(async () => {
   rumik = createRumikManager({
     pythonPath: resolveRumikPython(bundledPython),
     modelPath: resolveRumikBindPath(),
+    runnerPath: join(process.resourcesPath, "rumik", "rumik_runner.py"),
     outputDirectory: rumikOutput,
     preferredMode: loadRumikPreferredMode(),
     hfToken: loadRumikHfToken(),

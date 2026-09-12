@@ -18,6 +18,10 @@ for (const name of readdirSync("packages")) {
   }
 }
 
+if (!yml.includes("rumik_runner.py")) {
+  missing.push("@opennblm/rumik-runtime → runtime/rumik_runner.py");
+}
+
 if (missing.length) {
   console.error("electron-builder.yml is missing npm dependencies required at runtime:");
   for (const item of missing) console.error(`  - ${item}`);

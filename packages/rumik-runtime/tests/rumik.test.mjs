@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createRumikManager, segmentForRumik, parseDeliveryControls, summarizeRumikFailure, buildRumikDescription, accentFromLanguage } from "../dist/index.js";
+import { createRumikManager, segmentForRumik, parseDeliveryControls, summarizeRumikFailure, buildRumikDescription, accentFromLanguage, resolveRumikRunnerPath, asUnpackedAsarPath } from "../dist/index.js";
 
 test("segmentation preserves short text without terminal punctuation", () => {
   assert.deepEqual(segmentForRumik("Explain recursion"), ["Explain recursion"]);
@@ -142,4 +142,16 @@ test("summarizeRumikFailure strips tqdm dumps and command-line errors", () => {
     summarizeRumikFailure("Rumik did not write audio output"),
     /did not write audio/i,
   );
+  assert.match(
+    summarizeRumikFailure("python: can't open file 'app.asar/runtime/rumik_runner.py': [Errno 2] No such file or directory"),
+    /runner is missing/i,
+  );
+});
+
+test("resolveRumikRunnerPath prefers files outside app.asar", () => {
+  const unpacked = asUnpackedAsarPath("C:\\app\\resources\\app.asar\\node_modules\\@opennblm\\rumik-runtime\\runtime\\rumik_runner.py");
+  assert.match(unpacked, /app\.asar\.unpacked/);
+  const found = resolveRumikRunnerPath();
+  assert.ok(found);
+  assert.match(found, /rumik_runner\.py$/);
 });

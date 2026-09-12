@@ -1102,3 +1102,18 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - The source file is a hard cut at 10s. Native loop keeps the camera locked; it does not invent a crossfade.
+
+## Packaged Rumik runner missing — 2026-09-12
+
+### Completed
+
+- Audio Overview on the GitHub `.exe` died on line 1 with “Rumik worker exited”. Local mode spawned Python against `rumik_runner.py` inside the ASAR (or never copied it next to the mapped package). Python cannot read ASAR files, so the worker exited immediately.
+- The runner is now copied into `node_modules/@opennblm/rumik-runtime/runtime`, unpacked from the ASAR, and also placed in `resources/rumik/rumik_runner.py`. If local still cannot start, synthesis falls back to the public Rumik Space.
+
+### Checks
+
+- `resolveRumikRunnerPath` and the missing-runner summary are covered by package tests.
+
+### Limitations
+
+- The installed v0.1.4 build still lacks the runner. A new Windows release is required. Local CUDA still needs a working Python with torch on that machine.

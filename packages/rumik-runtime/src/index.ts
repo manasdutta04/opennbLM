@@ -1,11 +1,12 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { spawn, spawnSync, ChildProcess } from "node:child_process";
 import { splitSpokenSentences } from "@opennblm/contracts";
 import { detectCudaAvailable } from "./cuda.js";
 import { directoryHasRumikWeights } from "./model-path.js";
 import { DEFAULT_REMOTE_ENDPOINT, synthesizeRemoteSegment } from "./remote.js";
+import { resolveRumikRunnerPath } from "./runner-path.js";
+export { asUnpackedAsarPath, resolveRumikRunnerPath } from "./runner-path.js";
 export { concatWavFiles } from "./wav.js";
 export { directoryHasRumikWeights, resolveRumikModelPath } from "./model-path.js";
 export {
@@ -123,6 +124,9 @@ export function summarizeRumikFailure(raw: string, fallback = "Rumik voice synth
     return "Rumik timed out while synthesizing speech. Try again — long Audio Overviews can take a while on local GPU.";
   }
   if (/cancelled/i.test(lower)) return "Rumik synthesis cancelled";
+  if (/can't open file|no such file|rumik_runner/i.test(lower)) {
+    return "Rumik's local runner is missing from this install. Use remote voice, or install the latest Windows build.";
+  }
   if (/worker (exited|stopped)|not available|did not write audio/i.test(lower)) {
     const line =
       text
@@ -228,12 +232,16 @@ function resolveMode(
   return "remote";
 }
 
+function shouldFallbackToRemote(message: string): boolean {
+  return /worker exited|worker stopped|worker is not available|can't open file|enoent|failed to start rumik worker|runner is missing|no such file/i.test(
+    message,
+  );
+}
+
 export function createRumikManager(options: RumikManagerOptions): RumikManager {
   const python = options.pythonPath || process.env.RUMIK_PYTHON || "python";
   const remoteEndpoint = (options.remoteEndpoint || DEFAULT_REMOTE_ENDPOINT).replace(/\/$/, "");
-  const runner =
-    options.runnerPath ||
-    resolve(join(dirname(fileURLToPath(import.meta.url)), "../runtime/rumik_runner.py"));
+  const runner = resolveRumikRunnerPath(options.runnerPath);
 
   let cudaAvailable = detectCudaAvailable(python);
   let preferredMode = options.preferredMode;
@@ -364,6 +372,9 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
     if (worker && !worker.killed && workerReady) {
       await workerReady;
       return;
+    }
+    if (!runner) {
+      throw new Error("Rumik's local runner is missing from this install. Use remote voice, or install the latest Windows build.");
     }
     mkdirSync(options.outputDirectory, { recursive: true });
     const env = { ...process.env };
@@ -632,10 +643,18 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
         for (let index = 0; index < segments.length; index += 1) {
           if (cancelRequested) throw new Error("Rumik synthesis cancelled");
           const segment = segments[index]!;
-          const wavPath =
-            mode === "remote"
-              ? await runRemoteSegment(segment, index, config)
-              : await runLocalSegment(segment, index, config);
+          let wavPath: string;
+          if (mode === "remote") {
+            wavPath = await runRemoteSegment(segment, index, config);
+          } else {
+            try {
+              wavPath = await runLocalSegment(segment, index, config);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              if (cancelRequested || !shouldFallbackToRemote(message)) throw error;
+              wavPath = await runRemoteSegment(segment, index, config);
+            }
+          }
           const ready = { id: `${Date.now()}-${index}`, text: segment, wavPath };
           results.push(ready);
           status = { ...status, state: broadcast ? "speaking" : "preparing", mode };

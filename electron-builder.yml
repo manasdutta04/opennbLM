@@ -43,6 +43,7 @@ files:
     filter:
       - dist/**/*
       - package.json
+      - runtime/**/*
   - from: packages/teaching-engine
     to: node_modules/@opennblm/teaching-engine
     filter:
@@ -76,11 +77,16 @@ files:
   - packages/rumik-runtime/runtime/**/*
   - packages/rumik-runtime/NOTICE.rumik.md
   - package.json
+asarUnpack:
+  - node_modules/@opennblm/rumik-runtime/runtime/**/*
+  - packages/rumik-runtime/runtime/**/*
 extraResources:
   - from: packaging/rumik
     to: rumik
     filter:
       - '**/*'
+  - from: packages/rumik-runtime/runtime/rumik_runner.py
+    to: rumik/rumik_runner.py
   - from: packaging/icons/icon.ico
     to: icons/icon.ico
   - from: packaging/icons/icon.png
