@@ -814,3 +814,21 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 
 - Stopped tracking `*.tsbuildinfo` (they made `tsc --build` skip emit on clean CI, so workspace packages had JS or nothing and no `.d.ts`).
 - `pnpm typecheck` now runs `tsc --build --force` so GitHub Actions always rebuilds declarations before packaging.
+
+## Heritage Grove landing footer — 2026-09-12
+
+### Completed
+
+- Replaced the previous Next.js marketing home with a full-viewport Heritage Grove footer (ink landscape video, no desktop scrim; portrait viewports flow the 16:9 clip under the copy).
+- Added a self-contained root `index.html` with the same markup, CSS, and inline SVGs (Google Fonts only).
+- Replaced Heritage Grove copy with opennbLM product text, Windows download, setup, and GitHub links.
+
+## Web site pages + smooth loop — 2026-09-12
+
+### Completed
+
+- Homepage keeps the single-screen landscape layout; app `icon.png` is the wordmark mark; contact rows and email capture removed.
+- Subpages (docs, setup, studio, voice, download, privacy, terms) share the same video shell and stay one viewport.
+- Socials are GitHub + X (`x.com/manasdutta04`) only. Talk to us opens GitHub Issues.
+- Background video crossfades onto a second player before the clip ends so the loop does not hard-cut.
+- Studio and Setup home links each have their own route (notebooks, audio overview, mind map, infographic, quiz, flashcards, slides, brain, architecture). Subpages are plain cream with a diagram or layout, not the home video.

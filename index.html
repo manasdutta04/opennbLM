@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>opennbLM — local-first learning companion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #175A67;
+      --ink-soft: #2A707C;
+      --cream: #EAE3DE;
+      --max: 1440px;
+      --fs-nav: clamp(.9rem, .55vw + .75rem, 1.02rem);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      background: var(--cream);
+    }
+
+    body {
+      margin: 0;
+      background: var(--cream);
+      color: var(--ink);
+      font-family: Poppins, "Helvetica Neue", Arial, sans-serif;
+      font-size: var(--fs-nav);
+      font-weight: 400;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input {
+      color: inherit;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .site-footer {
+      position: relative;
+      isolation: isolate;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      min-height: 100svh;
+      overflow: hidden;
+      overflow-wrap: break-word;
+      background: #EAE3DE;
+      color: var(--ink);
+      padding:
+        clamp(2.25rem, 4.5vh, 4rem)
+        max(clamp(1.25rem, 4vw, 4.5rem), env(safe-area-inset-right))
+        max(clamp(1.5rem, 3vh, 2.75rem), env(safe-area-inset-bottom))
+        max(clamp(1.25rem, 4vw, 4.5rem), env(safe-area-inset-left));
+    }
+
+    .footer-media {
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      pointer-events: none;
+    }
+
+    .footer-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center bottom;
+      pointer-events: none;
+      animation: fade-in 1.35s ease both;
+    }
+
+    .footer-inner {
+      position: relative;
+      width: 100%;
+      max-width: var(--max);
+      margin: 0 auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .footer-grid {
+      display: grid;
+      align-items: start;
+      gap: clamp(1.5rem, 3vw, 3.25rem);
+      grid-template-columns: minmax(240px, 1.45fr) repeat(3, minmax(130px, .85fr)) minmax(260px, 1.25fr);
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: clamp(.65rem, 1vw, 1rem);
+    }
+
+    .brand-mark {
+      width: clamp(52px, 4.4vw, 74px);
+      height: auto;
+      flex-shrink: 0;
+    }
+
+    .brand-name {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-weight: 500;
+      font-size: clamp(1.85rem, 2.5vw, 2.9rem);
+      line-height: 1;
+      margin: 0;
+    }
+
+    .brand-blurb {
+      margin-top: clamp(1.15rem, 2.4vh, 1.9rem);
+      max-width: 24ch;
+      line-height: 1.62;
+    }
+
+    .contact-list {
+      list-style: none;
+      padding: 0;
+      margin: clamp(1.15rem, 2.4vh, 1.9rem) 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(.6rem, 1.2vh, .95rem);
+    }
+
+    .contact-list li {
+      display: flex;
+      align-items: center;
+      gap: .85rem;
+    }
+
+    .contact-list svg {
+      width: 19px;
+      height: 19px;
+      flex-shrink: 0;
+    }
+
+    .contact-list a {
+      text-decoration: none;
+    }
+
+    .contact-list a:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .col-title {
+      margin: 0 0 clamp(1.15rem, 2.4vh, 1.85rem);
+      font-size: clamp(.95rem, .5vw + .8rem, 1.12rem);
+      font-weight: 600;
+      letter-spacing: .055em;
+      text-transform: uppercase;
+    }
+
+    .link-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(.62rem, 1.35vh, 1.05rem);
+    }
+
+    .link-list a {
+      display: inline-block;
+      text-decoration: none;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+
+    .link-list a:hover {
+      opacity: .62;
+      transform: translateX(2px);
+    }
+
+    .newsletter p {
+      margin: 0 0 clamp(1rem, 2.2vh, 1.6rem);
+      max-width: 32ch;
+      line-height: 1.62;
+    }
+
+    .subscribe {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      max-width: 380px;
+      border: 1px solid var(--ink);
+      background: rgba(255, 255, 255, .4);
+    }
+
+    .subscribe input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      padding: .95rem 1.05rem;
+      font-family: inherit;
+      font-size: var(--fs-nav);
+    }
+
+    .subscribe input::placeholder {
+      color: var(--ink-soft);
+      opacity: .85;
+    }
+
+    .subscribe input:focus-visible {
+      box-shadow: inset 0 0 0 2px rgba(23, 90, 103, .25);
+    }
+
+    .subscribe button {
+      width: clamp(56px, 4vw, 66px);
+      border: 0;
+      background: var(--ink);
+      color: var(--cream);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: background .2s ease;
+    }
+
+    .subscribe button:hover {
+      background: #0F454F;
+    }
+
+    .subscribe button svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .footer-bottom {
+      margin-top: auto;
+      padding-top: clamp(2.5rem, 6vh, 4.5rem);
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.25rem 2rem;
+      flex-wrap: wrap;
+    }
+
+    .socials {
+      display: flex;
+      flex-direction: row;
+      gap: clamp(.9rem, 1.5vw, 1.5rem);
+    }
+
+    .socials svg {
+      width: 26px;
+      height: 26px;
+      display: block;
+    }
+
+    .socials a {
+      display: inline-flex;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+
+    .socials a:hover {
+      opacity: .65;
+      transform: translateY(-2px);
+    }
+
+    .legal {
+      display: flex;
+      flex-direction: row;
+      gap: clamp(1.15rem, 2.6vw, 3rem);
+      flex-wrap: wrap;
+    }
+
+    .legal a:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    @keyframes rise-in {
+      from { opacity: 0; transform: translate3d(0, 14px, 0); }
+      to { opacity: 1; transform: translate3d(0, 0, 0); }
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .brand-lockup,
+    .brand-blurb,
+    .contact-list li,
+    .col .col-title,
+    .col .link-list li,
+    .newsletter .col-title,
+    .newsletter p,
+    .subscribe,
+    .socials a,
+    .legal a {
+      animation: rise-in .72s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    .brand-lockup { animation-delay: .04s; }
+    .brand-blurb { animation-delay: .12s; }
+    .contact-list li:nth-child(1) { animation-delay: .2s; }
+    .contact-list li:nth-child(2) { animation-delay: .28s; }
+    .contact-list li:nth-child(3) { animation-delay: .36s; }
+
+    .footer-grid > .col:nth-child(2) { --col-stagger: .16s; }
+    .footer-grid > .col:nth-child(3) { --col-stagger: .24s; }
+    .footer-grid > .col:nth-child(4) { --col-stagger: .32s; }
+
+    .col .col-title { animation-delay: var(--col-stagger, .2s); }
+    .col .link-list li:nth-child(1) { animation-delay: calc(var(--col-stagger, .2s) + .08s); }
+    .col .link-list li:nth-child(2) { animation-delay: calc(var(--col-stagger, .2s) + .16s); }
+    .col .link-list li:nth-child(3) { animation-delay: calc(var(--col-stagger, .2s) + .24s); }
+    .col .link-list li:nth-child(4) { animation-delay: calc(var(--col-stagger, .2s) + .32s); }
+    .col .link-list li:nth-child(5) { animation-delay: calc(var(--col-stagger, .2s) + .4s); }
+    .col .link-list li:nth-child(6) { animation-delay: calc(var(--col-stagger, .2s) + .48s); }
+
+    .newsletter .col-title { animation-delay: .4s; }
+    .newsletter p { animation-delay: .48s; }
+    .subscribe { animation-delay: .56s; }
+
+    .socials a:nth-child(1) { animation-delay: .64s; }
+    .socials a:nth-child(2) { animation-delay: .7s; }
+    .socials a:nth-child(3) { animation-delay: .76s; }
+    .socials a:nth-child(4) { animation-delay: .82s; }
+
+    .legal a:nth-child(1) { animation-delay: .7s; }
+    .legal a:nth-child(2) { animation-delay: .78s; }
+    .legal a:nth-child(3) { animation-delay: .86s; }
+
+    @media (max-width: 1100px) {
+      .footer-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+        row-gap: clamp(2rem, 4vh, 2.75rem);
+      }
+
+      .brand,
+      .newsletter {
+        grid-column: 1 / -1;
+      }
+
+      .brand-blurb {
+        max-width: 42ch;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .site-footer {
+        height: auto;
+        min-height: 100svh;
+        padding-right: 0;
+        padding-bottom: 0;
+        padding-left: 0;
+        overflow-x: hidden;
+        overflow-y: visible;
+      }
+
+      .footer-inner {
+        order: 0;
+        padding-right: max(clamp(1.25rem, 4vw, 4.5rem), env(safe-area-inset-right));
+        padding-left: max(clamp(1.25rem, 4vw, 4.5rem), env(safe-area-inset-left));
+        padding-bottom: clamp(1.25rem, 3vh, 2rem);
+      }
+
+      .footer-media {
+        position: relative;
+        inset: auto;
+        order: 1;
+        flex-shrink: 0;
+        width: 100%;
+        height: auto;
+        margin-top: auto;
+        z-index: 0;
+      }
+
+      .footer-bg {
+        position: relative;
+        inset: auto;
+        width: 100%;
+        height: auto;
+        max-width: 100%;
+        object-fit: contain;
+        object-position: center bottom;
+        transform: none;
+        display: block;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: clamp(1.75rem, 5vw, 2.25rem);
+      }
+
+      .brand-blurb {
+        max-width: 34ch;
+      }
+
+      .footer-bottom {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.5rem;
+        padding-top: clamp(2rem, 7vh, 3rem);
+        padding-bottom: clamp(1.25rem, 3vh, 2rem);
+      }
+
+      .legal {
+        gap: 1.1rem 1.5rem;
+      }
+
+      .link-list {
+        gap: .2rem;
+      }
+
+      .link-list a {
+        padding: .55rem 0;
+      }
+
+      .contact-list {
+        gap: .25rem;
+      }
+
+      .contact-list a,
+      .contact-list span {
+        padding: .4rem 0;
+      }
+
+      .legal a {
+        padding: .45rem 0;
+      }
+
+      .socials a {
+        padding: .3rem;
+        margin: -.3rem;
+      }
+
+      .socials svg {
+        width: 28px;
+        height: 28px;
+      }
+
+      .subscribe input {
+        font-size: 16px;
+        padding: 1rem 1.05rem;
+      }
+    }
+
+    @media (max-width: 440px) {
+      :root {
+        --fs-nav: .92rem;
+      }
+
+      .footer-grid {
+        gap: 1.35rem 1.25rem;
+      }
+
+      .col-title {
+        margin-bottom: .85rem;
+      }
+
+      .brand-blurb,
+      .newsletter p {
+        max-width: none;
+      }
+
+      .subscribe {
+        max-width: none;
+      }
+    }
+
+    @media (max-width: 359px) {
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (min-width: 721px) and (max-width: 1100px) {
+      .site-footer {
+        height: auto;
+        min-height: 100svh;
+        padding-right: 0;
+        padding-bottom: 0;
+        padding-left: 0;
+        overflow-x: hidden;
+        overflow-y: visible;
+      }
+
+      .footer-inner {
+        order: 0;
+        padding-right: max(clamp(1.25rem, 4vw, 4.5rem), env(safe-area-inset-right));
+        padding-left: max(clamp(1.25rem, 4vw, 4.5rem), env(safe-area-inset-left));
+        padding-bottom: clamp(1.25rem, 3vh, 2rem);
+      }
+
+      .footer-media {
+        position: relative;
+        inset: auto;
+        order: 1;
+        flex-shrink: 0;
+        width: 100%;
+        height: auto;
+        margin-top: auto;
+        z-index: 0;
+      }
+
+      .footer-bg {
+        position: relative;
+        inset: auto;
+        width: 100%;
+        height: auto;
+        max-width: 100%;
+        object-fit: contain;
+        object-position: center bottom;
+        transform: none;
+        display: block;
+      }
+    }
+
+    @media (max-width: 1100px) {
+      .footer-media::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: clamp(52px, 16vw, 120px);
+        pointer-events: none;
+        z-index: 1;
+        background: linear-gradient(to bottom, #EAE3DE 0%, rgba(234, 227, 222, .65) 38%, rgba(234, 227, 222, 0) 100%);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .footer-bg {
+        display: none;
+        animation: none;
+      }
+
+      .site-footer {
+        background-color: #EAE3DE;
+        background-image: url("https://d2ol7oe51mr4n9.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/4f690bd1-881a-4192-82f2-d714d34c8fb9.png");
+        background-position: center bottom;
+        background-size: cover;
+        background-repeat: no-repeat;
+      }
+
+      .footer-media::after {
+        content: none;
+      }
+
+      .brand-lockup,
+      .brand-blurb,
+      .contact-list li,
+      .col .col-title,
+      .col .link-list li,
+      .newsletter .col-title,
+      .newsletter p,
+      .subscribe,
+      .socials a,
+      .legal a {
+        animation: none;
+      }
+
+      .link-list a:hover,
+      .socials a:hover {
+        transform: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) and (max-width: 1100px) {
+      .site-footer {
+        background-size: 100% auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <footer class="site-footer">
+    <div class="footer-media" aria-hidden="true">
+      <video class="footer-bg" autoplay muted loop playsinline preload="auto" poster="https://d2ol7oe51mr4n9.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/4f690bd1-881a-4192-82f2-d714d34c8fb9.png">
+        <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260901_122529_931c22c8-8d2d-47c0-ad51-b97f56a91e42.mp4" type="video/mp4">
+      </video>
+    </div>
+    <div class="footer-inner">
+      <div class="footer-grid">
+        <div class="brand">
+          <div class="brand-lockup">
+            <svg class="brand-mark" viewBox="0 0 96 120" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <ellipse cx="48" cy="60" rx="45" ry="57"/>
+              <path d="M48 88V46" stroke-linecap="round"/>
+              <path d="M48 58c-8-2-14-8-16-16 9 0 15 5 16 16Zm0 0c8-2 14-8 16-16-9 0-15 5-16 16Z"/>
+              <path d="M48 74c-9-2-15-8-17-17 10 0 16 6 17 17Zm0 0c9-2 15-8 17-17-10 0-16 6-17 17Z"/>
+              <path d="M48 46c-6-3-9-9-8-16 6 3 9 9 8 16Zm0 0c6-3 9-9 8-16-6 3-9 9-8 16Z"/>
+              <path d="M30 44c-5 1-9-1-12-5 5-2 9-1 12 5Zm36 0c5 1 9-1 12-5-5-2-9-1-12 5Z"/>
+            </svg>
+            <p class="brand-name">opennbLM</p>
+          </div>
+          <p class="brand-blurb">A native, local-first companion for notebooks, Studio tools, and Rumik voice.</p>
+          <ul class="contact-list">
+            <li>
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 6.2A2.4 2.4 0 0 1 5.8 3.8h12.4a2.4 2.4 0 0 1 2.4 2.4v11.2a2.4 2.4 0 0 1-2.4 2.4H5.8a2.4 2.4 0 0 1-2.4-2.4V6.2Zm2.05.6 6.2 4.34a.7.7 0 0 0 .7 0l6.2-4.34H5.45ZM19.4 8.1l-6.55 4.58a2.1 2.1 0 0 1-2.3 0L4.6 8.1V17.4c0 .22.18.4.4.4h13.6a.4.4 0 0 0 .4-.4V8.1Z"/></svg>
+              <a href="https://github.com/manasdutta04/opennbLM/issues">Open a GitHub issue</a>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.1 3.55c.38-.38.96-.48 1.44-.24l2.48 1.24c.5.25.78.8.68 1.35l-.38 2.2a1.15 1.15 0 0 1-.66.85l-1.24.48a11.8 11.8 0 0 0 5.6 5.6l.48-1.24c.18-.46.56-.62.85-.66l2.2-.38c.55-.1 1.1.18 1.35.68l1.24 2.48c.24.48.14 1.06-.24 1.44l-1.62 1.62c-.48.48-1.16.68-1.82.5C10.4 18.7 5.3 13.6 4.43 6.99c-.18-.66.02-1.34.5-1.82L7.1 3.55Z"/></svg>
+              <a href="https://github.com/manasdutta04/opennbLM/releases/download/v0.1.0/opennbLM-0.1.0-win-x64.exe">Download for Windows</a>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.2s6.8-6.05 6.8-10.9A6.8 6.8 0 1 0 5.2 10.3C5.2 15.15 12 21.2 12 21.2Zm0-8.25a2.65 2.65 0 1 1 0-5.3 2.65 2.65 0 0 1 0 5.3Z"/></svg>
+              <span>Local-first · Windows</span>
+            </li>
+          </ul>
+        </div>
+
+        <nav class="col" aria-label="Studio">
+          <h2 class="col-title">Studio</h2>
+          <ul class="link-list">
+            <li><a href="https://github.com/manasdutta04/opennbLM/releases/latest">Notebooks</a></li>
+            <li><a href="https://github.com/manasdutta04/opennbLM/releases/latest">Audio Overview</a></li>
+            <li><a href="https://github.com/manasdutta04/opennbLM/releases/latest">Mind Map</a></li>
+            <li><a href="https://github.com/manasdutta04/opennbLM/releases/latest">Infographic</a></li>
+            <li><a href="https://github.com/manasdutta04/opennbLM/releases/latest">Quiz &amp; Flashcards</a></li>
+            <li><a href="https://github.com/manasdutta04/opennbLM/releases/latest">Slides</a></li>
+          </ul>
+        </nav>
+
+        <nav class="col" aria-label="Setup">
+          <h2 class="col-title">Setup</h2>
+          <ul class="link-list">
+            <li><a href="https://github.com/manasdutta04/opennbLM/tree/main/docs">Setup Guide</a></li>
+            <li><a href="https://github.com/manasdutta04/opennbLM/tree/main/docs">Teaching Brain</a></li>
+            <li><a href="https://github.com/manasdutta04/opennbLM/tree/main/docs">Voice Engine</a></li>
+            <li><a href="https://github.com/manasdutta04/opennbLM/tree/main/docs">Add Sources</a></li>
+            <li><a href="https://github.com/manasdutta04/opennbLM/tree/main/docs">Architecture</a></li>
+          </ul>
+        </nav>
+
+        <nav class="col" aria-label="Source">
+          <h2 class="col-title">Source</h2>
+          <ul class="link-list">
+            <li><a href="https://github.com/manasdutta04/opennbLM/releases/download/v0.1.0/opennbLM-0.1.0-win-x64.exe">Windows Installer</a></li>
+            <li><a href="https://github.com/manasdutta04/opennbLM/releases/latest">Latest Release</a></li>
+            <li><a href="https://github.com/manasdutta04/opennbLM">View Source</a></li>
+            <li><a href="https://github.com/manasdutta04/opennbLM/issues">Talk To Us</a></li>
+          </ul>
+        </nav>
+
+        <div class="newsletter">
+          <h2 class="col-title">Updates</h2>
+          <p>New Windows builds publish on GitHub Releases. Leave an email if you want a personal reminder.</p>
+          <form class="subscribe" action="#" method="get">
+            <label class="sr-only" for="nl-email">Email address</label>
+            <input id="nl-email" type="email" name="email" placeholder="Leave your email" autocomplete="email" required>
+            <button type="submit" aria-label="Subscribe">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 12h15M13 6l6 6-6 6"/>
+              </svg>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div class="socials">
+          <a href="https://github.com/manasdutta04/opennbLM" aria-label="GitHub">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14.2 8.8H17V6h-2.8C12 6 10 8 10 10.2V12H8v2.8h2V22h2.8v-7.2H15.4l.6-2.8H12.8v-1.4c0-.7.5-1.2 1.4-1.2Z"/></svg>
+          </a>
+          <a href="https://github.com/manasdutta04/opennbLM/releases/latest" aria-label="Releases">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.3 4h2.7l-5.85 6.68L21 20h-4.55l-3.56-4.66L8.7 20H6l6.25-7.14L4.4 4h4.62l3.22 4.22L17.3 4Zm-.94 14.4h1.5L8.55 5.52H7.02l9.34 12.88Z"/></svg>
+          </a>
+          <a href="https://github.com/manasdutta04/opennbLM/tree/main/docs" aria-label="Docs">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.2 4h7.6A4.2 4.2 0 0 1 20 8.2v7.6A4.2 4.2 0 0 1 15.8 20H8.2A4.2 4.2 0 0 1 4 15.8V8.2A4.2 4.2 0 0 1 8.2 4Zm7.6 1.7H8.2A2.5 2.5 0 0 0 5.7 8.2v7.6a2.5 2.5 0 0 0 2.5 2.5h7.6a2.5 2.5 0 0 0 2.5-2.5V8.2a2.5 2.5 0 0 0-2.5-2.5ZM12 8.4A3.6 3.6 0 1 1 8.4 12 3.6 3.6 0 0 1 12 8.4Zm0 1.7A1.9 1.9 0 1 0 13.9 12 1.9 1.9 0 0 0 12 10.1Zm4.25-3.45a.95.95 0 1 1-.95.95.95.95 0 0 1 .95-.95Z"/></svg>
+          </a>
+          <a href="https://github.com/manasdutta04/opennbLM/issues" aria-label="Issues">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.7 9.2H4V20h2.7V9.2ZM5.35 4.1a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6ZM20 20h-2.7v-5.55c0-1.85-.62-3.1-2.28-3.1-1.24 0-1.98.84-2.3 1.65-.12.28-.15.68-.15 1.08V20H10s.04-9.5 0-10.8h2.62v1.55c.35-.7 1.52-1.85 3.72-1.85 2.7 0 4.66 1.76 4.66 5.55V20Z"/></svg>
+          </a>
+        </div>
+        <nav class="legal" aria-label="Legal">
+          <a href="https://github.com/manasdutta04/opennbLM/tree/main/docs">Privacy</a>
+          <a href="https://github.com/manasdutta04/opennbLM">Source Code</a>
+          <a href="https://github.com/manasdutta04/opennbLM/releases/latest">Releases</a>
+        </nav>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

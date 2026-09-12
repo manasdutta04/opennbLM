@@ -1,79 +1,63 @@
 import Link from "next/link";
-import { SiteNav } from "@/components/SiteNav";
-
-const RELEASES = "https://github.com/manasdutta04/opennbLM/releases/latest";
-const REPO = "https://github.com/manasdutta04/opennbLM";
+import { BrandLockup, SiteShell } from "@/components/SiteShell";
+import { LINKS } from "@/lib/links";
 
 export default function HomePage() {
   return (
-    <main>
-      <div className="wrap">
-        <SiteNav />
+    <SiteShell video>
+      <div className="footer-grid">
+        <div className="brand">
+          <BrandLockup />
+          <p className="brand-blurb">A native, local-first companion for notebooks, Studio tools, and Rumik voice.</p>
+        </div>
 
-        <section className="hero">
-          <h1>Learn from your sources. Locally.</h1>
-          <p>
-            opennbLM is a native, local-first learning companion for Windows. Add PDFs and notes, ask grounded
-            questions, generate Studio study tools, and hear Audio Overviews with Rumik voice.
-          </p>
-          <div className="hero-actions">
-            <a className="btn btn-primary" href={RELEASES}>
-              Download for Windows
-            </a>
-            <Link className="btn btn-ghost" href="/docs">
-              Read the docs
-            </Link>
-          </div>
-        </section>
+        <nav className="col" aria-label="Studio">
+          <h2 className="col-title">Studio</h2>
+          <ul className="link-list">
+            <li><Link href="/studio/notebooks">Notebooks</Link></li>
+            <li><Link href="/studio/audio-overview">Audio Overview</Link></li>
+            <li><Link href="/studio/mind-map">Mind Map</Link></li>
+            <li><Link href="/studio/infographic">Infographic</Link></li>
+            <li><Link href="/studio/quiz">Quiz</Link></li>
+            <li><Link href="/studio/flashcards">Flashcards</Link></li>
+            <li><Link href="/studio/slides">Slides</Link></li>
+          </ul>
+        </nav>
 
-        <section className="section">
-          <h2>What you get</h2>
-          <p className="lead">Built for focused study sessions — not another chat dashboard.</p>
-          <div className="grid">
-            <article className="card">
-              <h3>Notebooks</h3>
-              <p>Keep sources, chat, and Studio outputs together in a private local workspace.</p>
-            </article>
-            <article className="card">
-              <h3>Studio tools</h3>
-              <p>Audio Overview, Mind Map, Infographic, Quiz, Flashcards, Slides, Reports, and tables.</p>
-            </article>
-            <article className="card">
-              <h3>Your teaching brain</h3>
-              <p>Connect Claude, Codex, Gemini, OpenCode, Ollama, or LM Studio — you bring the model.</p>
-            </article>
-            <article className="card">
-              <h3>Rumik voice</h3>
-              <p>Expressive Audio Overviews with optional local CUDA install or remote fallback.</p>
-            </article>
-          </div>
-        </section>
+        <nav className="col" aria-label="Setup">
+          <h2 className="col-title">Setup</h2>
+          <ul className="link-list">
+            <li><Link href="/setup">Setup Guide</Link></li>
+            <li><Link href="/brain">Teaching Brain</Link></li>
+            <li><Link href="/voice">Voice Engine</Link></li>
+            <li><Link href="/docs">Docs</Link></li>
+            <li><Link href="/architecture">Architecture</Link></li>
+          </ul>
+        </nav>
 
-        <section className="section">
-          <h2>Download</h2>
-          <p className="lead">
-            Grab the latest Windows installer from GitHub Releases. CI publishes a new Windows build when a version
-            tag is pushed (and can refresh a continuous pre-release from main).
-          </p>
-          <div className="hero-actions">
-            <a className="btn btn-primary" href={RELEASES}>
-              Latest Windows release
-            </a>
-            <a className="btn btn-ghost" href={REPO} target="_blank" rel="noreferrer">
-              View source
-            </a>
-          </div>
-        </section>
+        <nav className="col" aria-label="Source">
+          <h2 className="col-title">Source</h2>
+          <ul className="link-list">
+            <li><Link href="/download">Windows Installer</Link></li>
+            <li><a href={LINKS.releases} target="_blank" rel="noreferrer">Latest Release</a></li>
+            <li><a href={LINKS.repo} target="_blank" rel="noreferrer">View Source</a></li>
+            <li><a href={LINKS.issues} target="_blank" rel="noreferrer">Talk To Us</a></li>
+          </ul>
+        </nav>
 
-        <footer className="footer">
-          <span>opennbLM · local-first learning</span>
-          <span>
-            <Link href="/docs">Docs</Link>
-            {" · "}
-            <a href={REPO}>GitHub</a>
-          </span>
-        </footer>
+        <div className="aside">
+          <h2 className="col-title">Get The Build</h2>
+          <p>Windows x64 installer from GitHub Releases. No account. No store listing.</p>
+          <a className="download-row" href={LINKS.download}>
+            <span>Download for Windows</span>
+            <span className="download-go" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12h15M13 6l6 6-6 6" />
+              </svg>
+            </span>
+          </a>
+        </div>
       </div>
-    </main>
+    </SiteShell>
   );
 }
