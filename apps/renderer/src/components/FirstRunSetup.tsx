@@ -82,7 +82,7 @@ export function FirstRunSetup({
               />
               <div className="mt-5 space-y-2">
                 <Widget ok title="Local storage" detail={`${status.system.freeMemoryMb.toLocaleString()} MB free · ${status.system.platform}`} />
-                <Widget ok={status.audio.available} title="Audio output" detail={status.audio.detail} />
+                <Widget ok={status.audio.available} title="Audio output" detail={status.audio.detail ?? "Audio output"} />
                 <Widget
                   ok={cuda || status.rumik?.mode === "remote"}
                   title="Voice path"
