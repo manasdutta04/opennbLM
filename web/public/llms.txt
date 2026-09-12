@@ -1,0 +1,93 @@
+# opennbLM
+
+> Open-source, local-first Windows study app in the spirit of Google NotebookLM. You keep your own files in a notebook, attach a teaching model you already use, and generate Studio work on this PC. There is no opennbLM account and no bundled LLM.
+
+This file is the short brief for language models. The live site is https://opennblm.manasdutta.com/. The product is the Windows desktop app, not a web workspace. Developed by Manas Dutta with Xiaa.
+
+## What it is
+
+opennbLM is an Electron + React desktop app. Create a notebook, add PDFs, links, or pasted text, connect a teaching brain, then chat or generate Studio artifacts from the sources you selected.
+
+It is bring-your-own-brain. Settings does not take API keys. You open a notebook, click Connect brain, and pick an engine already installed or signed in on that computer: Claude, Codex, Gemini, OpenCode, Ollama, or LM Studio. Cloud CLIs send selected excerpts to that vendor. Ollama and LM Studio keep inference on the machine.
+
+Notebooks, chats, notes, and generated audio stay in the app data folder. The marketing site is static and never receives those files.
+
+## Studio
+
+Studio builds from the selected sources, not from a generic chat dump. Language is a Studio picker. The seven delivery languages are English, Hindi, Bengali, Telugu, Tamil, Kannada, and Punjabi.
+
+- Notebooks
+- Audio Overview (the only path that speaks)
+- Mind map
+- Infographic
+- Quiz
+- Flashcards
+- Slides
+- Report and data table also exist in the app
+
+Chat is text only. Rumik must not read chat.
+
+Memory stores teaching notes only after a brain answers a question. Creating a notebook or generating Studio does not fill Memory.
+
+## Voice (Rumik)
+
+Rumik OSS-1 (`rumik-ai/rumik-oss-1`) is the only voice engine. It is not a generic TTS marketplace.
+
+- Remote (default after the .exe): the app calls the public Space at https://rumik-ai-rumik-oss-1.hf.space over HTTPS. Users do not clone Rumik or start a server. A Hugging Face token is optional when anonymous ZeroGPU quota runs out.
+- Local (this PC): NVIDIA CUDA + official weights bound from Settings → Voice engine. Preferred when a GPU is available.
+
+Local load can use automatic 4-bit NF4 (bitsandbytes) on cards with ≤6 GB VRAM. That is reachability, not higher quality than full precision. This path was proven on an RTX 3050 Ti laptop with 4 GB VRAM.
+
+If the user chooses local, synthesis stays on that PC. A local worker failure does not silently fall over to the public Space.
+
+Speakers are Ira, Aisha, Siya, and Zoya. Pace is steady. Accent follows the line language. The UI does not offer tone, accent, or pace pickers. Rumik OSS-1 weights are CC BY-NC 4.0 (research / non-commercial). Application source is Apache 2.0.
+
+English Studio and chat are the reliable path. Indic Audio Overview is limited by rumik-oss-1. A larger GPU makes it faster, not more natural. Do not claim this matches a commercial NotebookLM + TTS stack.
+
+## How a person uses it
+
+1. Install the Windows x64 NSIS build from GitHub Releases. Do not clone the repo to use the product.
+2. First launch walks through this PC, a teaching brain, and optional voice.
+3. Create a notebook. Connect brain. Add sources. Select them.
+4. Ask in chat or generate Studio one tool at a time.
+5. Optional: play Audio Overview. Optional: read Memory after a real answer.
+
+## Do not say
+
+- That opennbLM ships a built-in teaching model or stores vendor API keys in Settings
+- That chat is spoken, or that Rumik runs on macOS locally
+- That Indic speech is solved
+- That remote voice means the user hosts Rumik
+- That 4-bit local load sounds better than full precision
+
+## Site
+
+- [Home](https://opennblm.manasdutta.com/): product landing
+- [Setup](https://opennblm.manasdutta.com/setup): install and first notebook
+- [Teaching brain](https://opennblm.manasdutta.com/brain): Connect brain, no Settings keys
+- [Voice engine](https://opennblm.manasdutta.com/voice): remote Space vs local CUDA
+- [Docs](https://opennblm.manasdutta.com/docs): how the shipped Windows app works
+- [Architecture](https://opennblm.manasdutta.com/architecture): Electron / preload / renderer
+- [Studio](https://opennblm.manasdutta.com/studio): tool index
+- [Notebooks](https://opennblm.manasdutta.com/studio/notebooks)
+- [Audio overview](https://opennblm.manasdutta.com/studio/audio-overview)
+- [Mind map](https://opennblm.manasdutta.com/studio/mind-map)
+- [Infographic](https://opennblm.manasdutta.com/studio/infographic)
+- [Quiz](https://opennblm.manasdutta.com/studio/quiz)
+- [Flashcards](https://opennblm.manasdutta.com/studio/flashcards)
+- [Slides](https://opennblm.manasdutta.com/studio/slides)
+- [Download](https://opennblm.manasdutta.com/download): latest Windows installer
+- [Privacy](https://opennblm.manasdutta.com/privacy)
+- [Terms](https://opennblm.manasdutta.com/terms)
+
+## Source
+
+- [GitHub](https://github.com/manasdutta04/opennbLM): application source (Apache 2.0)
+- [Latest release](https://github.com/manasdutta04/opennbLM/releases/latest)
+- [Windows installer](https://github.com/manasdutta04/opennbLM/releases/latest/download/opennbLM-win-x64.exe)
+- [Issues](https://github.com/manasdutta04/opennbLM/issues)
+- [Rumik notes](https://github.com/manasdutta04/opennbLM/blob/main/docs/rumik.md)
+- [Provider notes](https://github.com/manasdutta04/opennbLM/blob/main/docs/llm-providers.md)
+- [Rumik OSS-1 model card](https://huggingface.co/rumik-ai/rumik-oss-1)
+- [Manas Dutta](https://www.manasdutta.com/)
+- [X](https://x.com/manasdutta04)

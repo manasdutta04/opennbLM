@@ -6,4 +6,5 @@ export const LINKS = {
   docsRepo: "https://github.com/manasdutta04/opennbLM/tree/main/docs",
   twitter: "https://x.com/manasdutta04",
   site: "https://www.manasdutta.com/",
+  home: "https://opennblm.manasdutta.com",
 } as const;

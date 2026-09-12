@@ -13,3 +13,4 @@ out/
 .env
 .env.*
 !.env.example
+scripts/.og-fonts/
