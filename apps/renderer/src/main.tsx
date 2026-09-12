@@ -482,57 +482,49 @@ function App() {
   return (
     <div className="animate-workspace-in flex h-full min-h-0 flex-col overflow-hidden bg-app text-ink">
       <AppTitleBar />
-      <header
-        className="flex h-14 shrink-0 items-center gap-3 border-b border-hairline/25 px-5"
-        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-      >
-        <button
-          type="button"
-          className="flex items-center gap-2.5 rounded-lg px-1 py-1 hover:bg-raised/40"
-          onClick={() => setScreen("home")}
+      {screen === "home" ? (
+        <header
+          className="flex h-14 shrink-0 items-center gap-3 border-b border-hairline/25 px-5"
+          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
-          <img src="./icon.png" alt="" width={22} height={22} className="size-[22px] rounded-[5px]" draggable={false} />
-          <span className="text-[15px] font-medium tracking-[-0.01em] text-ink">
-            {screen === "lesson" && selected ? selected.title : screen === "notebook" ? "Notebook" : "opennbLM"}
-          </span>
-        </button>
-        <div className="flex-1" />
-        {screen === "home" && (
+          <button
+            type="button"
+            className="flex items-center gap-2.5 rounded-lg px-1 py-1 hover:bg-raised/40"
+            onClick={() => setScreen("home")}
+          >
+            <img src="./icon.png" alt="" width={22} height={22} className="size-[22px] rounded-[5px]" draggable={false} />
+            <span className="text-[15px] font-medium tracking-[-0.01em] text-ink">opennbLM</span>
+          </button>
+          <div className="flex-1" />
           <button
             onClick={() => void newNotebook()}
             className="rounded-full bg-white px-3.5 py-1.5 text-[13px] font-medium text-black hover:brightness-95"
           >
             + Create notebook
           </button>
-        )}
-        <button
-          onClick={() => setScreen("memory")}
-          className={cn(
-            "flex items-center gap-1.5 rounded-full border border-hairline/40 px-3 py-1.5 text-[13px]",
-            screen === "memory" ? "bg-raised text-ink" : "text-ink-secondary hover:bg-raised hover:text-ink",
-          )}
-        >
-          <Brain size={15} />
-          Memory
-        </button>
-        <button
-          onClick={() => setScreen("settings")}
-          className={cn(
-            "flex items-center gap-1.5 rounded-full border border-hairline/40 px-3 py-1.5 text-[13px]",
-            screen === "settings" ? "bg-raised text-ink" : "text-ink-secondary hover:bg-raised hover:text-ink",
-          )}
-        >
-          <SettingsIcon size={15} />
-          Settings
-        </button>
-        <button
-          onClick={() => setIsDark((v) => !v)}
-          className="flex size-8 items-center justify-center rounded-full text-ink-secondary hover:bg-raised hover:text-ink"
-          aria-label="Toggle theme"
-        >
-          {isDark ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
-      </header>
+          <button
+            onClick={() => setScreen("memory")}
+            className="flex items-center gap-1.5 rounded-full border border-hairline/40 px-3 py-1.5 text-[13px] text-ink-secondary hover:bg-raised hover:text-ink"
+          >
+            <Brain size={15} />
+            Memory
+          </button>
+          <button
+            onClick={() => setScreen("settings")}
+            className="flex items-center gap-1.5 rounded-full border border-hairline/40 px-3 py-1.5 text-[13px] text-ink-secondary hover:bg-raised hover:text-ink"
+          >
+            <SettingsIcon size={15} />
+            Settings
+          </button>
+          <button
+            onClick={() => setIsDark((v) => !v)}
+            className="flex size-8 items-center justify-center rounded-full text-ink-secondary hover:bg-raised hover:text-ink"
+            aria-label="Toggle theme"
+          >
+            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+        </header>
+      ) : null}
 
       {screen === "home" && (
         <div className="min-h-0 flex-1 overflow-y-auto">

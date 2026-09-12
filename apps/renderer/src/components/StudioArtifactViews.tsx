@@ -3,8 +3,6 @@ import {
   Background,
   Controls,
   Handle,
-  MarkerType,
-  MiniMap,
   Position,
   ReactFlow,
   type Edge,
@@ -34,109 +32,128 @@ type Slide = { title: string; bullets?: string[] };
 
 const ACCENTS = ["#4c8bf5", "#e6c35c", "#7ad0c8", "#f0a0c0", "#e8a06a", "#b8a0ff"] as const;
 
+const NODE_W = { 0: 220, 1: 180, 2: 168 } as const;
+const NODE_H = { 0: 56, 1: 52, 2: 68 } as const;
+const H_GAP = 32;
+const V_GAP = 92;
+
 function MindNode({ data }: NodeProps<MindFlowNode>) {
   const level = data.level ?? 0;
+  const width = NODE_W[level as 0 | 1 | 2] ?? NODE_W[2];
   return (
     <div
+      style={{ width, minHeight: NODE_H[level as 0 | 1 | 2] ?? NODE_H[2] }}
       className={cn(
-        "max-w-[220px] rounded-2xl border px-3 py-2 text-center shadow-sm",
+        "box-border flex items-center justify-center rounded-xl border px-2.5 py-2 text-center",
         level === 0
-          ? "border-[#4c8bf5]/45 bg-[#4c8bf5]/15 text-[14px] font-semibold text-ink"
+          ? "border-[#4c8bf5]/55 bg-[#4c8bf5]/18 text-[13px] font-semibold text-ink"
           : level === 1
-            ? "border-hairline/50 bg-card text-[12.5px] font-medium text-ink"
-            : "border-hairline/35 bg-inset text-[11.5px] text-ink-secondary",
+            ? "border-hairline/55 bg-card text-[12px] font-medium text-ink"
+            : "border-hairline/45 bg-[#16161c] text-[11px] leading-snug text-ink-secondary",
       )}
     >
-      <Handle type="target" position={Position.Top} className="!bg-[#4c8bf5] !w-2 !h-2 !border-0" />
-      <div className="leading-snug">{data.label}</div>
-      <Handle type="source" position={Position.Bottom} className="!bg-[#4c8bf5] !w-2 !h-2 !border-0" />
+      <Handle type="target" position={Position.Top} className="!pointer-events-none !h-px !w-px !border-0 !bg-transparent !opacity-0" />
+      <div className="line-clamp-3 w-full leading-snug">{data.label}</div>
+      <Handle type="source" position={Position.Bottom} className="!pointer-events-none !h-px !w-px !border-0 !bg-transparent !opacity-0" />
     </div>
   );
 }
 
 const nodeTypes = { mind: MindNode } satisfies NodeTypes;
 
+type Tree = { id: string; label: string; level: number; children: Tree[] };
+
+function toTree(data: MindMapData): Tree {
+  return {
+    id: "root",
+    label: data.root,
+    level: 0,
+    children: (data.children || []).map((child, i) => ({
+      id: `l1-${i}`,
+      label: child.label,
+      level: 1,
+      children: (child.children || []).map((g, gi) => ({
+        id: `l2-${i}-${gi}`,
+        label: g.label,
+        level: 2,
+        children: [],
+      })),
+    })),
+  };
+}
+
+function subtreeWidth(node: Tree): number {
+  const self = NODE_W[node.level as 0 | 1 | 2] ?? NODE_W[2];
+  if (!node.children.length) return self;
+  const kids = node.children.reduce((sum, child, index) => sum + subtreeWidth(child) + (index > 0 ? H_GAP : 0), 0);
+  return Math.max(self, kids);
+}
+
+function placeTree(node: Tree, left: number, y: number, nodes: MindFlowNode[], edges: Edge[], parentId?: string): void {
+  const width = subtreeWidth(node);
+  const nodeW = NODE_W[node.level as 0 | 1 | 2] ?? NODE_W[2];
+  const x = left + (width - nodeW) / 2;
+  nodes.push({
+    id: node.id,
+    type: "mind",
+    position: { x, y },
+    data: { label: node.label, level: node.level },
+    style: { width: nodeW, height: NODE_H[node.level as 0 | 1 | 2] ?? NODE_H[2] },
+    draggable: true,
+    selectable: true,
+  });
+  if (parentId) {
+    edges.push({
+      id: `e-${parentId}-${node.id}`,
+      source: parentId,
+      target: node.id,
+      type: "smoothstep",
+      style: {
+        stroke: node.level === 1 ? "#6ea0f0" : "rgba(148,163,184,0.55)",
+        strokeWidth: node.level === 1 ? 1.6 : 1.2,
+      },
+    });
+  }
+  if (!node.children.length) return;
+  const kidsWidth = node.children.reduce((sum, child, index) => sum + subtreeWidth(child) + (index > 0 ? H_GAP : 0), 0);
+  let cursor = left + (width - kidsWidth) / 2;
+  const childY = y + (NODE_H[node.level as 0 | 1 | 2] ?? NODE_H[2]) + V_GAP;
+  for (const child of node.children) {
+    const w = subtreeWidth(child);
+    placeTree(child, cursor, childY, nodes, edges, node.id);
+    cursor += w + H_GAP;
+  }
+}
+
 function buildMindFlow(data: MindMapData): { nodes: MindFlowNode[]; edges: Edge[] } {
   const nodes: MindFlowNode[] = [];
   const edges: Edge[] = [];
-  const rootId = "root";
-  nodes.push({
-    id: rootId,
-    type: "mind",
-    position: { x: 0, y: 0 },
-    data: { label: data.root, level: 0 },
-  });
-
-  const level1 = data.children || [];
-  const l1Gap = 260;
-  const l1Width = Math.max(level1.length - 1, 0) * l1Gap;
-  level1.forEach((child, i) => {
-    const id = `l1-${i}`;
-    const x = -l1Width / 2 + i * l1Gap;
-    nodes.push({
-      id,
-      type: "mind",
-      position: { x, y: 140 },
-      data: { label: child.label, level: 1 },
-    });
-    edges.push({
-      id: `e-${rootId}-${id}`,
-      source: rootId,
-      target: id,
-      type: "smoothstep",
-      style: { stroke: "#4c8bf5", strokeWidth: 1.5 },
-      markerEnd: { type: MarkerType.ArrowClosed, color: "#4c8bf5", width: 16, height: 16 },
-    });
-
-    const grands = child.children || [];
-    const gGap = 170;
-    const gWidth = Math.max(grands.length - 1, 0) * gGap;
-    grands.forEach((g, gi) => {
-      const gid = `l2-${i}-${gi}`;
-      nodes.push({
-        id: gid,
-        type: "mind",
-        position: { x: x - gWidth / 2 + gi * gGap, y: 280 },
-        data: { label: g.label, level: 2 },
-      });
-      edges.push({
-        id: `e-${id}-${gid}`,
-        source: id,
-        target: gid,
-        type: "smoothstep",
-        style: { stroke: "rgba(148,163,184,0.7)", strokeWidth: 1.2 },
-        markerEnd: { type: MarkerType.ArrowClosed, color: "rgba(148,163,184,0.9)", width: 14, height: 14 },
-      });
-    });
-  });
-
+  placeTree(toTree(data), 0, 0, nodes, edges);
   return { nodes, edges };
 }
 
 export function MindMapView({ data }: { data: MindMapData }) {
   const { nodes, edges } = useMemo(() => buildMindFlow(data), [data]);
   return (
-    <div className="mt-4 h-[min(520px,60vh)] overflow-hidden rounded-2xl border border-hairline/40 bg-inset">
+    <div className="mindmap-flow mt-4 h-[min(620px,72vh)] overflow-hidden rounded-2xl border border-hairline/40 bg-[#0e0e12]">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.35}
-        maxZoom={1.4}
+        fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+        minZoom={0.22}
+        maxZoom={1.35}
         proOptions={{ hideAttribution: true }}
         nodesDraggable
         nodesConnectable={false}
         elementsSelectable
+        panOnScroll
+        zoomOnScroll
+        defaultEdgeOptions={{ type: "smoothstep" }}
       >
-        <Background gap={18} size={1} color="rgba(148,163,184,0.18)" />
-        <Controls showInteractive={false} className="!bg-card !border-hairline/40 !shadow-none" />
-        <MiniMap
-          className="!bg-card !border-hairline/40"
-          nodeColor={() => "#4c8bf5"}
-          maskColor="rgba(0,0,0,0.35)"
-        />
+        <Background gap={20} size={1} color="rgba(148,163,184,0.12)" />
+        <Controls showInteractive={false} className="mindmap-controls !shadow-none" />
       </ReactFlow>
     </div>
   );

@@ -778,3 +778,14 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Verification
 
 - `pnpm build` + `pnpm desktop:start`.
+
+## Mind map layout + home-only chrome — 2026-09-12
+
+### Completed
+
+- Mind map: subtree width layout (no overlapping leaves), hidden connection handles, removed MiniMap artifact, dark zoom controls, wider artifact modal.
+- Top Memory / Settings / theme bar shows on Home only; notebooks use their own toolbar without that chrome.
+
+### Verification
+
+- `pnpm build` + `pnpm desktop:start`.

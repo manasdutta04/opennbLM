@@ -915,9 +915,14 @@ export function NotebookWorkspace({
       </div>
 
       {activeArtifact ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6" onMouseDown={() => setActiveArtifact(null)}>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-4 sm:p-6" onMouseDown={() => setActiveArtifact(null)}>
           <div
-            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-hairline/50 bg-panel p-5 shadow-2xl"
+            className={cn(
+              "max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-hairline/50 bg-panel p-5 shadow-2xl",
+              activeArtifact.kind === "mind_map" || activeArtifact.kind === "infographic" || activeArtifact.kind === "slide_deck"
+                ? "max-w-5xl"
+                : "max-w-2xl",
+            )}
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
