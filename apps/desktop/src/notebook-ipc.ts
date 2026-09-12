@@ -187,15 +187,19 @@ export function registerNotebookHandlers(
     ) => {
       const material = collectMaterial(store(), notebookId, options?.sourceIds);
       if (!material.trim()) throw new Error("Add ready sources before generating Studio output.");
+      const language = options?.language ?? "English";
       const artifact = store().createArtifact({
         notebookId,
         kind,
         title: kind.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
         status: "processing",
+        meta: {
+          language,
+          sourceCount: options?.sourceIds?.length,
+        },
       });
       try {
         const { provider, model } = await getProvider();
-        const language = options?.language ?? "English";
         const prompt = buildStudioArtifactPrompt(kind, material, language, options?.focusPrompt);
         const ask = (content: string) =>
           provider.chat({
@@ -226,7 +230,10 @@ export function registerNotebookHandlers(
           title: prompt.title,
           body,
           error: null,
-          meta: { language },
+          meta: {
+            language,
+            sourceCount: options?.sourceIds?.length,
+          },
         });
       } catch (error) {
         return store().updateArtifact(artifact.id, {

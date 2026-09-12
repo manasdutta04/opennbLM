@@ -904,6 +904,18 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 - Studio JSON artifacts (especially infographic) now require English keys and selected-language values, then retry once if the model returns invalid JSON.
 - Parser recovers smart quotes / trailing commas. UI uses Nirmala UI / Noto so Kannada, Telugu, and other Indic scripts can render.
 
+## Studio artifact visuals — 2026-09-12
+
+### Completed
+
+- Restyled infographic, slides, flashcards, quiz, reports, and data tables as quiet editorial layouts (no rainbow orbs). Mind map unchanged.
+- Text wrapping avoids breaking Indic scripts. Studio tiles keep full labels instead of jamming words.
+- Generated list and the open artifact footer show the Studio language used (`1 source · today · Kannada`).
+
+### Verification
+
+- Renderer rebuild (this session). Existing artifacts pick up the new views immediately.
+
 ### Verification
 
 - notebook-runtime tests + typecheck (this session). Existing broken posters need a regenerate.

@@ -42,6 +42,7 @@ import {
   MindMapView,
   QuizView,
   SlideDeckView,
+  DataTableView,
 } from "./StudioArtifactViews";
 
 type ChatLine = {
@@ -81,6 +82,11 @@ const STUDIO_TILES: Array<{
   { kind: "infographic", label: "Infographic", accent: "text-[#e87a7a]" },
   { kind: "data_table", label: "Data table", accent: "text-[#7ad0c8]" },
 ];
+
+function artifactLanguage(meta?: Record<string, unknown>): string | null {
+  const lang = typeof meta?.language === "string" ? meta.language.trim() : "";
+  return lang || null;
+}
 
 function parseMaybeJson(body: string): unknown {
   if (!body?.trim()) return null;
@@ -532,6 +538,8 @@ export function NotebookWorkspace({
     setActiveArtifact(art);
   };
 
+  const openLanguage = artifactLanguage(activeArtifact?.meta);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-hairline/25 px-4">
@@ -899,7 +907,7 @@ export function NotebookWorkspace({
                     key={tile.kind}
                     type="button"
                     disabled={busy || !brainReady}
-                    className="flex items-center gap-1.5 rounded-lg border border-hairline/30 bg-card px-2 py-1.5 text-left hover:bg-raised/40 disabled:opacity-40"
+                    className="flex min-h-[44px] items-center gap-1.5 rounded-lg border border-hairline/30 bg-card px-2.5 py-2 text-left hover:bg-raised/40 disabled:opacity-40"
                     onClick={() => {
                       if (tile.kind === "audio_overview") setAudioOpen(true);
                       else generateTile(tile.kind);
@@ -916,7 +924,9 @@ export function NotebookWorkspace({
                         <FileText size={13} />
                       )}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink">{tile.label}</span>
+                    <span className="min-w-0 flex-1 text-[11.5px] leading-snug text-ink [overflow-wrap:normal] [word-break:keep-all]">
+                      {tile.label}
+                    </span>
                     <ChevronRight size={12} className="shrink-0 text-ink-secondary" />
                   </button>
                 ))}
@@ -936,7 +946,9 @@ export function NotebookWorkspace({
                     <RefreshCw size={16} className="mt-0.5 shrink-0 animate-spin text-[#c9a8e8]" />
                     <div className="min-w-0">
                       <div className="text-[13px] text-ink">{row.label}</div>
-                      <div className="text-[11px] text-ink-secondary">based on {row.sourceCount} sources</div>
+                      <div className="text-[11px] text-ink-secondary">
+                        based on {row.sourceCount} sources · {studioLanguage}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -946,6 +958,7 @@ export function NotebookWorkspace({
                   const path = art.audioPaths?.[0];
                   const meta = art.meta || {};
                   const srcCount = typeof meta.sourceCount === "number" ? meta.sourceCount : selectedReadyCount;
+                  const language = artifactLanguage(meta);
                   return (
                     <div
                       key={art.id}
@@ -960,6 +973,7 @@ export function NotebookWorkspace({
                           <span className="block text-[11px] text-ink-secondary">
                             {art.status === "processing" ? "Generating…" : `${srcCount} source${srcCount === 1 ? "" : "s"} · ${relativeAge(art.createdAt)}`}
                             {typeof meta.format === "string" ? ` · ${String(meta.format).replace(/_/g, " ")}` : ""}
+                            {language ? ` · ${language}` : ""}
                           </span>
                           {art.error ? (
                             <span className="mt-0.5 block line-clamp-2 text-[11px] text-warning" title={art.error}>
@@ -1022,6 +1036,11 @@ export function NotebookWorkspace({
               </button>
             </div>
             <ArtifactBody artifact={activeArtifact} />
+            {openLanguage ? (
+              <p className="mt-5 border-t border-hairline/30 pt-3 text-[12px] text-ink-secondary">
+                Generated in {openLanguage}
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -1049,32 +1068,7 @@ function ArtifactBody({ artifact }: { artifact: StudioArtifact }) {
   }
   if (artifact.kind === "data_table" && parsed && typeof parsed === "object" && parsed && "columns" in parsed) {
     const table = parsed as { columns: string[]; rows: string[][] };
-    return (
-      <div className="mt-4 overflow-x-auto rounded-2xl border border-hairline/40">
-        <table className="w-full border-collapse text-[12.5px]">
-          <thead>
-            <tr>
-              {(table.columns || []).map((c) => (
-                <th key={c} className="border-b border-hairline/40 bg-card px-3 py-2 text-left text-ink">
-                  {c}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {(table.rows || []).map((row, i) => (
-              <tr key={i} className="odd:bg-inset/40">
-                {row.map((cell, j) => (
-                  <td key={j} className="border-b border-hairline/25 px-3 py-2 text-ink-secondary">
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
+    return <DataTableView columns={table.columns || []} rows={table.rows || []} />;
   }
   if (artifact.kind === "infographic" && parsed && typeof parsed === "object" && parsed && "headline" in parsed) {
     return (
@@ -1092,8 +1086,8 @@ function ArtifactBody({ artifact }: { artifact: StudioArtifact }) {
   }
   if (artifact.kind === "report" && artifact.body.trim()) {
     return (
-      <div className="mt-4">
-        <MarkdownView text={artifact.body} />
+      <div className="mt-4 rounded-2xl border border-hairline/45 bg-card px-6 py-5 [overflow-wrap:break-word] [word-break:normal]">
+        <MarkdownView text={artifact.body} className="text-[14.5px] leading-[1.7] text-ink" />
       </div>
     );
   }
