@@ -1008,3 +1008,13 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - If a tag is deleted and recreated on GitHub, clones will need another tag update. Do not retarget `v0.1.0` or `latest-windows`.
+
+## Vercel marketing site — 2026-09-12
+
+### Completed
+
+- Added root and `web/` Vercel config so the static Next export (`web/out`) can be imported from the GitHub repo. Node 22. Install stays `pnpm install --frozen-lockfile`.
+
+### Limitations
+
+- Not deployed from this session. The project must be imported on Vercel after these files are on `main`.

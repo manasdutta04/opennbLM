@@ -48,9 +48,11 @@ apps/desktop     Electron main, IPC, services
 apps/preload     Typed renderer bridge
 apps/renderer    React UI
 packages/*       Contracts and local capabilities
+web/             Marketing site (Vercel static export)
 .agents/         Product notes for coding agents
 docs/            Rumik, providers, progress log
 ```
+
 
 ## Docs
 
