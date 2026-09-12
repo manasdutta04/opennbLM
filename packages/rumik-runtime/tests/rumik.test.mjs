@@ -31,6 +31,31 @@ test("forced local mode reports missing runtime without synthesis success", asyn
   assert.equal(manager.getMode(), "local");
 });
 
+test("setHfToken records whether a token is stored", async () => {
+  const prevHf = process.env.HF_TOKEN;
+  const prevHub = process.env.HUGGING_FACE_HUB_TOKEN;
+  delete process.env.HF_TOKEN;
+  delete process.env.HUGGING_FACE_HUB_TOKEN;
+  try {
+    const manager = createRumikManager({
+      preferredMode: "remote",
+      pythonPath: "opennblm-python-does-not-exist",
+      modelPath: "missing-model",
+      outputDirectory: "temp-audio",
+    });
+    assert.equal(manager.getStatus().hasHfToken, false);
+    manager.setHfToken("hf_test_token");
+    assert.equal(manager.getStatus().hasHfToken, true);
+    manager.setHfToken("");
+    assert.equal(manager.getStatus().hasHfToken, false);
+  } finally {
+    if (prevHf === undefined) delete process.env.HF_TOKEN;
+    else process.env.HF_TOKEN = prevHf;
+    if (prevHub === undefined) delete process.env.HUGGING_FACE_HUB_TOKEN;
+    else process.env.HUGGING_FACE_HUB_TOKEN = prevHub;
+  }
+});
+
 test("setPreferredMode switches between remote and local", async () => {
   const manager = createRumikManager({
     pythonPath: "opennblm-python-does-not-exist",

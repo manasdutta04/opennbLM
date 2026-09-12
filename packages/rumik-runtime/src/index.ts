@@ -47,6 +47,7 @@ export interface RumikStatus {
   preferredMode?: RumikMode;
   cudaAvailable: boolean;
   remoteEndpoint?: string;
+  hasHfToken?: boolean;
   error?: string;
 }
 
@@ -68,6 +69,7 @@ export interface RumikManager {
   getStatus(): RumikStatus;
   getMode(): RumikMode;
   setPreferredMode(mode: RumikMode): void;
+  setHfToken(token?: string): void;
   start(): Promise<void>;
   stop(): Promise<void>;
   healthCheck(): Promise<boolean>;
@@ -86,6 +88,7 @@ export interface RumikManagerOptions {
   /** Override auto mode selection. */
   preferredMode?: RumikMode;
   remoteEndpoint?: string;
+  hfToken?: string;
 }
 
 const defaultConfig: RumikConfig = {
@@ -218,6 +221,7 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
 
   let cudaAvailable = detectCudaAvailable(python);
   let preferredMode = options.preferredMode;
+  let hfToken = options.hfToken?.trim() || undefined;
   let mode: RumikMode = resolveMode(
     preferredMode,
     cudaAvailable,
@@ -235,6 +239,7 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
     preferredMode,
     cudaAvailable,
     remoteEndpoint: mode === "remote" ? remoteEndpoint : undefined,
+    hasHfToken: Boolean(hfToken || process.env.HF_TOKEN || process.env.HUGGING_FACE_HUB_TOKEN),
   };
 
   let worker: ChildProcess | undefined;
@@ -265,6 +270,7 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
       preferredMode,
       cudaAvailable,
       remoteEndpoint: mode === "remote" ? remoteEndpoint : undefined,
+      hasHfToken: Boolean(hfToken || process.env.HF_TOKEN || process.env.HUGGING_FACE_HUB_TOKEN),
     };
   };
 
@@ -494,6 +500,7 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
         outputPath: wavPath,
         endpoint: remoteEndpoint,
         timeoutMs: SYNTHESIS_TIMEOUT_MS,
+        hfToken,
       });
       if (cancelRequested) {
         rmSync(wavPath, { force: true });
@@ -525,6 +532,15 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
           error: undefined,
         };
       }
+      emitState();
+    },
+    setHfToken(next) {
+      const trimmed = next?.trim();
+      hfToken = trimmed || undefined;
+      status = {
+        ...status,
+        hasHfToken: Boolean(hfToken || process.env.HF_TOKEN || process.env.HUGGING_FACE_HUB_TOKEN),
+      };
       emitState();
     },
     onSegmentReady(listener) {

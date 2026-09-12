@@ -1,7 +1,7 @@
-import { app, BrowserWindow, clipboard, ipcMain, Menu, shell } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, Menu, safeStorage, shell } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { arch, freemem, homedir, platform } from "node:os";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
@@ -97,6 +97,7 @@ async function getSetupStatus() {
       preferredMode: rumikStatus.preferredMode ?? mode,
       cudaAvailable: rumikStatus.cudaAvailable,
       remoteEndpoint: rumikStatus.remoteEndpoint,
+      hasHfToken: Boolean(rumikStatus.hasHfToken),
     },
   };
 }
@@ -117,6 +118,39 @@ function loadRumikPreferredMode(): "local" | "remote" {
 
 function saveRumikPreferredMode(mode: "local" | "remote") {
   writeFileSync(rumikPreferencePath(), JSON.stringify({ mode }));
+}
+
+function rumikTokenPath() {
+  return join(app.getPath("userData"), "rumik-hf-token.enc");
+}
+
+function loadRumikHfToken(): string | undefined {
+  const fromEnv = process.env.HF_TOKEN || process.env.HUGGING_FACE_HUB_TOKEN;
+  try {
+    if (!existsSync(rumikTokenPath())) return fromEnv || undefined;
+    const raw = JSON.parse(readFileSync(rumikTokenPath(), "utf8")) as { enc?: string };
+    if (!raw.enc || !safeStorage.isEncryptionAvailable()) return fromEnv || undefined;
+    return safeStorage.decryptString(Buffer.from(raw.enc, "base64")) || fromEnv || undefined;
+  } catch {
+    return fromEnv || undefined;
+  }
+}
+
+function saveRumikHfToken(token?: string) {
+  const path = rumikTokenPath();
+  if (!token) {
+    if (existsSync(path)) unlinkSync(path);
+    return;
+  }
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error("Windows could not store the Hugging Face token securely on this machine.");
+  }
+  writeFileSync(path, JSON.stringify({ enc: safeStorage.encryptString(token).toString("base64") }), { mode: 0o600 });
+  try {
+    chmodSync(path, 0o600);
+  } catch {
+    /* ignore */
+  }
 }
 
 function learnerContext(memory: LearnerMemory[]): string { return memory.slice(0, 12).map((item) => `${item.kind}: ${item.key} — ${item.value}`).join("; "); }
@@ -170,6 +204,7 @@ app.whenReady().then(async () => {
     modelPath: process.env.RUMIK_MODEL_PATH || (existsSync(bundledModel) ? bundledModel : join(app.getPath("userData"), "models", "rumik-oss-1")),
     outputDirectory: rumikOutput,
     preferredMode: loadRumikPreferredMode(),
+    hfToken: loadRumikHfToken(),
   });
   await rumik.healthCheck().catch(() => false);
   rumik.onSegmentReady((segment) => {
@@ -224,6 +259,18 @@ app.whenReady().then(async () => {
     saveRumikPreferredMode(mode);
     rumik!.setPreferredMode(mode);
     await rumik!.start().catch(() => undefined);
+    return rumik!.getStatus();
+  });
+  ipcMain.handle("rumik:set-hf-token", async (_event, token: unknown) => {
+    if (token !== undefined && token !== null && typeof token !== "string") {
+      throw new Error("Hugging Face token must be text.");
+    }
+    const next = typeof token === "string" ? token.trim() : "";
+    if (next && !next.startsWith("hf_")) {
+      throw new Error("Hugging Face tokens start with hf_.");
+    }
+    saveRumikHfToken(next || undefined);
+    rumik!.setHfToken(next || undefined);
     return rumik!.getStatus();
   });
   ipcMain.handle("rumik:start", () => rumik!.start());

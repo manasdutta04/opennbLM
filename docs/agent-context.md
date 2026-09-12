@@ -31,7 +31,7 @@ Short handoff for agents. Product: native, local-first, voice-first learning com
 - Python: `RUMIK_PYTHON`, else bundled, else first local Windows Python with `torch.cuda` (312→311→310→313).
 - Does **not** auto-download weights. Settings shows dual-path copy, mode badge, bind path, download command (`snapshot_download`), HF link, refresh, and last Rumik error when present.
 - Low-VRAM: auto 4-bit NF4 (`bitsandbytes`) at load time on ≤6 GB GPUs. No separately published quantized HF checkpoint — users always pull official weights.
-- No HF-token Settings UI; optional `HF_TOKEN` env for remote quota only.
+- Remote HTTPS is built into the .exe (public rumik-ai Space). Optional HF token field in Settings → Voice engine for ZeroGPU quota; also `HF_TOKEN` env. Never ship a shared token.
 - `teaching:teach` returns lesson text immediately, then starts Rumik in the background (`voiceStarted` if health ok; `voiceError` if voice unavailable). Voice failures still surface via `rumik:state`. Also returns `usedFallback` and optional `citations` when `notebookId` grounds the answer.
 - Demo safety net: `docs/demo/rumik-expressive-sample.wav` + README.
 

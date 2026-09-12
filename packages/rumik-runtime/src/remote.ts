@@ -21,8 +21,8 @@ function resolveSpaceId(endpoint: string): string {
   return DEFAULT_SPACE_ID;
 }
 
-function hfToken(): `hf_${string}` | undefined {
-  const token = process.env.HF_TOKEN || process.env.HUGGING_FACE_HUB_TOKEN;
+function resolveHfToken(explicit?: string): `hf_${string}` | undefined {
+  const token = (explicit || process.env.HF_TOKEN || process.env.HUGGING_FACE_HUB_TOKEN || "").trim();
   if (!token) return undefined;
   return token.startsWith("hf_") ? (token as `hf_${string}`) : undefined;
 }
@@ -44,7 +44,7 @@ function formatRemoteError(error: unknown): string {
       if (typeof value === "string" && value.trim() && value !== "null") return value.trim();
     }
   }
-  return "Rumik remote synthesis failed (hosted Space unavailable or ZeroGPU quota exceeded). Set HF_TOKEN for more quota, or bind local CUDA weights.";
+  return "Rumik remote synthesis failed (hosted Space unavailable or ZeroGPU quota exceeded). Add a Hugging Face token in Settings → Voice engine, or switch to local CUDA.";
 }
 
 function extractAudioUrl(result: unknown, root: string): string | null {
@@ -79,12 +79,12 @@ function extractAudioUrl(result: unknown, root: string): string | null {
   return visit(result);
 }
 
-async function downloadToFile(url: string, dest: string, timeoutMs: number): Promise<void> {
+async function downloadToFile(url: string, dest: string, timeoutMs: number, hfToken?: string): Promise<void> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const headers: Record<string, string> = {};
-    const token = process.env.HF_TOKEN || process.env.HUGGING_FACE_HUB_TOKEN;
+    const token = resolveHfToken(hfToken);
     if (token) headers.Authorization = `Bearer ${token}`;
     const response = await fetch(url, { signal: controller.signal, headers });
     if (!response.ok || !response.body) {
@@ -104,6 +104,7 @@ export async function synthesizeRemoteSegment(options: {
   outputPath: string;
   endpoint?: string;
   timeoutMs?: number;
+  hfToken?: string;
 }): Promise<void> {
   const root = (options.endpoint || DEFAULT_REMOTE_ENDPOINT).replace(/\/$/, "");
   const timeoutMs = options.timeoutMs ?? 180_000;
@@ -113,7 +114,7 @@ export async function synthesizeRemoteSegment(options: {
     : "Ira";
 
   const space = resolveSpaceId(root);
-  const token = hfToken();
+  const token = resolveHfToken(options.hfToken);
 
   let result: unknown;
   try {
@@ -142,5 +143,5 @@ export async function synthesizeRemoteSegment(options: {
 
   const audioUrl = extractAudioUrl(result, root);
   if (!audioUrl) throw new Error("Rumik remote response did not include audio");
-  await downloadToFile(audioUrl, options.outputPath, timeoutMs);
+  await downloadToFile(audioUrl, options.outputPath, timeoutMs, options.hfToken);
 }

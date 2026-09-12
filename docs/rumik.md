@@ -4,7 +4,7 @@ Rumik-OSS-1 is opennbLM's fixed, first-class voice engine. It is not interchange
 
 Local-first stays the preferred path. Settings offers **two free choices**: (1) **Local** — NVIDIA CUDA + official weights (preferred, unlimited on-device after download); (2) **Remote fallback** — public rumik-ai Space with no install so evaluators without a GPU can still hear voice. Remote does **not** mean local inference on Mac or CPU.
 
-There is **no** HF-token field in Settings. Optional `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` env vars may raise ZeroGPU quota for remote power users only — never a shared project token.
+Remote HTTPS is built into the Windows installer: the desktop process calls the public rumik-ai Space. Users do **not** clone this repo or start a server. A Hugging Face token is optional (Settings → Voice engine) when anonymous ZeroGPU quota is exhausted. Env `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` still work for developers. Never ship a shared project token.
 
 ## Source and model
 
@@ -31,7 +31,7 @@ Overrides:
 - `RUMIK_FORCE_LOCAL=1` — always local (fails if CUDA/weights missing)
 - `RUMIK_REMOTE_URL` — alternate Gradio Space root (default `https://rumik-ai-rumik-oss-1.hf.space`)
 - `RUMIK_REMOTE_SPACE` — Hugging Face Space id for the Gradio client (default `rumik-ai/rumik-oss-1`)
-- `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` — optional **environment** vars only (not Settings UI); may raise ZeroGPU quota on the public Space (anonymous quota is small and resets daily). Do not ship a shared token.
+- `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` — optional developer env fallback if no token was saved in Settings. Anonymous quota is small and resets daily. Do not ship a shared token.
 
 ## Runtime architecture
 

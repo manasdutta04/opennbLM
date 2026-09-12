@@ -31,7 +31,7 @@ export default function DocsPage() {
           <li>install the windows x64 build from github releases and open the app.</li>
           <li>create a notebook. use connect brain and pick a model you can already run or sign in to.</li>
           <li>add a pdf, a link, or pasted text. select those sources before you ask a question or open studio.</li>
-          <li>if you want spoken audio overviews, open settings → voice engine and choose remote (https) or local (this pc).</li>
+          <li>if you want spoken audio overviews, keep remote (https) in settings — no clone or server. add a hugging face token there only if the public space hits quota.</li>
         </ol>
 
         <h2>where things live</h2>

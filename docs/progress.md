@@ -850,3 +850,31 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 
 - Remote still uses the built-in public Space URL; there is no custom HTTPS field in Settings (env `RUMIK_REMOTE_URL` remains a developer override).
 - Switching to Local without CUDA/weights reports not connected; it does not silently fall back to remote.
+
+## EXE remote voice + optional HF token — 2026-09-12
+
+### Completed
+
+- Clarified that Remote (HTTPS) is already inside the Windows installer: the desktop process calls the public rumik-ai Space. Users do not clone the repo or start a server.
+- Settings → Voice engine (Remote) now has an optional Hugging Face token field. Anonymous quota works without a token; a saved token is encrypted with OS `safeStorage` on this PC.
+- Site voice/setup copy matches: token is optional, not a required local install step.
+
+### Verification
+
+- `pnpm typecheck` and rumik-runtime tests (run in this session).
+
+### Known limitations
+
+- Remote still depends on the public Space / ZeroGPU quota. A user token can raise quota; it is not a private rumik host.
+- Token storage needs Windows DPAPI (`safeStorage`). If encryption is unavailable, Settings reports that instead of writing a plaintext key.
+
+## Memory screen is teaching notes only — 2026-09-12
+
+### Completed
+
+- Memory no longer lists notebooks or redirects into them (Home already does that).
+- The page is teaching notes only: forget one or clear all. Empty state says notes appear after a teaching-brain answer, not from creating a notebook.
+
+### Verification
+
+- Renderer rebuild + desktop launch (this session).

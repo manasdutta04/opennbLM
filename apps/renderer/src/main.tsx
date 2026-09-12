@@ -820,7 +820,6 @@ function App() {
         <MemoryPage
           onBack={() => setScreen("home")}
           onRequestClear={() => setDialog({ kind: "clear-memory" })}
-          onOpenNotebook={openNotebook}
         />
       )}
       {screen === "settings" && (
@@ -1074,19 +1073,15 @@ function LibraryPage({ onBack, onStart }: { onBack: () => void; onStart: (title:
 function MemoryPage({
   onBack,
   onRequestClear,
-  onOpenNotebook,
 }: {
   onBack: () => void;
   onRequestClear: () => void;
-  onOpenNotebook?: (id: string) => void;
 }) {
   const [items, setItems] = useState<LearnerMemory[]>([]);
-  const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    void Promise.all([window.opennbLM.learnerMemory.list(), window.opennbLM.notebooks.list()]).then(([memory, nb]) => {
+    void window.opennbLM.learnerMemory.list().then((memory) => {
       setItems(memory);
-      setNotebooks(nb);
       setLoading(false);
     });
     const onCleared = () => setItems([]);
@@ -1106,7 +1101,6 @@ function MemoryPage({
     (acc[item.kind] ??= []).push(item);
     return acc;
   }, {});
-  const namedNotebooks = notebooks.filter((n) => n.title?.trim() && !/^untitled notebook$/i.test(n.title.trim()));
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -1118,7 +1112,7 @@ function MemoryPage({
           <div>
             <h1 className="text-[28px] font-semibold tracking-[-0.02em] text-ink">Memory</h1>
             <p className="mt-2 text-[13.5px] text-ink-secondary">
-              Your notebooks and teaching notes — open Memory anytime from the top bar (Settings stays there too).
+              Notes the teaching brain keeps after you ask a question. Forget one, or clear all. Notebooks stay on Home.
             </p>
           </div>
           <button disabled={!items.length} onClick={onRequestClear} className="rounded-full px-3 py-1.5 text-[12.5px] text-danger hover:bg-danger/10 disabled:opacity-40">
@@ -1127,74 +1121,39 @@ function MemoryPage({
         </div>
         {loading ? (
           <p className="mt-8 text-[13px] text-ink-secondary">Loading…</p>
+        ) : !items.length ? (
+          <div className="mt-8 rounded-2xl border border-hairline/40 bg-card px-4 py-5">
+            <div className="text-[14px] font-medium text-ink">Nothing remembered yet</div>
+            <div className="mt-1 text-[12.5px] text-ink-secondary">
+              Connect a teaching brain, then ask in a notebook. After an answer, topics and revisit notes show up here. Creating a notebook alone does not fill Memory.
+            </div>
+          </div>
         ) : (
-          <div className="mt-8 space-y-8">
-            <section>
-              <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-ink-secondary">Your notebooks</div>
-              {namedNotebooks.length === 0 ? (
-                <div className="rounded-2xl border border-hairline/40 bg-card px-4 py-5 text-[12.5px] text-ink-secondary">
-                  No named notebooks yet. Create one from Home — guides and Studio work will show up here.
-                </div>
-              ) : (
+          <div className="mt-8 space-y-6">
+            {Object.entries(grouped).map(([kind, group]) => (
+              <div key={kind}>
+                <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-ink-secondary">{labels[kind as LearnerMemory["kind"]]}</div>
                 <div className="divide-y divide-hairline/30 overflow-hidden rounded-2xl border border-hairline/40 bg-card">
-                  {namedNotebooks.map((nb) => (
-                    <button
-                      key={nb.id}
-                      type="button"
-                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-raised/60"
-                      onClick={() => onOpenNotebook?.(nb.id)}
-                    >
+                  {group.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
                       <div className="min-w-0">
-                        <div className="truncate text-[13.5px] font-medium text-ink">{nb.title}</div>
-                        <div className="text-[12px] text-ink-secondary">
-                          {nb.sourceCount ?? 0} source{(nb.sourceCount ?? 0) === 1 ? "" : "s"}
-                        </div>
+                        <div className="truncate text-[13.5px] font-medium text-ink">{item.key}</div>
+                        <div className="text-[12px] text-ink-secondary">{item.value}</div>
                       </div>
-                      <span className="shrink-0 text-[12px] text-ink-secondary">Open</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section>
-              <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-ink-secondary">Teaching notes</div>
-              {!items.length ? (
-                <div className="rounded-2xl border border-hairline/40 bg-card px-4 py-5">
-                  <div className="text-[14px] font-medium text-ink">No teaching notes yet</div>
-                  <div className="mt-1 text-[12.5px] text-ink-secondary">
-                    Ask a question in a notebook with your teaching brain connected — topics and revisit notes appear here.
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {Object.entries(grouped).map(([kind, group]) => (
-                    <div key={kind}>
-                      <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-ink-secondary">{labels[kind as LearnerMemory["kind"]]}</div>
-                      <div className="divide-y divide-hairline/30 overflow-hidden rounded-2xl border border-hairline/40 bg-card">
-                        {group.map((item) => (
-                          <div key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                            <div className="min-w-0">
-                              <div className="truncate text-[13.5px] font-medium text-ink">{item.key}</div>
-                              <div className="text-[12px] text-ink-secondary">{item.value}</div>
-                            </div>
-                            <button
-                              className="shrink-0 rounded-lg px-2 py-1 text-[12px] text-ink-secondary hover:bg-raised"
-                              onClick={async () => {
-                                await window.opennbLM.learnerMemory.forget(item.id);
-                                setItems((cur) => cur.filter((x) => x.id !== item.id));
-                              }}
-                            >
-                              Forget
-                            </button>
-                          </div>
-                        ))}
-                      </div>
+                      <button
+                        className="shrink-0 rounded-lg px-2 py-1 text-[12px] text-ink-secondary hover:bg-raised"
+                        onClick={async () => {
+                          await window.opennbLM.learnerMemory.forget(item.id);
+                          setItems((cur) => cur.filter((x) => x.id !== item.id));
+                        }}
+                      >
+                        Forget
+                      </button>
                     </div>
                   ))}
                 </div>
-              )}
-            </section>
+              </div>
+            ))}
           </div>
         )}
       </div>

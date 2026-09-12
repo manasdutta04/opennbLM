@@ -34,7 +34,7 @@ export default function SetupPage() {
 
         <h2>4. voice, if you want it</h2>
         <p>
-          open settings → voice engine and choose remote (https public space, no install) or local (cuda + weights on this pc). see{" "}
+          the .exe already calls the public rumik space. you do not clone this repo. a hugging face token is optional in settings if anonymous quota runs out. or choose local for cuda on this pc. see{" "}
           <a href="/voice">voice engine</a>.
         </p>
       </article>

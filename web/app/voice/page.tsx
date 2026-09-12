@@ -6,16 +6,19 @@ export default function VoicePage() {
       <article className="doc">
         <h1 className="page-title">choose remote or local</h1>
         <p className="lede">
-          after you install the windows build, open settings → voice engine and pick one option. remote talks to the public rumik space over https. local runs rumik on this pc.
+          after you install the windows .exe, open settings → voice engine. you do not clone this repository or start a rumik server.
         </p>
 
-        <h2>remote (https)</h2>
+        <h2>remote (https) — default after the .exe</h2>
         <p>
-          this is the default after a normal .exe install. no clone, no gpu, no weights. audio overview calls the public rumik-ai space and writes wav files into your user-data folder. settings shows the built-in endpoint when remote is selected.
+          the installed app already knows the public rumik-ai space address and calls it over https. that space is a hosted model, not something you run. audio overview sends text from your notebook and writes the wav files into your user-data folder.
+        </p>
+        <p>
+          a hugging face token is <strong>not required</strong> to start. anonymous use works until the public space hits its daily zerogpu quota. if that happens, paste your own token in settings → voice engine. the token stays on that computer. you still do not clone the repo.
         </p>
         <div className="note">
-          <strong>you do not paste a url</strong>
-          the space address is built in. developers can still override it with <code>RUMIK_REMOTE_URL</code> if they need to.
+          <strong>you do not start a local https server</strong>
+          “remote” means the desktop app calls hugging face. it does not mean you host rumik yourself.
         </div>
 
         <h2>local (this pc)</h2>
@@ -33,7 +36,7 @@ export default function VoicePage() {
 
         <h2>when remote voice fails</h2>
         <p>
-          the public space uses zerogpu and a daily anonymous quota. if the quota is exhausted, settings shows the error from that host. chat and the other studio tools still work. wait for quota to reset, or switch to local on an nvidia gpu.
+          the public space uses zerogpu and a daily anonymous quota. if the quota is exhausted, settings shows the error from that host. paste a hugging face token there, wait for quota to reset, or switch to local on an nvidia gpu. chat and the other studio tools still work.
         </p>
 
         <h2>what you hear</h2>

@@ -41,6 +41,8 @@ export function SettingsPage({
   const [copied, setCopied] = useState<"path" | "command" | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [switchingMode, setSwitchingMode] = useState(false);
+  const [hfTokenDraft, setHfTokenDraft] = useState("");
+  const [savingToken, setSavingToken] = useState(false);
 
   const bindPath = setup?.dataPaths.rumikModel ?? setup?.model.bindPath ?? "";
   const platform = setup?.system.platform ?? "win32";
@@ -81,6 +83,20 @@ export function SettingsPage({
       setRumikError(error instanceof Error ? error.message : "Could not switch voice mode");
     } finally {
       setSwitchingMode(false);
+    }
+  };
+
+  const saveHfToken = async (token?: string) => {
+    if (savingToken) return;
+    setSavingToken(true);
+    try {
+      await window.opennbLM.rumik.setHfToken(token);
+      setHfTokenDraft("");
+      await load();
+    } catch (error) {
+      setRumikError(error instanceof Error ? error.message : "Could not save Hugging Face token");
+    } finally {
+      setSavingToken(false);
     }
   };
 
@@ -339,16 +355,63 @@ export function SettingsPage({
               </div>
 
               {preferredVoice === "remote" ? (
-                <div className="mt-4 space-y-2 rounded-xl border border-accent/25 bg-accent/5 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
-                  <div className="text-[13px] font-medium text-ink">Remote is selected</div>
+                <div className="mt-4 space-y-3 rounded-xl border border-accent/25 bg-accent/5 p-4 text-[12.5px] leading-relaxed text-ink-secondary">
+                  <div className="text-[13px] font-medium text-ink">Remote is selected — no local install</div>
                   <p>
-                    Audio Overview calls this HTTPS Space from the desktop app. You do not clone the repo. This is not on-device inference. Chat and other Studio tools still work if the Space is at quota.
+                    The .exe already talks to rumik’s public Hugging Face Space over HTTPS. You do not clone this repo, start a server, or download weights. Audio Overview just sends text and gets a WAV back.
                   </p>
                   {setup?.rumik?.remoteEndpoint ? (
                     <code className="block break-all rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-[11.5px] text-ink">
                       {setup.rumik.remoteEndpoint}
                     </code>
                   ) : null}
+                  <div>
+                    <div className="text-[13px] font-medium text-ink">Hugging Face token (optional)</div>
+                    <p className="mt-1">
+                      Not required to start. Anonymous use works until the public Space hits its daily ZeroGPU quota. Paste your own token here only if that happens — it is stored on this PC, not in the installer.
+                    </p>
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="password"
+                        autoComplete="off"
+                        spellCheck={false}
+                        value={hfTokenDraft}
+                        onChange={(event) => setHfTokenDraft(event.target.value)}
+                        placeholder={setup?.rumik?.hasHfToken ? "Token saved on this PC — paste a new one to replace" : "hf_…"}
+                        className="min-w-0 flex-1 rounded-lg border border-hairline/40 bg-raised px-2.5 py-2 text-[12.5px] text-ink outline-none focus:border-accent/50"
+                      />
+                      <button
+                        type="button"
+                        disabled={savingToken || !hfTokenDraft.trim()}
+                        onClick={() => void saveHfToken(hfTokenDraft)}
+                        className="rounded-full border border-hairline/40 bg-raised px-3 py-1.5 text-[12.5px] font-medium text-ink hover:bg-control/60 disabled:opacity-40"
+                      >
+                        {savingToken ? "Saving…" : "Save token"}
+                      </button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className={cn("rounded-full border px-2.5 py-1 text-[11.5px]", setup?.rumik?.hasHfToken ? "border-success/30 text-success" : "border-hairline/40")}>
+                        {setup?.rumik?.hasHfToken ? "Using your token" : "Using anonymous quota"}
+                      </span>
+                      {setup?.rumik?.hasHfToken ? (
+                        <button
+                          type="button"
+                          disabled={savingToken}
+                          onClick={() => void saveHfToken("")}
+                          className="text-[12px] text-ink-secondary underline-offset-2 hover:underline"
+                        >
+                          Remove token
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => void window.opennbLM.shell?.openExternal?.("https://huggingface.co/settings/tokens")}
+                        className="inline-flex items-center gap-1 text-[12px] text-accent-text hover:underline"
+                      >
+                        Get a token <ExternalLink size={11} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : null}
 
