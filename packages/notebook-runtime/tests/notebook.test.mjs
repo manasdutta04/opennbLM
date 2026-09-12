@@ -10,6 +10,7 @@ import {
   chunkText,
   extractPlainText,
   parseGuideResponse,
+  parseStudioJson,
   parsePodcastScript,
   sanitizeSpokenText,
   trimPodcastTurns,
@@ -181,4 +182,18 @@ test("buildStudioArtifactPrompt returns report instruction", () => {
   const prompt = buildStudioArtifactPrompt("report", "AES material", "English");
   assert.equal(prompt.title, "Report");
   assert.match(prompt.instruction, /AES material/);
+});
+
+test("infographic prompt keeps English keys and requested language values", () => {
+  const prompt = buildStudioArtifactPrompt("infographic", "supervised learning notes", "Kannada");
+  assert.match(prompt.instruction, /Kannada/);
+  assert.match(prompt.instruction, /headline/);
+  assert.match(prompt.instruction, /JSON keys stay English|Keep every JSON key in English/i);
+});
+
+test("parseStudioJson recovers fenced and smart-quoted infographic JSON", () => {
+  const raw = "```json\n{\n  “headline”: “ಮೇಲ್ವಿಚಾರಿತ ಕಲಿಕೆ”,\n  “subtitle”: “ಲೇಬಲ್ ಉದಾಹರಣೆಗಳು\",\n}\n```";
+  const parsed = parseStudioJson(raw);
+  assert.ok(parsed && typeof parsed === "object");
+  assert.equal(parsed.headline, "ಮೇಲ್ವಿಚಾರಿತ ಕಲಿಕೆ");
 });

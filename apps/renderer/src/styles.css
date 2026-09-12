@@ -29,7 +29,7 @@
   --color-danger: #e8738a;
   --color-warning: #d4b35c;
 
-  --font-sans: "IBM Plex Sans", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", "Nirmala UI", "Noto Sans", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --radius-lg: 0.55rem;
   --radius-xl: 0.85rem;
 }

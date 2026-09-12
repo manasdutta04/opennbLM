@@ -505,6 +505,18 @@ SOURCES:
 ${material.slice(0, length === "shorter" ? 8000 : length === "longer" ? 14000 : 11000)}`;
 }
 
+function jsonLanguageRules(language: string): string {
+  const lang = language.trim() || "English";
+  return `
+JSON RULES (required):
+- Return raw JSON only. No markdown fences, no commentary before or after.
+- Keep every JSON key in English exactly as specified.
+- Write every string value in ${lang}. The question or sources may be in another language; still write values in ${lang}.
+- Use standard ASCII double quotes. No trailing commas. No comments.
+- Keep each string under 120 characters.
+- Do not transliterate ${lang} into Latin letters unless ${lang} is English.`;
+}
+
 export function buildStudioArtifactPrompt(
   kind: Exclude<StudioArtifactKind, "audio_overview" | "note">,
   material: string,
@@ -512,6 +524,7 @@ export function buildStudioArtifactPrompt(
   focusPrompt?: string,
 ): { title: string; instruction: string } {
   const focus = focusPrompt?.trim() ? `\nLearner focus: ${focusPrompt.trim()}` : "";
+  const jsonRules = jsonLanguageRules(language);
   const base = `Language: ${language}. Ground every claim in the sources. Prefer core concepts over exhaustive coverage.${focus}\n\nSOURCES:\n${material.slice(0, 12000)}`;
 
   switch (kind) {
@@ -523,34 +536,46 @@ export function buildStudioArtifactPrompt(
     case "mind_map":
       return {
         title: "Mind map",
-        instruction: `${base}\n\nReturn ONLY valid JSON (no markdown fences): {"root":"Topic","children":[{"label":"Branch","children":[{"label":"Leaf"}]}]}.
-Rules: max depth 3; 4–7 top-level branches; short labels (2–6 words); cover the conceptual map of the sources so a learner can scan relationships at a glance.`,
+        instruction: `${base}${jsonRules}
+
+Return ONLY valid JSON: {"root":"Topic","children":[{"label":"Branch","children":[{"label":"Leaf"}]}]}.
+Rules: max depth 3; 4–7 top-level branches; short labels; cover the conceptual map of the sources so a learner can scan relationships at a glance.`,
       };
     case "flashcards":
       return {
         title: "Flashcards",
-        instruction: `${base}\n\nReturn ONLY valid JSON (no markdown fences): {"cards":[{"front":"...","back":"..."}]} with 8–16 cards covering core definitions and ideas. Keep fronts short prompts; backs clear explanations.`,
+        instruction: `${base}${jsonRules}
+
+Return ONLY valid JSON: {"cards":[{"front":"...","back":"..."}]} with 8–16 cards covering core definitions and ideas. Keep fronts short prompts; backs clear explanations.`,
       };
     case "quiz":
       return {
         title: "Quiz",
-        instruction: `${base}\n\nReturn ONLY valid JSON (no markdown fences): {"questions":[{"prompt":"...","choices":["A","B","C","D"],"answerIndex":0,"explanation":"..."}]} with 6–10 multiple-choice questions. Exactly one correct answerIndex per question.`,
+        instruction: `${base}${jsonRules}
+
+Return ONLY valid JSON: {"questions":[{"prompt":"...","choices":["A","B","C","D"],"answerIndex":0,"explanation":"..."}]} with 6–10 multiple-choice questions. Exactly one correct answerIndex per question.`,
       };
     case "slide_deck":
       return {
         title: "Slide deck",
-        instruction: `${base}\n\nReturn ONLY valid JSON (no markdown fences): {"slides":[{"title":"...","bullets":["..."]}]} with 6–12 slides telling a clear teaching story. 3–5 short bullets per slide.`,
+        instruction: `${base}${jsonRules}
+
+Return ONLY valid JSON: {"slides":[{"title":"...","bullets":["..."]}]} with 6–12 slides telling a clear teaching story. 3–5 short bullets per slide.`,
       };
     case "infographic":
       return {
         title: "Infographic",
-        instruction: `${base}\n\nReturn ONLY valid JSON (no markdown fences): {"headline":"...","subtitle":"...","stats":[{"label":"...","value":"...","hint":"..."}],"sections":[{"title":"...","points":["..."]}]}.
-Rules: headline under 10 words; subtitle one sentence; 2–3 stats with punchy values (numbers or short phrases OK); 4–6 sections with 2–4 short points each. Designed for a visual poster, not a report.`,
+        instruction: `${base}${jsonRules}
+
+Return ONLY valid JSON with these English keys: {"headline":"...","subtitle":"...","stats":[{"label":"...","value":"...","hint":"..."}],"sections":[{"title":"...","points":["..."]}]}.
+Rules: headline under 8 words; subtitle one sentence; 2–3 stats; 4–6 sections with 2–4 short points each. Designed for a visual poster, not a report or a JSON dump.`,
       };
     case "data_table":
       return {
         title: "Data table",
-        instruction: `${base}\n\nReturn ONLY valid JSON: {"columns":["..."],"rows":[["..."]]} extracting comparable facts or concepts from the sources.`,
+        instruction: `${base}${jsonRules}
+
+Return ONLY valid JSON: {"columns":["..."],"rows":[["..."]]} extracting comparable facts or concepts from the sources.`,
       };
     default:
       return { title: "Studio artifact", instruction: base };
@@ -558,3 +583,4 @@ Rules: headline under 10 words; subtitle one sentence; 2–3 stats with punchy v
 }
 
 export { chunkText, extractPlainText, fetchUrlText } from "./ingest.js";
+export { isInfographicData, parseStudioJson } from "./json.js";

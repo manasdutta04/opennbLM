@@ -897,6 +897,17 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 - Opening a notebook reuses the saved conversation for that notebook and reloads messages from SQLite instead of creating a blank chat.
 - Teaching prompt now requires the selected language for every learner-visible field, even if the question is in another language. Language is chosen once in Studio and also applies to chat.
 
+## Non-English infographic JSON + fonts — 2026-09-12
+
+### Completed
+
+- Studio JSON artifacts (especially infographic) now require English keys and selected-language values, then retry once if the model returns invalid JSON.
+- Parser recovers smart quotes / trailing commas. UI uses Nirmala UI / Noto so Kannada, Telugu, and other Indic scripts can render.
+
+### Verification
+
+- notebook-runtime tests + typecheck (this session). Existing broken posters need a regenerate.
+
 ### Verification
 
 - `pnpm typecheck` plus memory and teaching-engine tests (this session).

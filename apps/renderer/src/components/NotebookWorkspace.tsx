@@ -83,13 +83,25 @@ const STUDIO_TILES: Array<{
 ];
 
 function parseMaybeJson(body: string): unknown {
-  try {
-    const trimmed = body.trim();
-    const start = trimmed.indexOf("{");
-    const end = trimmed.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(trimmed.slice(start, end + 1));
-  } catch {
-    /* plain text */
+  if (!body?.trim()) return null;
+  let text = body.trim();
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) text = fenced[1].trim();
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  const slice = text.slice(start, end + 1);
+  const softened = slice
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u00A0]/g, " ")
+    .replace(/,\s*([}\]])/g, "$1");
+  for (const candidate of [slice, softened]) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      /* try next */
+    }
   }
   return null;
 }

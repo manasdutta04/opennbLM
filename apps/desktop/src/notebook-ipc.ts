@@ -18,6 +18,7 @@ import {
   buildSourceContext,
   buildStudioArtifactPrompt,
   collectMaterial,
+  parseStudioJson,
   defaultTransformPrompt,
   ingestFileSource,
   ingestTextSource,
@@ -194,27 +195,38 @@ export function registerNotebookHandlers(
       });
       try {
         const { provider, model } = await getProvider();
-        const prompt = buildStudioArtifactPrompt(kind, material, options?.language ?? "English", options?.focusPrompt);
-        const response = await provider.chat({
-          model,
-          messages: [
-            { role: "system", content: "You generate structured study artifacts. Follow the output format exactly. For JSON kinds, return raw JSON only — no markdown fences." },
-            { role: "user", content: prompt.instruction },
-          ],
-        });
+        const language = options?.language ?? "English";
+        const prompt = buildStudioArtifactPrompt(kind, material, language, options?.focusPrompt);
+        const ask = (content: string) =>
+          provider.chat({
+            model,
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You generate structured study artifacts. Follow the output format exactly. For JSON kinds, return raw JSON only — no markdown fences. JSON keys stay English. String values use the requested language.",
+              },
+              { role: "user", content },
+            ],
+          });
+        const response = await ask(prompt.instruction);
         let body = response.content.trim();
         if (kind !== "report") {
-          const fenced = body.match(/```(?:json)?\s*([\s\S]*?)```/i);
-          if (fenced?.[1]) body = fenced[1].trim();
-          const start = body.indexOf("{");
-          const end = body.lastIndexOf("}");
-          if (start >= 0 && end > start) body = body.slice(start, end + 1);
+          let parsed = parseStudioJson(body);
+          if (!parsed) {
+            const retry = await ask(
+              `The previous output was not valid JSON. Return ONLY valid JSON for a ${prompt.title} in ${language}. Keep keys in English. Values must be ${language}.\n\nBroken output:\n${body.slice(0, 4000)}`,
+            );
+            parsed = parseStudioJson(retry.content);
+          }
+          if (parsed) body = JSON.stringify(parsed);
         }
         return store().updateArtifact(artifact.id, {
           status: "ready",
           title: prompt.title,
           body,
           error: null,
+          meta: { language },
         });
       } catch (error) {
         return store().updateArtifact(artifact.id, {

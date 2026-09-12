@@ -163,16 +163,16 @@ export function InfographicView({ data }: { data: InfographicData }) {
   const sections = data.sections || [];
   const stats = data.stats || [];
   return (
-    <div className="mt-4 overflow-hidden rounded-2xl border border-hairline/40 bg-gradient-to-br from-[#152033] via-card to-[#1a2438]">
+    <div className="mt-4 overflow-hidden rounded-2xl border border-hairline/40 bg-gradient-to-br from-[#152033] via-card to-[#1a2438] [overflow-wrap:break-word] [word-break:normal]">
       <div className="relative overflow-hidden px-5 pb-4 pt-5">
         <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#4c8bf5]/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-8 left-8 h-28 w-28 rounded-full bg-[#7ad0c8]/15 blur-3xl" />
         <div className="relative">
           <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#7ab0e8]">Infographic</div>
-          <h3 className="mt-1 max-w-[36rem] text-[22px] font-semibold leading-tight tracking-[-0.02em] text-ink">
+          <h3 className="mt-1 max-w-[36rem] text-[22px] font-semibold leading-snug tracking-[-0.01em] text-ink">
             {data.headline}
           </h3>
-          {data.subtitle ? <p className="mt-2 max-w-[34rem] text-[13px] leading-relaxed text-ink-secondary">{data.subtitle}</p> : null}
+          {data.subtitle ? <p className="mt-2 max-w-[34rem] text-[13.5px] leading-relaxed text-ink-secondary">{data.subtitle}</p> : null}
         </div>
       </div>
 
