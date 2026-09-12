@@ -6,7 +6,7 @@ import { Highlighter } from "@/components/ui/highlighter";
 export function CraftCredit() {
   return (
     <p className="craft">
-      A craft of{" "}
+      Developed by{" "}
       <Highlighter action="underline" color="#FF9800">
         <a href={LINKS.site} target="_blank" rel="noreferrer">
           Manas Dutta
