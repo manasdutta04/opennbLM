@@ -146,6 +146,10 @@ test("summarizeRumikFailure strips tqdm dumps and command-line errors", () => {
     summarizeRumikFailure("python: can't open file 'app.asar/runtime/rumik_runner.py': [Errno 2] No such file or directory"),
     /runner is missing/i,
   );
+  assert.match(
+    summarizeRumikFailure("You have exceeded your ZeroGPU quota (180s requested vs. 159s left)."),
+    /hosted Rumik Space|ZeroGPU quota/i,
+  );
 });
 
 test("resolveRumikRunnerPath prefers files outside app.asar", () => {

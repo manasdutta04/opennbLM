@@ -1131,3 +1131,18 @@ Audio Overview failed with “The command line is too long” and Studio showed 
 ### Limitations
 
 - Builds before this change cannot update themselves; they still need a manual install of this release. After that, later versions can update in-app. The installer is unsigned, so Windows may still show SmartScreen on first run. `pnpm desktop:start` cannot apply updates.
+
+## Local voice must not use ZeroGPU — 2026-09-12
+
+### Completed
+
+- Local Audio Overview was succeeding on this PC (local WAVs under `%APPDATA%\\opennbLM\\audio`), then a worker blip silently called the public Space. That produced “ZeroGPU quota” even with Settings on Local + weights found.
+- Local mode no longer falls back to remote. Quota copy now says that error is hosted Space, not this GPU.
+
+### Checks
+
+- Package test covers the ZeroGPU summary. Local synthesize still rejects when Python is missing.
+
+### Limitations
+
+- A long overview can still stop if the local worker dies (VRAM). The next attempt stays on this PC instead of burning remote quota.

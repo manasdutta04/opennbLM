@@ -124,6 +124,9 @@ export function summarizeRumikFailure(raw: string, fallback = "Rumik voice synth
     return "Rumik timed out while synthesizing speech. Try again — long Audio Overviews can take a while on local GPU.";
   }
   if (/cancelled/i.test(lower)) return "Rumik synthesis cancelled";
+  if (/zerogpu|zero.?gpu|quota/i.test(lower)) {
+    return "The hosted Rumik Space ran out of ZeroGPU quota. That is remote voice, not this PC. Switch to Local (this PC) in Settings, or paste a Hugging Face token under Remote.";
+  }
   if (/can't open file|no such file|rumik_runner/i.test(lower)) {
     return "Rumik's local runner is missing from this install. Use remote voice, or install the latest Windows build.";
   }
@@ -135,7 +138,11 @@ export function summarizeRumikFailure(raw: string, fallback = "Rumik voice synth
         .filter(Boolean)
         .filter((l) => !/%\|/.test(l) && !/it\/s/.test(l))
         .at(-1) || fallback;
-    return line.replace(/^\[rumik\]\s*/i, "").slice(0, 240);
+    const cleaned = line.replace(/^\[rumik\]\s*/i, "").slice(0, 240);
+    if (/^rumik worker (exited|stopped)/i.test(cleaned)) {
+      return "Local Rumik stopped on this PC. Close other GPU apps and run Audio Overview again. This is not the hosted ZeroGPU quota.";
+    }
+    return cleaned;
   }
   const lines = text
     .split("\n")
@@ -230,12 +237,6 @@ function resolveMode(
   // Local-first when CUDA + model are present; otherwise remote reachability fallback.
   if (cudaAvailable && localReady) return "local";
   return "remote";
-}
-
-function shouldFallbackToRemote(message: string): boolean {
-  return /worker exited|worker stopped|worker is not available|can't open file|enoent|failed to start rumik worker|runner is missing|no such file/i.test(
-    message,
-  );
 }
 
 export function createRumikManager(options: RumikManagerOptions): RumikManager {
@@ -643,18 +644,10 @@ export function createRumikManager(options: RumikManagerOptions): RumikManager {
         for (let index = 0; index < segments.length; index += 1) {
           if (cancelRequested) throw new Error("Rumik synthesis cancelled");
           const segment = segments[index]!;
-          let wavPath: string;
-          if (mode === "remote") {
-            wavPath = await runRemoteSegment(segment, index, config);
-          } else {
-            try {
-              wavPath = await runLocalSegment(segment, index, config);
-            } catch (error) {
-              const message = error instanceof Error ? error.message : String(error);
-              if (cancelRequested || !shouldFallbackToRemote(message)) throw error;
-              wavPath = await runRemoteSegment(segment, index, config);
-            }
-          }
+          const wavPath =
+            mode === "remote"
+              ? await runRemoteSegment(segment, index, config)
+              : await runLocalSegment(segment, index, config);
           const ready = { id: `${Date.now()}-${index}`, text: segment, wavPath };
           results.push(ready);
           status = { ...status, state: broadcast ? "speaking" : "preparing", mode };

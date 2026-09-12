@@ -296,7 +296,13 @@ export function SettingsPage({
                     {setup?.rumik?.mode === "remote" ? "Remote" : "Local"}
                   </span>
                   <span className={cn("rounded-full border px-2.5 py-1 text-[11.5px]", voiceReady ? "border-success/30 text-success" : "border-warning/30 text-warning")}>
-                    {voiceReady ? "Ready" : preferredVoice === "local" ? "Weights not found" : "Not connected"}
+                    {voiceReady
+                      ? preferredVoice === "local"
+                        ? "Weights found"
+                        : "Ready"
+                      : preferredVoice === "local"
+                        ? "Weights not found"
+                        : "Not connected"}
                   </span>
                 </div>
               </div>
@@ -346,7 +352,7 @@ export function SettingsPage({
                       <HardDrive size={15} /> Local (this PC)
                     </div>
                     <p className="mt-1.5 text-[12px] leading-relaxed text-ink-secondary">
-                      NVIDIA CUDA + rumik-oss-1 weights on this machine.
+                      NVIDIA CUDA + rumik-oss-1 weights on this machine. Audio Overview stays on this GPU — it will not fall back to the public Space.
                     </p>
                   </button>
                 </div>
